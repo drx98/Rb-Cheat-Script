@@ -1,9 +1,29 @@
+-- ====== SICHERE INITIALISIERUNG ======
 local player = game.Players.LocalPlayer
+if not player then
+	error("LocalPlayer not found - make sure this is a LocalScript")
+	return
+end
+
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
-local character = player.Character or player.CharacterAdded:Wait()
+
+-- Sichere Character-Initialisierung
+local character = player.Character
+if not character then
+	character = player.CharacterAdded:Wait()
+end
+
 local hrp = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
+
+-- Validierung
+if not hrp or not humanoid then
+	error("Character components not found")
+	return
+end
+
+print("ESP Debug: Script initialized successfully")
 
 local flying = false
 local flySpeed = 50
