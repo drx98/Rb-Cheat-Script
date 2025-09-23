@@ -11,10 +11,11 @@ local flyKey = Enum.KeyCode.E
 local noclip = false
 local bv, bg
 
--- ====== ESP VARIABLEN (BillboardGui System) ======
+-- ====== ESP VARIABLEN (Drawing API System) ======
 local espEnabled = false
 local espColor = Color3.fromRGB(255, 255, 255)
 local espObjects = {}
+local camera = workspace.CurrentCamera
 
 -- ====== Farben ======
 local primaryDark = Color3.fromRGB(30,30,30)
@@ -44,7 +45,7 @@ Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1,0,1,0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Tablet Menu"
+titleLabel.Text = "Tablet Menu - Drawing ESP"
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextSize = 18
 titleLabel.TextColor3 = textColor
@@ -170,7 +171,7 @@ Instance.new("UICorner", guiScroll).CornerRadius = UDim.new(0,8)
 
 -- ====== ESP PLAYER BUTTON ======
 local espPlayerButton = Instance.new("TextButton")
-espPlayerButton.Text = "ESP Player: Off"
+espPlayerButton.Text = "Drawing ESP: Off"
 espPlayerButton.Size = UDim2.new(0,220,0,30)
 espPlayerButton.Position = UDim2.new(0,10,0,10)
 espPlayerButton.BackgroundColor3 = primaryMedium
@@ -202,231 +203,244 @@ espColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
 espColorBox.Parent = espScroll
 Instance.new("UICorner", espColorBox).CornerRadius = UDim.new(0,6)
 
--- ====== BILLBOARDGUI ESP SYSTEM ======
+-- ====== DRAWING API ESP SYSTEM ======
 -- Funktion um alle ESP eines Spielers zu bereinigen
 local function cleanupPlayerESP(targetPlayer)
 	local playerName = targetPlayer.Name
 	
-	-- Entferne aus espObjects
 	if espObjects[playerName] then
-		if espObjects[playerName].billboardGui and espObjects[playerName].billboardGui.Parent then
-			espObjects[playerName].billboardGui:Destroy()
-		end
-		espObjects[playerName] = nil
-	end
-	
-	-- Zusätzliche Bereinigung: Entferne alle ESP BillboardGuis vom Character
-	if targetPlayer.Character then
-		for _, child in pairs(targetPlayer.Character:GetChildren()) do
-			if child:IsA("BillboardGui") and child.Name:find("ESP_") then
-				child:Destroy()
-			end
-		end
+		local espData = espObjects[playerName]
 		
-		-- Auch in den Body Parts suchen
-		for _, part in pairs(targetPlayer.Character:GetChildren()) do
-			if part:IsA("BasePart") then
-				for _, gui in pairs(part:GetChildren()) do
-					if gui:IsA("BillboardGui") and gui.Name:find("ESP_") then
-						gui:Destroy()
-					end
-				end
-			end
-		end
+		-- Lösche alle Drawing-Objekte
+		if espData.boxOutline then espData.boxOutline:Remove() end
+		if espData.boxFill then espData.boxFill:Remove() end
+		if espData.nameText then espData.nameText:Remove() end
+		if espData.distanceText then espData.distanceText:Remove() end
+		if espData.healthBar then espData.healthBar:Remove() end
+		if espData.healthBarBg then espData.healthBarBg:Remove() end
+		
+		-- Entferne aus espObjects
+		espObjects[playerName] = nil
 	end
 end
 
--- Funktion um BillboardGui ESP zu erstellen
+-- Funktion um Drawing ESP zu erstellen
 local function createESPForPlayer(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
 	if not targetPlayer.Character then return end
 	
 	local playerName = targetPlayer.Name
 	
-	-- Überprüfe ob bereits gültiges ESP existiert
-	if espObjects[playerName] then
-		local espData = espObjects[playerName]
-		if espData.billboardGui and espData.billboardGui.Parent and espData.character == targetPlayer.Character then
-			return -- ESP ist bereits gültig
-		end
-	end
-	
 	-- Bereinige alte ESP-Objekte
 	cleanupPlayerESP(targetPlayer)
 	
 	local character = targetPlayer.Character
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return end
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoidRootPart or not humanoid then return end
 	
-	-- Erstelle BillboardGui
-	local billboardGui = Instance.new("BillboardGui")
-	billboardGui.Name = "ESP_" .. playerName .. "_" .. tick()
-	billboardGui.Size = UDim2.new(8, 0, 10, 0)
-	billboardGui.StudsOffset = Vector3.new(0, 1, 0)
-	billboardGui.AlwaysOnTop = true
-	billboardGui.Parent = humanoidRootPart
+	-- Erstelle Drawing-Objekte
+	local boxOutline = Drawing.new("Square")
+	boxOutline.Thickness = 2
+	boxOutline.Color = espColor
+	boxOutline.Transparency = 1
+	boxOutline.Filled = false
+	boxOutline.Visible = false
 	
-	-- Haupt-Container Frame (unsichtbar)
-	local containerFrame = Instance.new("Frame")
-	containerFrame.Size = UDim2.new(1, 0, 1, 0)
-	containerFrame.BackgroundTransparency = 1
-	containerFrame.Parent = billboardGui
+	local boxFill = Drawing.new("Square")
+	boxFill.Color = espColor
+	boxFill.Transparency = 0.1
+	boxFill.Filled = true
+	boxFill.Visible = false
 	
-	-- OUTLINE SYSTEM - Mehrere Frames für Character-Umrandung
-	-- Kopf-Bereich (oben)
-	local headOutline = Instance.new("Frame")
-	headOutline.Size = UDim2.new(0.3, 0, 0.15, 0)
-	headOutline.Position = UDim2.new(0.35, 0, 0.05, 0)
-	headOutline.BackgroundColor3 = espColor
-	headOutline.BackgroundTransparency = 0.6
-	headOutline.BorderSizePixel = 2
-	headOutline.BorderColor3 = espColor
-	headOutline.Parent = containerFrame
-	Instance.new("UICorner", headOutline).CornerRadius = UDim.new(0.5, 0)
+	local nameText = Drawing.new("Text")
+	nameText.Text = targetPlayer.Name
+	nameText.Size = 16
+	nameText.Color = espColor
+	nameText.Center = true
+	nameText.Outline = true
+	nameText.OutlineColor = Color3.fromRGB(0, 0, 0)
+	nameText.Font = 2
+	nameText.Visible = false
 	
-	-- Oberkörper (Torso)
-	local torsoOutline = Instance.new("Frame")
-	torsoOutline.Size = UDim2.new(0.4, 0, 0.3, 0)
-	torsoOutline.Position = UDim2.new(0.3, 0, 0.25, 0)
-	torsoOutline.BackgroundColor3 = espColor
-	torsoOutline.BackgroundTransparency = 0.7
-	torsoOutline.BorderSizePixel = 2
-	torsoOutline.BorderColor3 = espColor
-	torsoOutline.Parent = containerFrame
-	Instance.new("UICorner", torsoOutline).CornerRadius = UDim.new(0.1, 0)
+	local distanceText = Drawing.new("Text")
+	distanceText.Text = "0m"
+	distanceText.Size = 14
+	distanceText.Color = espColor
+	distanceText.Center = true
+	distanceText.Outline = true
+	distanceText.OutlineColor = Color3.fromRGB(0, 0, 0)
+	distanceText.Font = 2
+	distanceText.Visible = false
 	
-	-- Linker Arm
-	local leftArmOutline = Instance.new("Frame")
-	leftArmOutline.Size = UDim2.new(0.12, 0, 0.25, 0)
-	leftArmOutline.Position = UDim2.new(0.15, 0, 0.28, 0)
-	leftArmOutline.BackgroundColor3 = espColor
-	leftArmOutline.BackgroundTransparency = 0.7
-	leftArmOutline.BorderSizePixel = 2
-	leftArmOutline.BorderColor3 = espColor
-	leftArmOutline.Parent = containerFrame
-	Instance.new("UICorner", leftArmOutline).CornerRadius = UDim.new(0.3, 0)
+	local healthBarBg = Drawing.new("Square")
+	healthBarBg.Color = Color3.fromRGB(0, 0, 0)
+	healthBarBg.Thickness = 1
+	healthBarBg.Filled = true
+	healthBarBg.Transparency = 0.5
+	healthBarBg.Visible = false
 	
-	-- Rechter Arm
-	local rightArmOutline = Instance.new("Frame")
-	rightArmOutline.Size = UDim2.new(0.12, 0, 0.25, 0)
-	rightArmOutline.Position = UDim2.new(0.73, 0, 0.28, 0)
-	rightArmOutline.BackgroundColor3 = espColor
-	rightArmOutline.BackgroundTransparency = 0.7
-	rightArmOutline.BorderSizePixel = 2
-	rightArmOutline.BorderColor3 = espColor
-	rightArmOutline.Parent = containerFrame
-	Instance.new("UICorner", rightArmOutline).CornerRadius = UDim.new(0.3, 0)
+	local healthBar = Drawing.new("Square")
+	healthBar.Color = Color3.fromRGB(0, 255, 0)
+	healthBar.Filled = true
+	healthBar.Transparency = 0.8
+	healthBar.Visible = false
 	
-	-- Unterkörper (Hüfte)
-	local hipsOutline = Instance.new("Frame")
-	hipsOutline.Size = UDim2.new(0.35, 0, 0.15, 0)
-	hipsOutline.Position = UDim2.new(0.325, 0, 0.55, 0)
-	hipsOutline.BackgroundColor3 = espColor
-	hipsOutline.BackgroundTransparency = 0.7
-	hipsOutline.BorderSizePixel = 2
-	hipsOutline.BorderColor3 = espColor
-	hipsOutline.Parent = containerFrame
-	Instance.new("UICorner", hipsOutline).CornerRadius = UDim.new(0.1, 0)
-	
-	-- Linkes Bein
-	local leftLegOutline = Instance.new("Frame")
-	leftLegOutline.Size = UDim2.new(0.13, 0, 0.25, 0)
-	leftLegOutline.Position = UDim2.new(0.35, 0, 0.7, 0)
-	leftLegOutline.BackgroundColor3 = espColor
-	leftLegOutline.BackgroundTransparency = 0.7
-	leftLegOutline.BorderSizePixel = 2
-	leftLegOutline.BorderColor3 = espColor
-	leftLegOutline.Parent = containerFrame
-	Instance.new("UICorner", leftLegOutline).CornerRadius = UDim.new(0.3, 0)
-	
-	-- Rechtes Bein
-	local rightLegOutline = Instance.new("Frame")
-	rightLegOutline.Size = UDim2.new(0.13, 0, 0.25, 0)
-	rightLegOutline.Position = UDim2.new(0.52, 0, 0.7, 0)
-	rightLegOutline.BackgroundColor3 = espColor
-	rightLegOutline.BackgroundTransparency = 0.7
-	rightLegOutline.BorderSizePixel = 2
-	rightLegOutline.BorderColor3 = espColor
-	rightLegOutline.Parent = containerFrame
-	Instance.new("UICorner", rightLegOutline).CornerRadius = UDim.new(0.3, 0)
-	
-	-- Name Label
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(0.8, 0, 0.08, 0)
-	nameLabel.Position = UDim2.new(0.1, 0, -0.1, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = targetPlayer.Name
-	nameLabel.TextColor3 = espColor
-	nameLabel.TextStrokeTransparency = 0.3
-	nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextScaled = true
-	nameLabel.Parent = containerFrame
-	
-	-- Distanz Label
-	local distanceLabel = Instance.new("TextLabel")
-	distanceLabel.Size = UDim2.new(0.6, 0, 0.06, 0)
-	distanceLabel.Position = UDim2.new(0.2, 0, 1.02, 0)
-	distanceLabel.BackgroundTransparency = 1
-	distanceLabel.Text = "0 studs"
-	distanceLabel.TextColor3 = espColor
-	distanceLabel.TextStrokeTransparency = 0.3
-	distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	distanceLabel.Font = Enum.Font.Gotham
-	distanceLabel.TextScaled = true
-	distanceLabel.Parent = containerFrame
-	
-	-- Speichere ESP-Daten (erweitert für alle Outline-Frames)
+	-- Speichere ESP-Daten
 	espObjects[playerName] = {
-		billboardGui = billboardGui,
-		containerFrame = containerFrame,
-		headOutline = headOutline,
-		torsoOutline = torsoOutline,
-		leftArmOutline = leftArmOutline,
-		rightArmOutline = rightArmOutline,
-		hipsOutline = hipsOutline,
-		leftLegOutline = leftLegOutline,
-		rightLegOutline = rightLegOutline,
-		nameLabel = nameLabel,
-		distanceLabel = distanceLabel,
 		player = targetPlayer,
-		character = character
+		character = character,
+		humanoid = humanoid,
+		boxOutline = boxOutline,
+		boxFill = boxFill,
+		nameText = nameText,
+		distanceText = distanceText,
+		healthBar = healthBar,
+		healthBarBg = healthBarBg
 	}
 	
-	print("[ESP] Created Character Outline ESP for: " .. playerName)
+	print("[ESP] Created Drawing ESP for: " .. playerName)
 end
 
 -- Funktion um ESP-Farben zu aktualisieren
 local function updateESPColors()
 	for playerName, espData in pairs(espObjects) do
-		if espData.billboardGui and espData.billboardGui.Parent then
-			espData.espFrame.BackgroundColor3 = espColor
-			espData.espFrame.BorderColor3 = espColor
-			espData.nameLabel.TextColor3 = espColor
-			espData.distanceLabel.TextColor3 = espColor
+		if espData.boxOutline then
+			espData.boxOutline.Color = espColor
+			espData.boxFill.Color = espColor
+			espData.nameText.Color = espColor
+			espData.distanceText.Color = espColor
 		end
 	end
 end
 
--- Funktion um Distanzen zu aktualisieren
-local function updateESPDistances()
+-- Haupt-ESP Update Funktion
+local function updateESP()
+	if not espEnabled then return end
 	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+	
 	local myPosition = player.Character.HumanoidRootPart.Position
 	
 	for playerName, espData in pairs(espObjects) do
-		if espData.billboardGui and espData.billboardGui.Parent and espData.distanceLabel then
-			local targetPlayer = espData.player
-			if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-				local distance = (myPosition - targetPlayer.Character.HumanoidRootPart.Position).Magnitude
-				espData.distanceLabel.Text = math.floor(distance) .. " studs"
+		local targetPlayer = espData.player
+		local character = espData.character
+		
+		-- Prüfe ob Spieler und Character noch gültig sind
+		if targetPlayer and targetPlayer.Parent and character and character.Parent then
+			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character:FindFirstChild("Humanoid")
+			
+			if humanoidRootPart and humanoid then
+				-- Berechne Bounding Box des Characters
+				local cf = humanoidRootPart.CFrame
+				local size = Vector3.new(4, 6, 0) -- Character-Größe approximation
+				
+				-- 8 Ecken des Bounding Box berechnen
+				local corners = {
+					cf * CFrame.new(-size.X/2, -size.Y/2, 0),
+					cf * CFrame.new(size.X/2, -size.Y/2, 0),
+					cf * CFrame.new(-size.X/2, size.Y/2, 0),
+					cf * CFrame.new(size.X/2, size.Y/2, 0),
+				}
+				
+				-- Konvertiere 3D zu 2D Positionen
+				local screenPositions = {}
+				local allOnScreen = true
+				
+				for i, corner in ipairs(corners) do
+					local screenPos, onScreen = camera:WorldToViewportPoint(corner.Position)
+					screenPositions[i] = Vector2.new(screenPos.X, screenPos.Y)
+					if not onScreen then
+						allOnScreen = false
+					end
+				end
+				
+				if allOnScreen then
+					-- Finde Min/Max für Bounding Box
+					local minX = math.huge
+					local minY = math.huge
+					local maxX = -math.huge
+					local maxY = -math.huge
+					
+					for _, pos in ipairs(screenPositions) do
+						minX = math.min(minX, pos.X)
+						minY = math.min(minY, pos.Y)
+						maxX = math.max(maxX, pos.X)
+						maxY = math.max(maxY, pos.Y)
+					end
+					
+					-- Berechne Box-Dimensionen
+					local boxWidth = maxX - minX
+					local boxHeight = maxY - minY
+					local boxSize = Vector2.new(boxWidth, boxHeight)
+					local boxPosition = Vector2.new(minX, minY)
+					
+					-- Update Box Outline
+					espData.boxOutline.Size = boxSize
+					espData.boxOutline.Position = boxPosition
+					espData.boxOutline.Visible = true
+					
+					-- Update Box Fill
+					espData.boxFill.Size = boxSize
+					espData.boxFill.Position = boxPosition
+					espData.boxFill.Visible = true
+					
+					-- Update Name
+					espData.nameText.Position = Vector2.new(minX + boxWidth/2, minY - 20)
+					espData.nameText.Visible = true
+					
+					-- Berechne und update Distanz
+					local distance = (myPosition - humanoidRootPart.Position).Magnitude
+					espData.distanceText.Text = math.floor(distance) .. "m"
+					espData.distanceText.Position = Vector2.new(minX + boxWidth/2, maxY + 5)
+					espData.distanceText.Visible = true
+					
+					-- Update Health Bar
+					local healthPercentage = humanoid.Health / humanoid.MaxHealth
+					local healthBarWidth = boxWidth * 0.8
+					local healthBarHeight = 4
+					
+					-- Health Bar Background
+					espData.healthBarBg.Size = Vector2.new(healthBarWidth, healthBarHeight)
+					espData.healthBarBg.Position = Vector2.new(minX + (boxWidth - healthBarWidth)/2, minY - 8)
+					espData.healthBarBg.Visible = true
+					
+					-- Health Bar Fill
+					espData.healthBar.Size = Vector2.new(healthBarWidth * healthPercentage, healthBarHeight)
+					espData.healthBar.Position = Vector2.new(minX + (boxWidth - healthBarWidth)/2, minY - 8)
+					espData.healthBar.Visible = true
+					
+					-- Health Bar Color basierend auf HP
+					if healthPercentage > 0.6 then
+						espData.healthBar.Color = Color3.fromRGB(0, 255, 0)
+					elseif healthPercentage > 0.3 then
+						espData.healthBar.Color = Color3.fromRGB(255, 255, 0)
+					else
+						espData.healthBar.Color = Color3.fromRGB(255, 0, 0)
+					end
+				else
+					-- Verstecke ESP wenn nicht auf dem Bildschirm
+					espData.boxOutline.Visible = false
+					espData.boxFill.Visible = false
+					espData.nameText.Visible = false
+					espData.distanceText.Visible = false
+					espData.healthBar.Visible = false
+					espData.healthBarBg.Visible = false
+				end
+			else
+				-- Character hat keine gültigen Teile
+				cleanupPlayerESP(targetPlayer)
 			end
+		else
+			-- Spieler oder Character existiert nicht mehr
+			cleanupPlayerESP(targetPlayer)
 		end
 	end
 end
 
 -- Funktion um ESP für alle Spieler zu aktivieren
 local function enableESP()
-	print("[ESP] Enabling BillboardGui ESP...")
+	print("[ESP] Enabling Drawing ESP...")
 	
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 		if targetPlayer ~= player and targetPlayer.Character then
@@ -440,41 +454,57 @@ end
 
 -- Funktion um alle ESP zu deaktivieren
 local function disableESP()
-	print("[ESP] Disabling ESP...")
+	print("[ESP] Disabling Drawing ESP...")
 	
 	-- Entferne alle ESP-Objekte
 	for playerName, espData in pairs(espObjects) do
-		if espData.billboardGui and espData.billboardGui.Parent then
-			espData.billboardGui:Destroy()
-		end
+		cleanupPlayerESP(espData.player)
 	end
 	espObjects = {}
 	
-	-- Zusätzliche Bereinigung aller ESP BillboardGuis
-	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-		cleanupPlayerESP(targetPlayer)
+	print("[ESP] All Drawing ESP removed")
+end
+
+-- ====== ESP UPDATE LOOP ======
+local espUpdateConnection
+
+local function startESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
 	end
 	
-	print("[ESP] All ESP removed")
+	-- Update ESP every frame für smooth tracking
+	espUpdateConnection = runService.RenderStepped:Connect(function()
+		if espEnabled then
+			updateESP()
+		end
+	end)
+end
+
+local function stopESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+		espUpdateConnection = nil
+	end
 end
 
 -- ====== ESP BUTTON FUNKTIONALITÄT ======
 espPlayerButton.MouseButton1Click:Connect(function()
 	espEnabled = not espEnabled
 	if espEnabled then
-		espPlayerButton.Text = "ESP Player: On"
+		espPlayerButton.Text = "Drawing ESP: On"
 		espPlayerButton.BackgroundColor3 = secondary
 		enableESP()
 		startESPUpdateLoop()
 	else
-		espPlayerButton.Text = "ESP Player: Off"
+		espPlayerButton.Text = "Drawing ESP: Off"
 		espPlayerButton.BackgroundColor3 = primaryMedium
 		disableESP()
 		stopESPUpdateLoop()
 	end
 end)
 
--- ====== ESP COLOR PICKER FUNKTIONALITÄT ======
+-- ====== ESP COLOR PICKER ======
 local espPickerOpen = false
 local espPickerFrame
 
@@ -503,7 +533,6 @@ espColorBox.MouseButton1Click:Connect(function()
 	espPickerFrame.Parent = espScroll
 	Instance.new("UICorner", espPickerFrame).CornerRadius = UDim.new(0,8)
 
-	-- Close Button
 	local espCloseBtn = Instance.new("TextButton")
 	espCloseBtn.Size = UDim2.new(0,20,0,20)
 	espCloseBtn.Position = UDim2.new(1,-25,0,5)
@@ -520,7 +549,6 @@ espColorBox.MouseButton1Click:Connect(function()
 		espPickerOpen = false
 	end)
 
-	-- Color Buttons
 	for i, c in ipairs(espColors) do
 		local colorBtn = Instance.new("TextButton")
 		colorBtn.Size = UDim2.new(0,30,0,30)
@@ -545,85 +573,6 @@ espColorBox.MouseButton1Click:Connect(function()
 
 	espScroll.CanvasSize = UDim2.new(0,0,0,300)
 end)
-
--- ====== ESP UPDATE LOOP ======
-local espUpdateConnection
-local lastUpdateTime = 0
-local distanceUpdateTime = 0
-
-local function startESPUpdateLoop()
-	if espUpdateConnection then
-		espUpdateConnection:Disconnect()
-	end
-	
-	espUpdateConnection = runService.Heartbeat:Connect(function()
-		if not espEnabled then return end
-		
-		local currentTime = tick()
-		
-		-- Update ESP alle 2 Sekunden
-		if currentTime - lastUpdateTime >= 2 then
-			lastUpdateTime = currentTime
-			
-			-- Prüfe alle Spieler
-			for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-				if targetPlayer ~= player then
-					local playerName = targetPlayer.Name
-					local needsNewESP = false
-					
-					if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-						-- Prüfe ob ESP existiert und gültig ist
-						if espObjects[playerName] then
-							local espData = espObjects[playerName]
-							if not espData.billboardGui or 
-							   not espData.billboardGui.Parent or 
-							   espData.character ~= targetPlayer.Character then
-								needsNewESP = true
-							end
-						else
-							needsNewESP = true
-						end
-						
-						if needsNewESP then
-							spawn(function()
-								createESPForPlayer(targetPlayer)
-							end)
-						end
-					else
-						-- Entferne ESP wenn kein gültiges Character
-						if espObjects[playerName] then
-							cleanupPlayerESP(targetPlayer)
-						end
-					end
-				end
-			end
-			
-			-- Bereinige ESP für disconnected Spieler
-			for playerName, espData in pairs(espObjects) do
-				local targetPlayer = game.Players:FindFirstChild(playerName)
-				if not targetPlayer then
-					if espData.billboardGui then
-						espData.billboardGui:Destroy()
-					end
-					espObjects[playerName] = nil
-				end
-			end
-		end
-		
-		-- Update Distanzen alle 0.5 Sekunden
-		if currentTime - distanceUpdateTime >= 0.5 then
-			distanceUpdateTime = currentTime
-			updateESPDistances()
-		end
-	end)
-end
-
-local function stopESPUpdateLoop()
-	if espUpdateConnection then
-		espUpdateConnection:Disconnect()
-		espUpdateConnection = nil
-	end
-end
 
 -- ====== ESP PLAYER EVENTS ======
 game.Players.PlayerAdded:Connect(function(newPlayer)
