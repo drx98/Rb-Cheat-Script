@@ -15,6 +15,8 @@ local bv, bg
 local espEnabled = false
 local espColor = Color3.fromRGB(255, 255, 255)
 local espObjects = {}
+local nametagsEnabled = false
+local nametagColor = Color3.fromRGB(255, 255, 255)
 
 -- ====== Farben ======
 local primaryDark = Color3.fromRGB(30,30,30)
@@ -249,11 +251,12 @@ local function createESPForPlayer(targetPlayer)
 	espHighlight.Parent = character
 	
 	-- ESP Objekte speichern
-	espObjects[targetPlayer.Name] = {
-		highlight = espHighlight,
-		player = targetPlayer,
-		character = character
-	}
+	if not espObjects[targetPlayer.Name] then
+		espObjects[targetPlayer.Name] = {}
+	end
+	espObjects[targetPlayer.Name].highlight = espHighlight
+	espObjects[targetPlayer.Name].player = targetPlayer
+	espObjects[targetPlayer.Name].character = character
 	
 	print("ESP Debug: Successfully created ESP for " .. targetPlayer.Name)
 end
@@ -263,6 +266,9 @@ local function removeESPForPlayer(targetPlayer)
 	if espObjects[playerName] then
 		if espObjects[playerName].highlight then
 			espObjects[playerName].highlight:Destroy()
+		end
+		if espObjects[playerName].nametag then
+			espObjects[playerName].nametag:Destroy()
 		end
 		espObjects[playerName] = nil
 	end
@@ -402,9 +408,39 @@ espColorBox.MouseButton1Click:Connect(function()
 		end)
 	end
 	
-	-- Canvas Size für ESP Scroll anpassen damit Picker sichtbar ist
-	espScroll.CanvasSize = UDim2.new(0,0,0,300)
-end)
+-- ====== ESP NAMETAGS BUTTON ======
+local espNametagButton = Instance.new("TextButton")
+espNametagButton.Text = "ESP Nametags: Off"
+espNametagButton.Size = UDim2.new(0,220,0,30)
+espNametagButton.Position = UDim2.new(0,10,0,300)
+espNametagButton.BackgroundColor3 = primaryMedium
+espNametagButton.TextColor3 = textColor
+espNametagButton.Font = Enum.Font.Gotham
+espNametagButton.TextSize = 14
+espNametagButton.Parent = espScroll
+Instance.new("UICorner", espNametagButton).CornerRadius = UDim.new(0,6)
+
+-- ====== ESP NAMETAG COLOR PICKER ======
+local nametagColorLabel = Instance.new("TextLabel")
+nametagColorLabel.Size = UDim2.new(0,200,0,20)
+nametagColorLabel.Position = UDim2.new(0,10,0,350)
+nametagColorLabel.BackgroundTransparency = 1
+nametagColorLabel.TextColor3 = textColor
+nametagColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+nametagColorLabel.Text = "Nametag Color:"
+nametagColorLabel.Font = Enum.Font.Gotham
+nametagColorLabel.TextSize = 12
+nametagColorLabel.Parent = espScroll
+
+local nametagColorBox = Instance.new("TextButton")
+nametagColorBox.Size = UDim2.new(0,200,0,30)
+nametagColorBox.Position = UDim2.new(0,10,0,370)
+nametagColorBox.BackgroundColor3 = nametagColor
+nametagColorBox.Text = ""
+nametagColorBox.BorderSizePixel = 2
+nametagColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
+nametagColorBox.Parent = espScroll
+Instance.new("UICorner", nametagColorBox).CornerRadius = UDim.new(0,6)
 
 -- ====== ESP PLAYER EVENTS ======
 -- ESP Update Loop - prüft kontinuierlich alle Spieler
@@ -437,6 +473,21 @@ local function startESPUpdateLoop()
 								createESPForPlayer(targetPlayer)
 							end)
 						end
+						
+						-- Prüfe Nametags separat
+						if nametagsEnabled then
+							local hasValidNametag = false
+							if espObjects[targetPlayer.Name] and espObjects[targetPlayer.Name].nametag and espObjects[targetPlayer.Name].nametag.Parent then
+								hasValidNametag = true
+							end
+							
+							if not hasValidNametag then
+								print("ESP Debug: Creating missing nametag for " .. targetPlayer.Name)
+								spawn(function()
+									createNametagForPlayer(targetPlayer)
+								end)
+							end
+						end
 					end
 				end
 				
@@ -447,6 +498,9 @@ local function startESPUpdateLoop()
 						print("ESP Debug: Removing invalid ESP for " .. playerName)
 						if espData.highlight then
 							espData.highlight:Destroy()
+						end
+						if espData.nametag then
+							espData.nametag:Destroy()
 						end
 						espObjects[playerName] = nil
 					end
@@ -975,6 +1029,7 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	gotoButton.BackgroundColor3 = primaryMedium
 	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
+	espNametagButton.BackgroundColor3 = nametagsEnabled and secondary or primaryMedium
 end)
 
 createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
@@ -983,6 +1038,7 @@ createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
 	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
+	espNametagButton.BackgroundColor3 = nametagsEnabled and secondary or primaryMedium
 end)
 
 -- ====== Animation Control ======
