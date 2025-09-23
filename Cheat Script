@@ -1,7 +1,13 @@
 local player = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
-local character = player.Character or player.CharacterAdded:Wait()
+
+-- Warte auf Character falls es nicht existiert
+local character = player.Character
+if not character then
+	character = player.CharacterAdded:Wait()
+end
+
 local hrp = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
@@ -844,11 +850,11 @@ game.Players.PlayerRemoving:Connect(function(leavingPlayer)
 end)
 
 -- Stoppe View wenn der eigene Character respawnt
-player.CharacterAdded:Connect(function()
+player.CharacterAdded:Connect(function(newCharacter)
 	if viewingPlayer then
 		stopViewing()
 	end
-	character = player.Character
+	character = newCharacter
 	hrp = character:WaitForChild("HumanoidRootPart")
 	humanoid = character:WaitForChild("Humanoid")
 end)
@@ -1060,16 +1066,22 @@ end
 local function stopFly()
 	if bv then bv:Destroy() bv = nil end
 	if bg then bg:Destroy() bg = nil end
-	humanoid.PlatformStand = false
-	setFlyingAnimations(false)
-	humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
-	humanoid.WalkSpeed = 16
-	humanoid.JumpPower = 50
-	local velocity = hrp.Velocity
-	hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
-	for _, part in pairs(character:GetChildren()) do
-		if part:IsA("BasePart") then
-			part.CanCollide = true
+	if humanoid then
+		humanoid.PlatformStand = false
+		setFlyingAnimations(false)
+		humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+		humanoid.WalkSpeed = 16
+		humanoid.JumpPower = 50
+	end
+	if hrp then
+		local velocity = hrp.Velocity
+		hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
+	end
+	if character then
+		for _, part in pairs(character:GetChildren()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = true
+			end
 		end
 	end
 end
@@ -1158,7 +1170,7 @@ end)
 
 -- ====== RunService Loop ======
 runService.RenderStepped:Connect(function()
-	if flying and bv and bg then
+	if flying and bv and bg and character and hrp then
 		local cam = workspace.CurrentCamera
 		local moveDir = Vector3.new(0,0,0)
 		if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
