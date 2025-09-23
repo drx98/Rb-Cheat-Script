@@ -176,50 +176,116 @@ local function disableESPForAllPlayers()
 	end
 end
 
--- ====== VERBESSERTER ESP UPDATE LOOP ======
+-- ====== OPTIMIERTER ESP UPDATE LOOP FÜR GROSSE SERVER ======
+local espQueue = {} -- Queue für ESP-Erstellung
+local espQueueIndex = 1
+local maxESPPerFrame = 2 -- Maximal 2 ESP pro Frame erstellen
+local lastFullScan = 0
+
 local function startESPUpdateLoop()
 	if espUpdateConnection then
 		espUpdateConnection:Disconnect()
 	end
 
 	local lastUpdateTime = 0
+	local frameCount = 0
+	
 	espUpdateConnection = runService.Heartbeat:Connect(function()
 		if not espEnabled then return end
 
+		frameCount = frameCount + 1
 		local currentTime = tick()
 		
-		-- Aktualisiere alle 0.5 Sekunden
-		if currentTime - lastUpdateTime >= 0.5 then
-			lastUpdateTime = currentTime
-
+		-- Verarbeite ESP-Queue jeden Frame (aber begrenzt)
+		local processed = 0
+		while processed < maxESPPerFrame and #espQueue > 0 do
+			local targetPlayer = table.remove(espQueue, 1)
+			if targetPlayer and targetPlayer.Parent and targetPlayer ~= player then
+				spawn(function()
+					createESPForPlayer(targetPlayer)
+				end)
+				processed = processed + 1
+			end
+		end
+		
+		-- Vollständiger Scan alle 2 Sekunden (weniger häufig bei großen Servern)
+		if currentTime - lastFullScan >= 2.0 then
+			lastFullScan = currentTime
+			
 			-- Cleanup ungültige ESP-Objekte
-			cleanupInvalidESP()
+			spawn(function()
+				cleanupInvalidESP()
+			end)
 
-			-- Prüfe jeden Spieler
-			for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-				if targetPlayer ~= player and targetPlayer.Character then
-					local playerName = targetPlayer.Name
-					local needsESP = false
+			-- Sammle Spieler die ESP benötigen
+			local playersNeedingESP = {}
+			local playerCount = #game.Players:GetPlayers()
+			
+			-- Dynamische Anpassung basierend auf Spieleranzahl
+			if playerCount > 35 then
+				maxESPPerFrame = 1 -- Langsamer bei vielen Spielern
+				print("ESP Debug: Large server detected (" .. playerCount .. " players), reducing ESP creation rate")
+			elseif playerCount > 20 then
+				maxESPPerFrame = 2 -- Normal
+			else
+				maxESPPerFrame = 3 -- Schneller bei wenigen Spielern
+			end
 
-					if not espObjects[playerName] then
-						needsESP = true
-					else
-						local espData = espObjects[playerName]
-						-- Prüfe ob ESP noch gültig ist
-						if not espData.highlight or 
-						   not espData.highlight.Parent or
-						   espData.character ~= targetPlayer.Character then
+			-- Prüfe jeden Spieler (in separatem Thread um Lag zu vermeiden)
+			spawn(function()
+				for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+					if targetPlayer ~= player and targetPlayer.Character then
+						local playerName = targetPlayer.Name
+						local needsESP = false
+
+						if not espObjects[playerName] then
 							needsESP = true
+						else
+							local espData = espObjects[playerName]
+							-- Prüfe ob ESP noch gültig ist
+							if not espData.highlight or 
+							   not espData.highlight.Parent or
+							   espData.character ~= targetPlayer.Character then
+								needsESP = true
+							end
+						end
+
+						if needsESP then
+							table.insert(playersNeedingESP, targetPlayer)
 						end
 					end
-
-					if needsESP then
-						spawn(function()
-							createESPForPlayer(targetPlayer)
+				end
+				
+				-- Füge zur Queue hinzu (sortiert nach Entfernung für bessere Performance)
+				if #playersNeedingESP > 0 then
+					-- Sortiere nach Distanz zum lokalen Spieler (nähere Spieler zuerst)
+					if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+						local myPosition = player.Character.HumanoidRootPart.Position
+						table.sort(playersNeedingESP, function(a, b)
+							if not a.Character or not a.Character:FindFirstChild("HumanoidRootPart") then return false end
+							if not b.Character or not b.Character:FindFirstChild("HumanoidRootPart") then return true end
+							
+							local distA = (a.Character.HumanoidRootPart.Position - myPosition).Magnitude
+							local distB = (b.Character.HumanoidRootPart.Position - myPosition).Magnitude
+							return distA < distB
 						end)
 					end
+					
+					-- Füge zur Queue hinzu
+					for _, targetPlayer in ipairs(playersNeedingESP) do
+						table.insert(espQueue, targetPlayer)
+					end
+					
+					print("ESP Debug: Added " .. #playersNeedingESP .. " players to ESP queue. Queue size: " .. #espQueue)
 				end
-			end
+			end)
+		end
+		
+		-- Status-Update alle 5 Sekunden
+		if frameCount % (60 * 5) == 0 then -- Alle 5 Sekunden bei 60 FPS
+			local activeESP = 0
+			for _ in pairs(espObjects) do activeESP = activeESP + 1 end
+			print("ESP Debug: Active ESP: " .. activeESP .. "/" .. (#game.Players:GetPlayers() - 1) .. " players. Queue: " .. #espQueue)
 		end
 	end)
 end
