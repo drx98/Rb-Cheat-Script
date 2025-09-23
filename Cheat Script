@@ -1338,8 +1338,27 @@ for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 	setupPlayerConnection(targetPlayer)
 end
 
--- Handle local player respawn
+-- Handle local player respawn und finishe character handling
 player.CharacterAdded:Connect(function()
+	if viewingPlayer then
+		stopViewing()
+	end
 	character = player.Character
 	hrp = character:WaitForChild("HumanoidRootPart")
 	humanoid = character:WaitForChild("Humanoid")
+	
+	-- Reset fly if it was enabled
+	if flying then
+		flying = false
+		flyOnOff.Text = "Fly: Off"
+		flyOnOff.BackgroundColor3 = primaryMedium
+		if bv then bv:Destroy() bv = nil end
+		if bg then bg:Destroy() bg = nil end
+	end
+	
+	-- Re-setup any needed connections
+	wait(1) -- Wait for character to fully load
+	if espEnabled then
+		updateAllESP() -- Refresh ESP after respawn
+	end
+end)
