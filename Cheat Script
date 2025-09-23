@@ -261,57 +261,139 @@ local function createESPForPlayer(targetPlayer)
 	-- Erstelle BillboardGui
 	local billboardGui = Instance.new("BillboardGui")
 	billboardGui.Name = "ESP_" .. playerName .. "_" .. tick()
-	billboardGui.Size = UDim2.new(4, 0, 6, 0)
-	billboardGui.StudsOffset = Vector3.new(0, 0, 0)
+	billboardGui.Size = UDim2.new(8, 0, 10, 0)
+	billboardGui.StudsOffset = Vector3.new(0, 1, 0)
 	billboardGui.AlwaysOnTop = true
 	billboardGui.Parent = humanoidRootPart
 	
-	-- Hauptframe für das ESP
-	local espFrame = Instance.new("Frame")
-	espFrame.Size = UDim2.new(1, 0, 1, 0)
-	espFrame.BackgroundTransparency = 0.7
-	espFrame.BackgroundColor3 = espColor
-	espFrame.BorderSizePixel = 2
-	espFrame.BorderColor3 = espColor
-	espFrame.Parent = billboardGui
+	-- Haupt-Container Frame (unsichtbar)
+	local containerFrame = Instance.new("Frame")
+	containerFrame.Size = UDim2.new(1, 0, 1, 0)
+	containerFrame.BackgroundTransparency = 1
+	containerFrame.Parent = billboardGui
+	
+	-- OUTLINE SYSTEM - Mehrere Frames für Character-Umrandung
+	-- Kopf-Bereich (oben)
+	local headOutline = Instance.new("Frame")
+	headOutline.Size = UDim2.new(0.3, 0, 0.15, 0)
+	headOutline.Position = UDim2.new(0.35, 0, 0.05, 0)
+	headOutline.BackgroundColor3 = espColor
+	headOutline.BackgroundTransparency = 0.6
+	headOutline.BorderSizePixel = 2
+	headOutline.BorderColor3 = espColor
+	headOutline.Parent = containerFrame
+	Instance.new("UICorner", headOutline).CornerRadius = UDim.new(0.5, 0)
+	
+	-- Oberkörper (Torso)
+	local torsoOutline = Instance.new("Frame")
+	torsoOutline.Size = UDim2.new(0.4, 0, 0.3, 0)
+	torsoOutline.Position = UDim2.new(0.3, 0, 0.25, 0)
+	torsoOutline.BackgroundColor3 = espColor
+	torsoOutline.BackgroundTransparency = 0.7
+	torsoOutline.BorderSizePixel = 2
+	torsoOutline.BorderColor3 = espColor
+	torsoOutline.Parent = containerFrame
+	Instance.new("UICorner", torsoOutline).CornerRadius = UDim.new(0.1, 0)
+	
+	-- Linker Arm
+	local leftArmOutline = Instance.new("Frame")
+	leftArmOutline.Size = UDim2.new(0.12, 0, 0.25, 0)
+	leftArmOutline.Position = UDim2.new(0.15, 0, 0.28, 0)
+	leftArmOutline.BackgroundColor3 = espColor
+	leftArmOutline.BackgroundTransparency = 0.7
+	leftArmOutline.BorderSizePixel = 2
+	leftArmOutline.BorderColor3 = espColor
+	leftArmOutline.Parent = containerFrame
+	Instance.new("UICorner", leftArmOutline).CornerRadius = UDim.new(0.3, 0)
+	
+	-- Rechter Arm
+	local rightArmOutline = Instance.new("Frame")
+	rightArmOutline.Size = UDim2.new(0.12, 0, 0.25, 0)
+	rightArmOutline.Position = UDim2.new(0.73, 0, 0.28, 0)
+	rightArmOutline.BackgroundColor3 = espColor
+	rightArmOutline.BackgroundTransparency = 0.7
+	rightArmOutline.BorderSizePixel = 2
+	rightArmOutline.BorderColor3 = espColor
+	rightArmOutline.Parent = containerFrame
+	Instance.new("UICorner", rightArmOutline).CornerRadius = UDim.new(0.3, 0)
+	
+	-- Unterkörper (Hüfte)
+	local hipsOutline = Instance.new("Frame")
+	hipsOutline.Size = UDim2.new(0.35, 0, 0.15, 0)
+	hipsOutline.Position = UDim2.new(0.325, 0, 0.55, 0)
+	hipsOutline.BackgroundColor3 = espColor
+	hipsOutline.BackgroundTransparency = 0.7
+	hipsOutline.BorderSizePixel = 2
+	hipsOutline.BorderColor3 = espColor
+	hipsOutline.Parent = containerFrame
+	Instance.new("UICorner", hipsOutline).CornerRadius = UDim.new(0.1, 0)
+	
+	-- Linkes Bein
+	local leftLegOutline = Instance.new("Frame")
+	leftLegOutline.Size = UDim2.new(0.13, 0, 0.25, 0)
+	leftLegOutline.Position = UDim2.new(0.35, 0, 0.7, 0)
+	leftLegOutline.BackgroundColor3 = espColor
+	leftLegOutline.BackgroundTransparency = 0.7
+	leftLegOutline.BorderSizePixel = 2
+	leftLegOutline.BorderColor3 = espColor
+	leftLegOutline.Parent = containerFrame
+	Instance.new("UICorner", leftLegOutline).CornerRadius = UDim.new(0.3, 0)
+	
+	-- Rechtes Bein
+	local rightLegOutline = Instance.new("Frame")
+	rightLegOutline.Size = UDim2.new(0.13, 0, 0.25, 0)
+	rightLegOutline.Position = UDim2.new(0.52, 0, 0.7, 0)
+	rightLegOutline.BackgroundColor3 = espColor
+	rightLegOutline.BackgroundTransparency = 0.7
+	rightLegOutline.BorderSizePixel = 2
+	rightLegOutline.BorderColor3 = espColor
+	rightLegOutline.Parent = containerFrame
+	Instance.new("UICorner", rightLegOutline).CornerRadius = UDim.new(0.3, 0)
 	
 	-- Name Label
 	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, 0, 0.2, 0)
-	nameLabel.Position = UDim2.new(0, 0, -0.25, 0)
+	nameLabel.Size = UDim2.new(0.8, 0, 0.08, 0)
+	nameLabel.Position = UDim2.new(0.1, 0, -0.1, 0)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = targetPlayer.Name
 	nameLabel.TextColor3 = espColor
-	nameLabel.TextStrokeTransparency = 0.5
+	nameLabel.TextStrokeTransparency = 0.3
 	nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.TextScaled = true
-	nameLabel.Parent = billboardGui
+	nameLabel.Parent = containerFrame
 	
 	-- Distanz Label
 	local distanceLabel = Instance.new("TextLabel")
-	distanceLabel.Size = UDim2.new(1, 0, 0.15, 0)
-	distanceLabel.Position = UDim2.new(0, 0, 1.1, 0)
+	distanceLabel.Size = UDim2.new(0.6, 0, 0.06, 0)
+	distanceLabel.Position = UDim2.new(0.2, 0, 1.02, 0)
 	distanceLabel.BackgroundTransparency = 1
 	distanceLabel.Text = "0 studs"
 	distanceLabel.TextColor3 = espColor
-	distanceLabel.TextStrokeTransparency = 0.5
+	distanceLabel.TextStrokeTransparency = 0.3
 	distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	distanceLabel.Font = Enum.Font.Gotham
 	distanceLabel.TextScaled = true
-	distanceLabel.Parent = billboardGui
+	distanceLabel.Parent = containerFrame
 	
-	-- Speichere ESP-Daten
+	-- Speichere ESP-Daten (erweitert für alle Outline-Frames)
 	espObjects[playerName] = {
 		billboardGui = billboardGui,
-		espFrame = espFrame,
+		containerFrame = containerFrame,
+		headOutline = headOutline,
+		torsoOutline = torsoOutline,
+		leftArmOutline = leftArmOutline,
+		rightArmOutline = rightArmOutline,
+		hipsOutline = hipsOutline,
+		leftLegOutline = leftLegOutline,
+		rightLegOutline = rightLegOutline,
 		nameLabel = nameLabel,
 		distanceLabel = distanceLabel,
 		player = targetPlayer,
 		character = character
 	}
 	
-	print("[ESP] Created BillboardGui ESP for: " .. playerName)
+	print("[ESP] Created Character Outline ESP for: " .. playerName)
 end
 
 -- Funktion um ESP-Farben zu aktualisieren
