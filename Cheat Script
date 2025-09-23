@@ -11,39 +11,125 @@ local flyKey = Enum.KeyCode.E
 local noclip = false
 local bv, bg
 
--- ====== ESP VARIABLEN - ERWEITERT ======
+-- ====== ESP VARIABLEN - ERWEITERT FÜR UNLIMITED HIGHLIGHTS ======
 local espEnabled = false
 local espColor = Color3.fromRGB(255, 255, 255)
 local espObjects = {}
 local espUpdateConnection = nil
 local playerConnections = {} -- Für Event-Cleanup
+local highlightPool = {} -- Pool für wiederverwendbare Highlights
+local maxHighlights = 200 -- Sicherheits-Maximum
+local activeHighlightCount = 0
 
--- ====== ROBUSTES ESP SYSTEM ======
+-- ====== HIGHLIGHT POOL MANAGEMENT SYSTEM ======
+local function createHighlightFromPool()
+	-- Versuche ein Highlight aus dem Pool zu holen
+	if #highlightPool > 0 then
+		local highlight = table.remove(highlightPool, 1)
+		if highlight and highlight.Parent == nil then
+			return highlight
+		end
+	end
+	
+	-- Erstelle neues Highlight wenn Pool leer oder ungültig
+	if activeHighlightCount < maxHighlights then
+		local highlight = Instance.new("Highlight")
+		activeHighlightCount = activeHighlightCount + 1
+		print("ESP Debug: Created new highlight. Total active: " .. activeHighlightCount)
+		return highlight
+	else
+		print("ESP Debug: Highlight limit reached (" .. maxHighlights .. "), recycling oldest")
+		return recycleOldestHighlight()
+	end
+end
+
+local function returnHighlightToPool(highlight)
+	if highlight and highlight.Parent then
+		-- Reset Highlight-Eigenschaften
+		highlight.Adornee = nil
+		highlight.Parent = nil
+		highlight.Name = "PooledHighlight"
+		
+		-- Zurück in den Pool
+		table.insert(highlightPool, highlight)
+		print("ESP Debug: Returned highlight to pool. Pool size: " .. #highlightPool)
+	end
+end
+
+local function recycleOldestHighlight()
+	-- Finde das älteste ESP-Objekt
+	local oldestPlayer = nil
+	local oldestTime = math.huge
+	
+	for playerName, espData in pairs(espObjects) do
+		if espData.creationTime and espData.creationTime < oldestTime then
+			oldestTime = espData.creationTime
+			oldestPlayer = playerName
+		end
+	end
+	
+	if oldestPlayer then
+		print("ESP Debug: Recycling highlight from " .. oldestPlayer)
+		local highlight = espObjects[oldestPlayer].highlight
+		espObjects[oldestPlayer] = nil
+		
+		-- Reset und return
+		if highlight then
+			highlight.Adornee = nil
+			highlight.Parent = nil
+			return highlight
+		end
+	end
+	
+	-- Fallback: Erstelle neues Highlight
+	return Instance.new("Highlight")
+end
+
+-- ====== DYNAMISCHE HIGHLIGHT LIMITS BASIEREND AUF SERVERGRÖSSE ======
+local function updateHighlightLimits()
+	local playerCount = #game.Players:GetPlayers() - 1 -- Ohne lokalen Spieler
+	
+	-- Dynamisches Limit basierend auf Servergröße
+	if playerCount <= 10 then
+		maxHighlights = playerCount + 5 -- Kleine Server: Alle + Reserve
+	elseif playerCount <= 30 then
+		maxHighlights = playerCount + 2 -- Mittlere Server: Alle + kleine Reserve
+	else
+		maxHighlights = math.min(playerCount, 150) -- Große Server: Maximum 150
+	end
+	
+	print("ESP Debug: Updated highlight limit to " .. maxHighlights .. " for " .. playerCount .. " players")
+end
+
+-- ====== ROBUSTES ESP SYSTEM MIT HIGHLIGHT RECYCLING ======
 local function createESPForPlayer(targetPlayer)
 	if not targetPlayer or targetPlayer == player then 
 		return 
 	end
 
 	local playerName = targetPlayer.Name
-	print("ESP Debug: Attempting to create ESP for " .. playerName)
+	print("ESP Debug: Creating ESP for " .. playerName)
 
-	-- Cleanup alte ESP-Objekte
+	-- Cleanup alte ESP-Objekte (mit Recycling)
 	if espObjects[playerName] then
-		if espObjects[playerName].highlight and espObjects[playerName].highlight.Parent then
-			espObjects[playerName].highlight:Destroy()
+		if espObjects[playerName].highlight then
+			returnHighlightToPool(espObjects[playerName].highlight)
 		end
 		espObjects[playerName] = nil
 	end
 
-	-- Warte auf Character mit Timeout
+	-- Erweiterte Character-Wartezeit für große Server
 	local character = targetPlayer.Character
+	local playerCount = #game.Players:GetPlayers()
+	local maxWaitTime = playerCount > 35 and 15 or 10
+	
 	if not character then
-		print("ESP Debug: Waiting for character for " .. playerName)
+		print("ESP Debug: Waiting for character for " .. playerName .. " (Server size: " .. playerCount .. ")")
 		local startTime = tick()
 		repeat
 			wait(0.1)
 			character = targetPlayer.Character
-		until character or tick() - startTime > 10 -- 10 Sekunden Timeout
+		until character or tick() - startTime > maxWaitTime
 
 		if not character then
 			print("ESP Debug: Timeout waiting for character for " .. playerName)
@@ -51,50 +137,80 @@ local function createESPForPlayer(targetPlayer)
 		end
 	end
 
-	-- Warte auf HumanoidRootPart mit mehreren Versuchen
+	-- Robuste HumanoidRootPart-Erkennung
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then
 		print("ESP Debug: Waiting for HumanoidRootPart for " .. playerName)
 		local attempts = 0
-		while not humanoidRootPart and attempts < 50 do -- 5 Sekunden bei 0.1s pro Versuch
+		local maxAttempts = playerCount > 35 and 100 or 50
+		
+		while not humanoidRootPart and attempts < maxAttempts do
 			wait(0.1)
+			if not targetPlayer.Character then
+				character = targetPlayer.Character
+				if not character then break end
+			end
 			humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 			attempts = attempts + 1
 		end
 
 		if not humanoidRootPart then
-			print("ESP Debug: HumanoidRootPart not found for " .. playerName)
+			print("ESP Debug: HumanoidRootPart not found for " .. playerName .. " after " .. attempts .. " attempts")
 			return
 		end
 	end
 
-	-- Entferne alle existierenden ESP Highlights vom Character
+	-- Zusätzliche Validierung
+	if not targetPlayer.Parent or not targetPlayer.Character or targetPlayer.Character ~= character then
+		print("ESP Debug: Player validation failed for " .. playerName)
+		return
+	end
+
+	-- Entferne alle existierenden ESP Highlights vom Character (wichtig für Recycling)
 	for _, child in pairs(character:GetChildren()) do
-		if child:IsA("Highlight") and (child.Name:find("ESPHighlight") or child.Name == "ESP_Highlight") then
+		if child:IsA("Highlight") and (child.Name:find("ESPHighlight") or child.Name:find("ESP_Highlight")) then
 			child:Destroy()
 		end
 	end
 
-	-- Erstelle neues ESP Highlight
-	local espHighlight = Instance.new("Highlight")
+	-- Hole Highlight aus Pool oder erstelle neues
+	local espHighlight = createHighlightFromPool()
+	if not espHighlight then
+		print("ESP Debug: Failed to get highlight for " .. playerName)
+		return
+	end
+
+	-- Konfiguriere Highlight
 	espHighlight.Name = "ESP_Highlight_" .. playerName
 	espHighlight.Adornee = character
 	espHighlight.FillColor = espColor
 	espHighlight.OutlineColor = espColor
-	espHighlight.FillTransparency = 0.5
+	espHighlight.FillTransparency = 0.4
 	espHighlight.OutlineTransparency = 0
 	espHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	espHighlight.Parent = character
+	
+	-- Robuste Parenting
+	local success = pcall(function()
+		espHighlight.Parent = character
+	end)
+	
+	if not success then
+		print("ESP Debug: Failed to parent highlight for " .. playerName)
+		returnHighlightToPool(espHighlight)
+		return
+	end
 
 	-- Speichere ESP-Objekt
 	espObjects[playerName] = {
 		highlight = espHighlight,
 		player = targetPlayer,
 		character = character,
-		lastUpdate = tick()
+		lastUpdate = tick(),
+		creationTime = tick()
 	}
 
-	print("ESP Debug: Successfully created ESP for " .. playerName)
+	print("ESP Debug: Successfully created ESP for " .. playerName .. " (" .. 
+		  #espObjects .. "/" .. (#game.Players:GetPlayers() - 1) .. " active)")
 	return true
 end
 
@@ -143,14 +259,60 @@ end
 local function enableESPForAllPlayers()
 	print("ESP Debug: Enabling ESP for all players")
 	
-	-- Erstelle ESP für alle aktuellen Spieler
+	-- Leere die Queue
+	espQueue = {}
+	
+	-- Sammle alle Spieler (außer dem lokalen Spieler)
+	local allPlayers = {}
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 		if targetPlayer ~= player then
-			spawn(function()
-				createESPForPlayer(targetPlayer)
-			end)
+			table.insert(allPlayers, targetPlayer)
 		end
 	end
+	
+	local playerCount = #allPlayers
+	print("ESP Debug: Found " .. playerCount .. " players to create ESP for")
+	
+	if playerCount > 35 then
+		-- Große Server: Gestaffelte ESP-Erstellung
+		print("ESP Debug: Large server detected, using staged ESP creation")
+		
+		-- Sortiere nach Distanz (nähere Spieler zuerst)
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local myPosition = player.Character.HumanoidRootPart.Position
+			table.sort(allPlayers, function(a, b)
+				if not a.Character or not a.Character:FindFirstChild("HumanoidRootPart") then return false end
+				if not b.Character or not b.Character:FindFirstChild("HumanoidRootPart") then return true end
+				
+				local distA = (a.Character.HumanoidRootPart.Position - myPosition).Magnitude
+				local distB = (b.Character.HumanoidRootPart.Position - myPosition).Magnitude
+				return distA < distB
+			end)
+		end
+		
+		-- Füge alle zur Queue hinzu (wird schrittweise abgearbeitet)
+		for _, targetPlayer in ipairs(allPlayers) do
+			table.insert(espQueue, targetPlayer)
+		end
+		
+	else
+		-- Kleine/mittlere Server: Sofortige Erstellung für die ersten Spieler
+		print("ESP Debug: Small/medium server, creating ESP immediately for first players")
+		
+		local immediateCount = math.min(10, playerCount) -- Maximal 10 sofort
+		for i = 1, immediateCount do
+			spawn(function()
+				createESPForPlayer(allPlayers[i])
+			end)
+		end
+		
+		-- Rest zur Queue hinzufügen
+		for i = immediateCount + 1, playerCount do
+			table.insert(espQueue, allPlayers[i])
+		end
+	end
+	
+	print("ESP Debug: ESP queue initialized with " .. #espQueue .. " players")
 end
 
 local function disableESPForAllPlayers()
@@ -176,7 +338,7 @@ local function disableESPForAllPlayers()
 	end
 end
 
--- ====== OPTIMIERTER ESP UPDATE LOOP FÜR GROSSE SERVER ======
+-- ====== OPTIMIERTER ESP UPDATE LOOP MIT HIGHLIGHT RECYCLING ======
 local espQueue = {} -- Queue für ESP-Erstellung
 local espQueueIndex = 1
 local maxESPPerFrame = 2 -- Maximal 2 ESP pro Frame erstellen
@@ -196,6 +358,11 @@ local function startESPUpdateLoop()
 		frameCount = frameCount + 1
 		local currentTime = tick()
 		
+		-- Update Highlight-Limits alle 10 Sekunden
+		if frameCount % (60 * 10) == 0 then
+			updateHighlightLimits()
+		end
+		
 		-- Verarbeite ESP-Queue jeden Frame (aber begrenzt)
 		local processed = 0
 		while processed < maxESPPerFrame and #espQueue > 0 do
@@ -208,30 +375,30 @@ local function startESPUpdateLoop()
 			end
 		end
 		
-		-- Vollständiger Scan alle 2 Sekunden (weniger häufig bei großen Servern)
+		-- Vollständiger Scan alle 2 Sekunden
 		if currentTime - lastFullScan >= 2.0 then
 			lastFullScan = currentTime
 			
-			-- Cleanup ungültige ESP-Objekte
+			-- Cleanup ungültige ESP-Objekte (mit Recycling)
 			spawn(function()
 				cleanupInvalidESP()
 			end)
 
 			-- Sammle Spieler die ESP benötigen
 			local playersNeedingESP = {}
-			local playerCount = #game.Players:GetPlayers()
+			local playerCount = #game.Players:GetPlayers() - 1 -- Ohne lokalen Spieler
 			
 			-- Dynamische Anpassung basierend auf Spieleranzahl
 			if playerCount > 35 then
 				maxESPPerFrame = 1 -- Langsamer bei vielen Spielern
-				print("ESP Debug: Large server detected (" .. playerCount .. " players), reducing ESP creation rate")
+				print("ESP Debug: Large server (" .. playerCount .. " players), rate: " .. maxESPPerFrame .. "/frame, limit: " .. maxHighlights)
 			elseif playerCount > 20 then
 				maxESPPerFrame = 2 -- Normal
 			else
 				maxESPPerFrame = 3 -- Schneller bei wenigen Spielern
 			end
 
-			-- Prüfe jeden Spieler (in separatem Thread um Lag zu vermeiden)
+			-- Prüfe jeden Spieler (in separatem Thread)
 			spawn(function()
 				for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 					if targetPlayer ~= player and targetPlayer.Character then
@@ -256,9 +423,9 @@ local function startESPUpdateLoop()
 					end
 				end
 				
-				-- Füge zur Queue hinzu (sortiert nach Entfernung für bessere Performance)
+				-- Füge zur Queue hinzu (sortiert nach Entfernung)
 				if #playersNeedingESP > 0 then
-					-- Sortiere nach Distanz zum lokalen Spieler (nähere Spieler zuerst)
+					-- Sortiere nach Distanz zum lokalen Spieler
 					if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 						local myPosition = player.Character.HumanoidRootPart.Position
 						table.sort(playersNeedingESP, function(a, b)
@@ -281,14 +448,173 @@ local function startESPUpdateLoop()
 			end)
 		end
 		
-		-- Status-Update alle 5 Sekunden
-		if frameCount % (60 * 5) == 0 then -- Alle 5 Sekunden bei 60 FPS
+		-- Status-Update alle 10 Sekunden mit Pool-Informationen
+		if frameCount % (60 * 10) == 0 then
 			local activeESP = 0
 			for _ in pairs(espObjects) do activeESP = activeESP + 1 end
-			print("ESP Debug: Active ESP: " .. activeESP .. "/" .. (#game.Players:GetPlayers() - 1) .. " players. Queue: " .. #espQueue)
+			local totalPlayers = #game.Players:GetPlayers() - 1
+			print("ESP Debug: Active ESP: " .. activeESP .. "/" .. totalPlayers .. 
+				  " | Queue: " .. #espQueue .. " | Pool: " .. #highlightPool .. 
+				  " | Total Highlights: " .. activeHighlightCount .. "/" .. maxHighlights)
 		end
 	end)
 end
+			end)
+		end
+	end)
+end
+
+local function stopESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+		espUpdateConnection = nil
+	end
+end
+
+-- ====== PLAYER EVENT MANAGEMENT MIT HIGHLIGHT RECYCLING ======
+local function setupPlayerEvents()
+	-- Cleanup alte Connections
+	for playerName, connections in pairs(playerConnections) do
+		for _, connection in pairs(connections) do
+			if connection then connection:Disconnect() end
+		end
+	end
+	playerConnections = {}
+
+	-- Setup Events für alle aktuellen Spieler
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer ~= player then
+			local connections = {}
+
+			-- CharacterAdded Event
+			connections.characterAdded = targetPlayer.CharacterAdded:Connect(function()
+				if espEnabled then
+					print("ESP Debug: Character added for " .. targetPlayer.Name)
+					wait(1) -- Warte bis Character vollständig geladen ist
+					spawn(function()
+						createESPForPlayer(targetPlayer)
+					end)
+				end
+			end)
+
+			-- CharacterRemoving Event
+			connections.characterRemoving = targetPlayer.CharacterRemoving:Connect(function()
+				removeESPForPlayer(targetPlayer)
+			end)
+
+			playerConnections[targetPlayer.Name] = connections
+		end
+	end
+end
+
+-- Event für neue Spieler
+local newPlayerConnection = game.Players.PlayerAdded:Connect(function(newPlayer)
+	-- Update Highlight-Limits wenn neuer Spieler beitritt
+	if espEnabled then
+		updateHighlightLimits()
+	end
+	
+	-- Setup Events für neuen Spieler
+	local connections = {}
+
+	connections.characterAdded = newPlayer.CharacterAdded:Connect(function()
+		if espEnabled then
+			print("ESP Debug: New player character added: " .. newPlayer.Name)
+			wait(1)
+			spawn(function()
+				createESPForPlayer(newPlayer)
+			end)
+		end
+	end)
+
+	connections.characterRemoving = newPlayer.CharacterRemoving:Connect(function()
+		removeESPForPlayer(newPlayer)
+	end)
+
+	playerConnections[newPlayer.Name] = connections
+
+	-- Erstelle sofort ESP falls bereits aktiviert
+	if espEnabled and newPlayer.Character then
+		spawn(function()
+			wait(1)
+			createESPForPlayer(newPlayer)
+		end)
+	end
+end)
+
+-- Event für verlassende Spieler
+local playerLeavingConnection = game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	-- Cleanup ESP (mit Recycling)
+	removeESPForPlayer(leavingPlayer)
+	
+	-- Update Highlight-Limits wenn Spieler das Spiel verlässt
+	if espEnabled then
+		updateHighlightLimits()
+	end
+	
+	-- Cleanup Connections
+	if playerConnections[leavingPlayer.Name] then
+		for _, connection in pairs(playerConnections[leavingPlayer.Name]) do
+			if connection then connection:Disconnect() end
+		end
+		playerConnections[leavingPlayer.Name] = nil
+	end
+end)
+
+-- Setup Events beim Start
+setupPlayerEvents()
+
+-- ====== ESP BUTTON FUNKTIONALITÄT MIT RECYCLING SYSTEM ======
+espPlayerButton.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	
+	if espEnabled then
+		espPlayerButton.Text = "ESP Player: On"
+		espPlayerButton.BackgroundColor3 = secondary
+		print("ESP Debug: ESP enabled - starting systems with highlight recycling")
+		
+		-- Starte alle ESP-Systeme
+		enableESPForAllPlayers()
+		startESPUpdateLoop()
+		
+	else
+		espPlayerButton.Text = "ESP Player: Off"
+		espPlayerButton.BackgroundColor3 = primaryMedium
+		print("ESP Debug: ESP disabled - stopping systems and recycling highlights")
+		
+		-- Stoppe alle ESP-Systeme
+		stopESPUpdateLoop()
+		disableESPForAllPlayers()
+	end
+end)
+
+-- ====== CLEANUP BEI SCRIPT BEENDIGUNG MIT HIGHLIGHT POOL ======
+game:GetService("Players").LocalPlayer.PlayerGui.ChildRemoved:Connect(function(child)
+	if child == screenGui then
+		print("ESP Debug: Script ending - cleaning up all highlights and connections")
+		
+		-- Cleanup alle Connections
+		if newPlayerConnection then newPlayerConnection:Disconnect() end
+		if playerLeavingConnection then playerLeavingConnection:Disconnect() end
+		stopESPUpdateLoop()
+		disableESPForAllPlayers()
+		
+		-- Cleanup Player Connections
+		for playerName, connections in pairs(playerConnections) do
+			for _, connection in pairs(connections) do
+				if connection then connection:Disconnect() end
+			end
+		end
+		
+		-- Cleanup Highlight Pool
+		for _, highlight in pairs(highlightPool) do
+			if highlight then highlight:Destroy() end
+		end
+		highlightPool = {}
+		
+		print("ESP Debug: Full cleanup completed")
+	end
+end)
 
 local function stopESPUpdateLoop()
 	if espUpdateConnection then
