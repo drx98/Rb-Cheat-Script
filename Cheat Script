@@ -113,17 +113,17 @@ guiButton.TextColor3 = textColor
 guiButton.Parent = leftScroll
 Instance.new("UICorner", guiButton).CornerRadius = UDim.new(0,6)
 
-local function updateButtonPositions()
+local function updateLeftButtonPositions()
 	local lastY = 5
 	flyButton.Position = UDim2.new(0,5,0,lastY)
 	lastY = lastY + flyButton.Size.Y.Offset + 5
 	espButton.Position = UDim2.new(0,5,0,lastY)
 	lastY = lastY + espButton.Size.Y.Offset + 5
-	playerButton.Position = UDim2.new(0,5,0,lastY)  -- Neuer Button Position
+	playerButton.Position = UDim2.new(0,5,0,lastY)
 	lastY = lastY + playerButton.Size.Y.Offset + 5
 	guiButton.Position = UDim2.new(0,5,0,lastY)
 end
-updateButtonPositions()
+updateLeftButtonPositions()
 
 -- ====== Right Panels ======
 local flyScroll = Instance.new("ScrollingFrame")
@@ -233,21 +233,63 @@ Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0,4)
 
 -- Dropdown Toggle
 local dropdownOpen = false
-playerSelectButton.MouseButton1Click:Connect(function()
-	dropdownOpen = not dropdownOpen
-	playerListFrame.Visible = dropdownOpen
-	if dropdownOpen then
-		searchBox.Text = ""
-		updatePlayerList("")
-	end
-	updateButtonPositions()
-end)
 
--- ====== PLAYER LIST UPDATE FUNKTION MIT SUCHE ======
+-- ====== VIEW BUTTON (muss vor updateButtonPositions definiert werden) ======
+local viewButton = Instance.new("TextButton")
+viewButton.Text = "View: Off"
+viewButton.Size = UDim2.new(0,220,0,30)
+viewButton.Position = UDim2.new(0,10,0,50) -- Anfangsposition
+viewButton.BackgroundColor3 = primaryMedium
+viewButton.TextColor3 = textColor
+viewButton.Font = Enum.Font.Gotham
+viewButton.TextSize = 14
+viewButton.Parent = playerScroll
+Instance.new("UICorner", viewButton).CornerRadius = UDim.new(0,6)
+
+-- ====== GOTO BUTTON (muss vor updateButtonPositions definiert werden) ======
+local gotoButton = Instance.new("TextButton")
+gotoButton.Text = "Goto Player"
+gotoButton.Size = UDim2.new(0,220,0,30)
+gotoButton.Position = UDim2.new(0,10,0,90) -- Anfangsposition
+gotoButton.BackgroundColor3 = primaryMedium
+gotoButton.TextColor3 = textColor
+gotoButton.Font = Enum.Font.Gotham
+gotoButton.TextSize = 14
+gotoButton.Parent = playerScroll
+Instance.new("UICorner", gotoButton).CornerRadius = UDim.new(0,6)
+
+-- ====== KORRIGIERTE DYNAMISCHE BUTTON POSITIONIERUNG ======
+local function updateButtonPositions()
+	local baseY = 50 -- Position direkt nach playerSelectFrame wenn geschlossen
+
+	if dropdownOpen then
+		-- Die tatsächliche Höhe des playerListFrame verwenden
+		local dropdownHeight = 150 -- Die feste Höhe des Dropdown-Frames
+		
+		-- Setze die neue Position der Buttons UNTER das Dropdown
+		baseY = 50 + dropdownHeight + 10 -- playerSelectFrame Position + Dropdown Höhe + Abstand
+	end
+
+	-- Animiere die Buttons sanft zu ihren neuen Positionen
+	local tweenService = game:GetService("TweenService")
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+	local viewTween = tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)})
+	local gotoTween = tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)})
+
+	viewTween:Play()
+	gotoTween:Play()
+
+	-- Aktualisiere die CanvasSize des playerScrolls um sicherzustellen, dass alle Inhalte sichtbar sind
+	local totalContentHeight = baseY + 80 -- baseY + beide Button-Höhen + zusätzlicher Abstand
+	playerScroll.CanvasSize = UDim2.new(0,0,0,math.max(totalContentHeight, 400))
+end
+
+-- ====== AKTUALISIERTE PLAYER LIST UPDATE FUNKTION ======
 function updatePlayerList(searchQuery)
 	searchQuery = searchQuery or ""
 	searchQuery = searchQuery:lower()
-	
+
 	-- Alle alten Buttons löschen (außer Suchbox)
 	for _, child in pairs(playerListFrame:GetChildren()) do
 		if child:IsA("TextButton") and child ~= searchBox then
@@ -287,61 +329,34 @@ function updatePlayerList(searchQuery)
 			playerSelectButton.Text = targetPlayer.Name
 			playerListFrame.Visible = false
 			dropdownOpen = false
-			updateButtonPositions()
+			updateButtonPositions() -- Wichtig: Button-Positionen nach dem Schließen aktualisieren
 		end)
 
 		yPos = yPos + 35
 	end
 
 	playerListFrame.CanvasSize = UDim2.new(0,0,0,yPos + 5)
+
+	-- Button-Positionen nach dem Aktualisieren der Liste neu berechnen
+	updateButtonPositions()
 end
 
--- Suchbox Event für Live-Suche
-searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	updatePlayerList(searchBox.Text)
+-- ====== AKTUALISIERTE DROPDOWN TOGGLE FUNKTION ======
+playerSelectButton.MouseButton1Click:Connect(function()
+	dropdownOpen = not dropdownOpen
+	playerListFrame.Visible = dropdownOpen
+	if dropdownOpen then
+		searchBox.Text = ""
+		updatePlayerList("")
+	else
+		updateButtonPositions() -- Auch beim Schließen Button-Positionen aktualisieren
+	end
 end)
 
--- ====== DYNAMISCHE BUTTON POSITIONIERUNG ======
-local function updateButtonPositions()
-	local baseY = 50 -- Position direkt nach playerSelectFrame
-	if dropdownOpen then
-		baseY = 210 -- Position nach dem geöffneten Dropdown
-	end
-	
-	-- Animiere die Buttons nach oben oder unten
-	local tweenService = game:GetService("TweenService")
-	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	
-	local viewTween = tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)})
-	local gotoTween = tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)})
-	
-	viewTween:Play()
-	gotoTween:Play()
-end
-
--- ====== VIEW BUTTON ======
-local viewButton = Instance.new("TextButton")
-viewButton.Text = "View: Off"
-viewButton.Size = UDim2.new(0,220,0,30)
-viewButton.Position = UDim2.new(0,10,0,50) -- Anfangsposition
-viewButton.BackgroundColor3 = primaryMedium
-viewButton.TextColor3 = textColor
-viewButton.Font = Enum.Font.Gotham
-viewButton.TextSize = 14
-viewButton.Parent = playerScroll
-Instance.new("UICorner", viewButton).CornerRadius = UDim.new(0,6)
-
--- ====== GOTO BUTTON ======
-local gotoButton = Instance.new("TextButton")
-gotoButton.Text = "Goto Player"
-gotoButton.Size = UDim2.new(0,220,0,30)
-gotoButton.Position = UDim2.new(0,10,0,90) -- Anfangsposition
-gotoButton.BackgroundColor3 = primaryMedium
-gotoButton.TextColor3 = textColor
-gotoButton.Font = Enum.Font.Gotham
-gotoButton.TextSize = 14
-gotoButton.Parent = playerScroll
-Instance.new("UICorner", gotoButton).CornerRadius = UDim.new(0,6)
+-- ====== AKTUALISIERTE SUCHBOX EVENT FUNKTION ======
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	updatePlayerList(searchBox.Text) -- Diese Funktion ruft jetzt automatisch updateButtonPositions() auf
+end)
 
 -- ====== VIEW FUNKTIONALITÄT ======
 local function stopViewing()
@@ -619,7 +634,7 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	flyScroll.BackgroundColor3 = primaryMedium
 	guiScroll.BackgroundColor3 = primaryMedium
 	espScroll.BackgroundColor3 = primaryMedium
-	playerScroll.BackgroundColor3 = primaryMedium  -- Neue Farbe hinzugefügt
+	playerScroll.BackgroundColor3 = primaryMedium
 	playerSelectFrame.BackgroundColor3 = primaryDark
 	playerListFrame.BackgroundColor3 = primaryDark
 	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
@@ -627,7 +642,7 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	flyButton.BackgroundColor3 = primaryMedium
 	guiButton.BackgroundColor3 = primaryMedium
 	espButton.BackgroundColor3 = primaryMedium
-	playerButton.BackgroundColor3 = primaryMedium  -- Neue Farbe hinzugefügt
+	playerButton.BackgroundColor3 = primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	gotoButton.BackgroundColor3 = primaryMedium
 end)
@@ -1003,13 +1018,6 @@ local function createAdvancedESP(targetPlayer)
 
 	-- IMPROVED Player Outline ESP - Funktioniert jetzt für ALLE Charaktere
 	if espEnabled and espPlayers then
-		-- Alte Highlights entfernen
-		for _, obj in pairs(espFolder:GetChildren()) do
-			if obj:IsA("Highlight") then
-				obj:Destroy()
-			end
-		end
-
 		-- Alle BaseParts sammeln
 		local allParts = {}
 		for _, descendant in pairs(character:GetDescendants()) do
