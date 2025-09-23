@@ -273,10 +273,12 @@ espPlayerButton.MouseButton1Click:Connect(function()
 		espPlayerButton.Text = "ESP Player: On"
 		espPlayerButton.BackgroundColor3 = secondary
 		enableESP()
+		startESPUpdateLoop() -- Starte kontinuierliche Überwachung
 	else
 		espPlayerButton.Text = "ESP Player: Off"
 		espPlayerButton.BackgroundColor3 = primaryMedium
 		disableESP()
+		stopESPUpdateLoop() -- Stoppe Überwachung
 	end
 end)
 
@@ -354,11 +356,57 @@ espColorBox.MouseButton1Click:Connect(function()
 end)
 
 -- ====== ESP PLAYER EVENTS ======
+-- ESP Update Loop - prüft kontinuierlich alle Spieler
+local espUpdateConnection
+local function startESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+	end
+	
+	espUpdateConnection = runService.Heartbeat:Connect(function()
+		if espEnabled then
+			-- Prüfe alle Spieler und erstelle ESP falls nötig
+			for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+				if targetPlayer ~= player and targetPlayer.Character then
+					if not espObjects[targetPlayer.Name] then
+						createESPForPlayer(targetPlayer)
+					else
+						-- Prüfe ob ESP noch existiert, falls nicht erstelle neu
+						local espData = espObjects[targetPlayer.Name]
+						if not espData.highlight or not espData.highlight.Parent then
+							espObjects[targetPlayer.Name] = nil
+							createESPForPlayer(targetPlayer)
+						end
+					end
+				end
+			end
+			
+			-- Entferne ESP für Spieler die nicht mehr existieren
+			for playerName, espData in pairs(espObjects) do
+				local targetPlayer = game.Players:FindFirstChild(playerName)
+				if not targetPlayer or not targetPlayer.Character then
+					if espData.highlight then
+						espData.highlight:Destroy()
+					end
+					espObjects[playerName] = nil
+				end
+			end
+		end
+	end)
+end
+
+local function stopESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+		espUpdateConnection = nil
+	end
+end
+
 -- Neuen Spieler ESP hinzufügen wenn er beitritt
 game.Players.PlayerAdded:Connect(function(newPlayer)
 	newPlayer.CharacterAdded:Connect(function()
 		if espEnabled then
-			wait(0.5) -- Kurz warten damit Character vollständig geladen ist
+			wait(1) -- Warten bis Character vollständig geladen ist
 			createESPForPlayer(newPlayer)
 		end
 	end)
@@ -374,7 +422,7 @@ for _, existingPlayer in pairs(game.Players:GetPlayers()) do
 	if existingPlayer ~= player then
 		existingPlayer.CharacterAdded:Connect(function()
 			if espEnabled then
-				wait(0.5)
+				wait(1)
 				createESPForPlayer(existingPlayer)
 			end
 		end)
