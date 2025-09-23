@@ -11,106 +11,7 @@ local flyKey = Enum.KeyCode.E
 local noclip = false
 local bv, bg
 
--- ====== FLY KEY HANDLING ======
-uis.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
-	if input.KeyCode == flyKey then
-		flying = not flying
-		if flying then
-			flyOnOff.Text = "Fly: On"
-			flyOnOff.BackgroundColor3 = secondary
-			if not bv then
-				bv = Instance.new("BodyVelocity")
-				bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-				bv.Velocity = Vector3.new(0,0,0)
-				bv.Parent = hrp
-			end
-			if not bg then
-				bg = Instance.new("BodyGyro")
-				bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
-				bg.CFrame = hrp.CFrame
-				bg.Parent = hrp
-			end
-			humanoid.PlatformStand = true
-			setFlyingAnimations(true)
-		else
-			flyOnOff.Text = "Fly: Off"
-			flyOnOff.BackgroundColor3 = primaryMedium
-			stopFly()
-		end
-	end
-end)
-
-speedBox.FocusLost:Connect(function()
-	local val = tonumber(speedBox.Text)
-	if val then flySpeed = val end
-end)
-
-keyBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local text = keyBox.Text
-	if #text > 1 then text = text:sub(1,1) end
-	text = text:upper()
-	keyBox.Text = text
-	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
-	if success and keyEnum then flyKey = keyEnum end
-end)
-
-noclipButton.MouseButton1Click:Connect(function()
-	noclip = not noclip
-	if noclip then
-		noclipButton.Text = "Fly Noclip: On"
-		noclipButton.BackgroundColor3 = secondary
-	else
-		noclipButton.Text = "Fly Noclip: Off"
-		noclipButton.BackgroundColor3 = primaryMedium
-	end
-end)
-
--- ====== FLY MOVEMENT LOOP ======
-runService.RenderStepped:Connect(function()
-	if flying and bv and bg then
-		local cam = workspace.CurrentCamera
-		local moveDir = Vector3.new(0,0,0)
-		if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
-		if uis:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
-		if uis:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
-		if uis:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
-		if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
-		if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0,1,0) end
-
-		if moveDir.Magnitude > 0 then
-			moveDir = moveDir.Unit * flySpeed
-		end
-
-		bv.Velocity = moveDir
-		bg.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
-
-		for _, part in pairs(character:GetChildren()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = not noclip
-			end
-		end
-	end
-end)
-
--- ====== CHARACTER RESPAWN HANDLING ======
-player.CharacterAdded:Connect(function()
-	if viewingPlayer then
-		stopViewing()
-	end
-	character = player.Character
-	hrp = character:WaitForChild("HumanoidRootPart")
-	humanoid = character:WaitForChild("Humanoid")
-	
-	-- Reset fly if it was enabled
-	if flying then
-		flying = false
-		flyOnOff.Text = "Fly: Off"
-		flyOnOff.BackgroundColor3 = primaryMedium
-		if bv then bv:Destroy() bv = nil end
-		if bg then bg:Destroy() bg = nil end
-	end
-end)arben ======
+-- ====== Farben ======
 local primaryDark = Color3.fromRGB(30,30,30)
 local primaryMedium = Color3.fromRGB(50,50,50)
 local primaryLight = Color3.fromRGB(70,70,70)
@@ -187,6 +88,15 @@ flyButton.TextColor3 = textColor
 flyButton.Parent = leftScroll
 Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0,6)
 
+local espButton = Instance.new("TextButton")
+espButton.Text = "ESP Settings"
+espButton.Size = UDim2.new(1,-10,0,50)
+espButton.BackgroundColor3 = primaryMedium
+espButton.TextColor3 = textColor
+espButton.Parent = leftScroll
+Instance.new("UICorner", espButton).CornerRadius = UDim.new(0,6)
+
+-- ====== NEUER PLAYER SETTINGS BUTTON ======
 local playerButton = Instance.new("TextButton")
 playerButton.Text = "Player Settings"
 playerButton.Size = UDim2.new(1,-10,0,50)
@@ -207,6 +117,8 @@ local function updateLeftButtonPositions()
 	local lastY = 5
 	flyButton.Position = UDim2.new(0,5,0,lastY)
 	lastY = lastY + flyButton.Size.Y.Offset + 5
+	espButton.Position = UDim2.new(0,5,0,lastY)
+	lastY = lastY + espButton.Size.Y.Offset + 5
 	playerButton.Position = UDim2.new(0,5,0,lastY)
 	lastY = lastY + playerButton.Size.Y.Offset + 5
 	guiButton.Position = UDim2.new(0,5,0,lastY)
@@ -223,6 +135,17 @@ flyScroll.Visible = false
 flyScroll.Parent = mainFrame
 Instance.new("UICorner", flyScroll).CornerRadius = UDim.new(0,8)
 
+local espScroll = Instance.new("ScrollingFrame")
+espScroll.Size = UDim2.new(0,240,1,-30)
+espScroll.Position = UDim2.new(1,0,0,30)
+espScroll.BackgroundColor3 = primaryMedium
+espScroll.ScrollBarThickness = 6
+espScroll.Visible = false
+espScroll.CanvasSize = UDim2.new(0,0,0,800)
+espScroll.Parent = mainFrame
+Instance.new("UICorner", espScroll).CornerRadius = UDim.new(0,8)
+
+-- ====== NEUER PLAYER SCROLL FRAME ======
 local playerScroll = Instance.new("ScrollingFrame")
 playerScroll.Size = UDim2.new(0,240,1,-30)
 playerScroll.Position = UDim2.new(1,0,0,30)
@@ -248,9 +171,9 @@ local viewingPlayer = false
 local originalCamera = nil
 local cameraConnection = nil
 
--- ====== Toggle Function ======
+-- ====== Toggle Function - AKTUALISIERT für Player Settings ======
 local function toggleScrollingFrame(frame)
-	for _, other in ipairs({flyScroll, playerScroll, guiScroll}) do
+	for _, other in ipairs({flyScroll, espScroll, playerScroll, guiScroll}) do
 		if other ~= frame then
 			other.Visible = false
 			other.Position = UDim2.new(1,0,0,30)
@@ -260,8 +183,9 @@ local function toggleScrollingFrame(frame)
 	frame.Position = frame.Visible and UDim2.new(0.38,0,0,30) or UDim2.new(1,0,0,30)
 end
 
--- ====== Button Connections ======
+-- ====== Button Connections - AKTUALISIERT ======
 flyButton.MouseButton1Click:Connect(function() toggleScrollingFrame(flyScroll) end)
+espButton.MouseButton1Click:Connect(function() toggleScrollingFrame(espScroll) end)
 playerButton.MouseButton1Click:Connect(function() toggleScrollingFrame(playerScroll) end)
 guiButton.MouseButton1Click:Connect(function() toggleScrollingFrame(guiScroll) end)
 
@@ -307,12 +231,14 @@ searchBox.TextSize = 12
 searchBox.Parent = playerListFrame
 Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0,4)
 
+-- Dropdown Toggle
 local dropdownOpen = false
 
+-- ====== VIEW BUTTON (muss vor updateButtonPositions definiert werden) ======
 local viewButton = Instance.new("TextButton")
 viewButton.Text = "View: Off"
 viewButton.Size = UDim2.new(0,220,0,30)
-viewButton.Position = UDim2.new(0,10,0,50)
+viewButton.Position = UDim2.new(0,10,0,50) -- Anfangsposition
 viewButton.BackgroundColor3 = primaryMedium
 viewButton.TextColor3 = textColor
 viewButton.Font = Enum.Font.Gotham
@@ -320,10 +246,11 @@ viewButton.TextSize = 14
 viewButton.Parent = playerScroll
 Instance.new("UICorner", viewButton).CornerRadius = UDim.new(0,6)
 
+-- ====== GOTO BUTTON (muss vor updateButtonPositions definiert werden) ======
 local gotoButton = Instance.new("TextButton")
 gotoButton.Text = "Goto Player"
 gotoButton.Size = UDim2.new(0,220,0,30)
-gotoButton.Position = UDim2.new(0,10,0,90)
+gotoButton.Position = UDim2.new(0,10,0,90) -- Anfangsposition
 gotoButton.BackgroundColor3 = primaryMedium
 gotoButton.TextColor3 = textColor
 gotoButton.Font = Enum.Font.Gotham
@@ -331,50 +258,60 @@ gotoButton.TextSize = 14
 gotoButton.Parent = playerScroll
 Instance.new("UICorner", gotoButton).CornerRadius = UDim.new(0,6)
 
--- ====== BUTTON POSITIONIERUNG ======
+-- ====== KORRIGIERTE DYNAMISCHE BUTTON POSITIONIERUNG ======
 local function updateButtonPositions()
-	local baseY = 50
+	local baseY = 50 -- Position direkt nach playerSelectFrame wenn geschlossen
+
 	if dropdownOpen then
-		baseY = 50 + 150 + 10
+		-- Die tatsächliche Höhe des playerListFrame verwenden
+		local dropdownHeight = 150 -- Die feste Höhe des Dropdown-Frames
+
+		-- Setze die neue Position der Buttons UNTER das Dropdown
+		baseY = 50 + dropdownHeight + 10 -- playerSelectFrame Position + Dropdown Höhe + Abstand
 	end
-	
+
+	-- Animiere die Buttons sanft zu ihren neuen Positionen
 	local tweenService = game:GetService("TweenService")
 	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	
+
 	local viewTween = tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)})
 	local gotoTween = tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)})
-	
+
 	viewTween:Play()
 	gotoTween:Play()
-	
-	local totalContentHeight = baseY + 80
+
+	-- Aktualisiere die CanvasSize des playerScrolls um sicherzustellen, dass alle Inhalte sichtbar sind
+	local totalContentHeight = baseY + 80 -- baseY + beide Button-Höhen + zusätzlicher Abstand
 	playerScroll.CanvasSize = UDim2.new(0,0,0,math.max(totalContentHeight, 400))
 end
 
--- ====== PLAYER LIST UPDATE FUNKTION ======
+-- ====== AKTUALISIERTE PLAYER LIST UPDATE FUNKTION ======
 function updatePlayerList(searchQuery)
 	searchQuery = searchQuery or ""
 	searchQuery = searchQuery:lower()
-	
+
+	-- Alle alten Buttons löschen (außer Suchbox)
 	for _, child in pairs(playerListFrame:GetChildren()) do
 		if child:IsA("TextButton") and child ~= searchBox then
 			child:Destroy()
 		end
 	end
-	
-	local yPos = 35
+
+	local yPos = 35 -- Start nach der Suchbox
 	local players = game.Players:GetPlayers()
 	local matchingPlayers = {}
-	
+
+	-- Filter Spieler basierend auf Suche
 	for _, targetPlayer in pairs(players) do
-		if targetPlayer ~= player then
+		if targetPlayer ~= player then -- Eigenen Spieler ausschließen
 			local playerName = targetPlayer.Name:lower()
 			if searchQuery == "" or playerName:find(searchQuery, 1, true) then
 				table.insert(matchingPlayers, targetPlayer)
 			end
 		end
 	end
-	
+
+	-- Erstelle Buttons für gefilterte Spieler
 	for _, targetPlayer in pairs(matchingPlayers) do
 		local playerBtn = Instance.new("TextButton")
 		playerBtn.Size = UDim2.new(1,-10,0,30)
@@ -386,23 +323,25 @@ function updatePlayerList(searchQuery)
 		playerBtn.TextSize = 12
 		playerBtn.Parent = playerListFrame
 		Instance.new("UICorner", playerBtn).CornerRadius = UDim.new(0,4)
-		
+
 		playerBtn.MouseButton1Click:Connect(function()
 			selectedPlayer = targetPlayer
 			playerSelectButton.Text = targetPlayer.Name
 			playerListFrame.Visible = false
 			dropdownOpen = false
-			updateButtonPositions()
+			updateButtonPositions() -- Wichtig: Button-Positionen nach dem Schließen aktualisieren
 		end)
-		
+
 		yPos = yPos + 35
 	end
-	
+
 	playerListFrame.CanvasSize = UDim2.new(0,0,0,yPos + 5)
+
+	-- Button-Positionen nach dem Aktualisieren der Liste neu berechnen
 	updateButtonPositions()
 end
 
--- ====== DROPDOWN EVENTS ======
+-- ====== AKTUALISIERTE DROPDOWN TOGGLE FUNKTION ======
 playerSelectButton.MouseButton1Click:Connect(function()
 	dropdownOpen = not dropdownOpen
 	playerListFrame.Visible = dropdownOpen
@@ -410,12 +349,13 @@ playerSelectButton.MouseButton1Click:Connect(function()
 		searchBox.Text = ""
 		updatePlayerList("")
 	else
-		updateButtonPositions()
+		updateButtonPositions() -- Auch beim Schließen Button-Positionen aktualisieren
 	end
 end)
 
+-- ====== AKTUALISIERTE SUCHBOX EVENT FUNKTION ======
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	updatePlayerList(searchBox.Text)
+	updatePlayerList(searchBox.Text) -- Diese Funktion ruft jetzt automatisch updateButtonPositions() auf
 end)
 
 -- ====== VIEW FUNKTIONALITÄT ======
@@ -435,20 +375,21 @@ end
 
 local function startViewing(targetPlayer)
 	if not targetPlayer or not targetPlayer.Character then return end
-	
+
 	if not originalCamera then
 		originalCamera = workspace.CurrentCamera
 	end
-	
+
 	local targetHumanoid = targetPlayer.Character:FindFirstChild("Humanoid")
 	if targetHumanoid then
 		workspace.CurrentCamera.CameraSubject = targetHumanoid
 		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-		
+
+		-- Verbindung erstellen um zu prüfen ob der Spieler noch da ist
 		cameraConnection = targetPlayer.CharacterRemoving:Connect(function()
 			stopViewing()
 		end)
-		
+
 		viewingPlayer = true
 		viewButton.Text = "View: On"
 		viewButton.BackgroundColor3 = secondary
@@ -457,12 +398,13 @@ end
 
 viewButton.MouseButton1Click:Connect(function()
 	if not selectedPlayer then
+		-- Warnung anzeigen wenn kein Spieler ausgewählt
 		playerSelectButton.Text = "Please select a player first!"
 		wait(2)
 		playerSelectButton.Text = "Select Player"
 		return
 	end
-	
+
 	if viewingPlayer then
 		stopViewing()
 	else
@@ -473,28 +415,30 @@ end)
 -- ====== GOTO FUNKTIONALITÄT ======
 gotoButton.MouseButton1Click:Connect(function()
 	if not selectedPlayer then
+		-- Warnung anzeigen
 		playerSelectButton.Text = "Please select a player first!"
 		wait(2)
 		playerSelectButton.Text = "Select Player"
 		return
 	end
-	
+
 	if not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
 		playerSelectButton.Text = "Player not found!"
 		wait(2)
 		playerSelectButton.Text = selectedPlayer.Name
 		return
 	end
-	
+
 	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
 		return
 	end
-	
+
+	-- Teleportiere zum Spieler
 	local targetPosition = selectedPlayer.Character.HumanoidRootPart.Position
 	player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 0, 3))
 end)
 
--- ====== PLAYER EVENTS ======
+-- ====== PLAYER EVENTS - Dropdown automatisch aktualisieren ======
 game.Players.PlayerAdded:Connect(function()
 	if dropdownOpen then
 		updatePlayerList(searchBox.Text)
@@ -502,6 +446,7 @@ game.Players.PlayerAdded:Connect(function()
 end)
 
 game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	-- Stoppe View wenn der betrachtete Spieler das Spiel verlässt
 	if selectedPlayer == leavingPlayer then
 		if viewingPlayer then
 			stopViewing()
@@ -509,13 +454,22 @@ game.Players.PlayerRemoving:Connect(function(leavingPlayer)
 		selectedPlayer = nil
 		playerSelectButton.Text = "Select Player"
 	end
-	
+
 	if dropdownOpen then
 		updatePlayerList(searchBox.Text)
 	end
 end)
 
--- ====== GUI SETTINGS ======
+-- Stoppe View wenn der eigene Character respawnt
+player.CharacterAdded:Connect(function()
+	if viewingPlayer then
+		stopViewing()
+	end
+	character = player.Character
+	hrp = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+end)
+
 local closeKeyLabel = Instance.new("TextLabel")
 closeKeyLabel.Size = UDim2.new(0,200,0,20)
 closeKeyLabel.Position = UDim2.new(0,10,0,20)
@@ -525,16 +479,13 @@ closeKeyLabel.TextXAlignment = Enum.TextXAlignment.Left
 closeKeyLabel.Text = "GUI Toggle Key"
 closeKeyLabel.Parent = guiScroll
 
+-- ====== GUI Close Key ======
 local closeKey = Enum.KeyCode.Q
 local closeKeyBox = Instance.new("TextBox")
 closeKeyBox.Size = UDim2.new(0,200,0,30)
 closeKeyBox.Position = UDim2.new(0,10,0,40)
 closeKeyBox.Text = "Q"
-closeKeyBox.BackgroundColor3 = primaryDark
-closeKeyBox.TextColor3 = textColor
 closeKeyBox.Parent = guiScroll
-Instance.new("UICorner", closeKeyBox).CornerRadius = UDim.new(0,6)
-
 closeKeyBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local text = closeKeyBox.Text
 	if #text > 1 then text = text:sub(1,1) end
@@ -543,7 +494,6 @@ closeKeyBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
 	if success and keyEnum then closeKey = keyEnum end
 end)
-
 uis.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
 	if input.KeyCode == closeKey then
@@ -551,7 +501,7 @@ uis.InputBegan:Connect(function(input, gpe)
 	end
 end)
 
--- ====== FLY SETTINGS ======
+-- ====== Fly/Noclip Buttons ======
 local flyOnOff = Instance.new("TextButton")
 flyOnOff.Text = "Fly: Off"
 flyOnOff.Size = UDim2.new(0,200,0,30)
@@ -574,10 +524,7 @@ local speedBox = Instance.new("TextBox")
 speedBox.Size = UDim2.new(0,200,0,30)
 speedBox.Position = UDim2.new(0,10,0,80)
 speedBox.Text = tostring(flySpeed)
-speedBox.BackgroundColor3 = primaryDark
-speedBox.TextColor3 = textColor
 speedBox.Parent = flyScroll
-Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0,6)
 
 local keyLabel = Instance.new("TextLabel")
 keyLabel.Size = UDim2.new(0,200,0,20)
@@ -592,10 +539,7 @@ local keyBox = Instance.new("TextBox")
 keyBox.Size = UDim2.new(0,200,0,30)
 keyBox.Position = UDim2.new(0,10,0,150)
 keyBox.Text = flyKey.Name
-keyBox.BackgroundColor3 = primaryDark
-keyBox.TextColor3 = textColor
 keyBox.Parent = flyScroll
-Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0,6)
 
 local noclipButton = Instance.new("TextButton")
 noclipButton.Text = "Fly Noclip: Off"
@@ -606,7 +550,7 @@ noclipButton.TextColor3 = textColor
 noclipButton.Parent = flyScroll
 Instance.new("UICorner", noclipButton).CornerRadius = UDim.new(0,6)
 
--- ====== Farbauswahl ======
+-- ====== Farbauswahl (sichtbar) ======
 local function createColorPicker(labelText, defaultColor, yPos, onChange)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.new(0,200,0,20)
@@ -616,7 +560,7 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Text = labelText
 	label.Parent = guiScroll
-	
+
 	local colorBox = Instance.new("TextButton")
 	colorBox.Size = UDim2.new(0,200,0,30)
 	colorBox.Position = UDim2.new(0,10,0,yPos+20)
@@ -624,11 +568,10 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 	colorBox.Text = ""
 	colorBox.BorderSizePixel = 2
 	colorBox.Parent = guiScroll
-	Instance.new("UICorner", colorBox).CornerRadius = UDim.new(0,6)
-	
+
 	local pickerOpen = false
 	local pickerFrame
-	
+
 	local colors = {
 		Color3.fromRGB(30,30,30), Color3.fromRGB(50,50,50), Color3.fromRGB(70,70,70),
 		Color3.fromRGB(100,0,255), Color3.fromRGB(128,0,255), Color3.fromRGB(200,50,255),
@@ -636,7 +579,7 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 		Color3.fromRGB(255,255,0), Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,128),
 		Color3.fromRGB(0,255,255), Color3.fromRGB(255,192,203), Color3.fromRGB(192,192,192)
 	}
-	
+
 	colorBox.MouseButton1Click:Connect(function()
 		if pickerOpen then
 			if pickerFrame then pickerFrame:Destroy() end
@@ -650,7 +593,8 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 		pickerFrame.BackgroundColor3 = primaryMedium
 		pickerFrame.Parent = guiScroll
 		Instance.new("UICorner", pickerFrame).CornerRadius = UDim.new(0,8)
-		
+
+		-- Close X oben rechts
 		local closeBtn = Instance.new("TextButton")
 		closeBtn.Size = UDim2.new(0,20,0,20)
 		closeBtn.Position = UDim2.new(1,-25,0,5)
@@ -662,7 +606,7 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 			pickerFrame:Destroy()
 			pickerOpen = false
 		end)
-		
+
 		for i, c in ipairs(colors) do
 			local btn = Instance.new("TextButton")
 			btn.Size = UDim2.new(0,30,0,30)
@@ -689,6 +633,7 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	leftScroll.BackgroundColor3 = primaryDark
 	flyScroll.BackgroundColor3 = primaryMedium
 	guiScroll.BackgroundColor3 = primaryMedium
+	espScroll.BackgroundColor3 = primaryMedium
 	playerScroll.BackgroundColor3 = primaryMedium
 	playerSelectFrame.BackgroundColor3 = primaryDark
 	playerListFrame.BackgroundColor3 = primaryDark
@@ -696,6 +641,7 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
 	flyButton.BackgroundColor3 = primaryMedium
 	guiButton.BackgroundColor3 = primaryMedium
+	espButton.BackgroundColor3 = primaryMedium
 	playerButton.BackgroundColor3 = primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	gotoButton.BackgroundColor3 = primaryMedium
@@ -708,7 +654,7 @@ createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 end)
 
--- ====== ANIMATION CONTROL ======
+-- ====== Animation Control ======
 local function setFlyingAnimations(enabled)
 	if enabled then
 		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
@@ -723,7 +669,7 @@ local function setFlyingAnimations(enabled)
 	end
 end
 
--- ====== FLY LOGIC ======
+-- ====== Fly/Noclip Logic ======
 local function stopFly()
 	if bv then bv:Destroy() bv = nil end
 	if bg then bg:Destroy() bg = nil end
@@ -764,5 +710,88 @@ flyOnOff.MouseButton1Click:Connect(function()
 		flyOnOff.Text = "Fly: Off"
 		flyOnOff.BackgroundColor3 = primaryMedium
 		stopFly()
+	end
+end)
+
+-- ====== Fly Key Fix ======
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == flyKey then
+		-- Toggle Fly
+		flying = not flying
+		if flying then
+			flyOnOff.Text = "Fly: On"
+			flyOnOff.BackgroundColor3 = secondary
+			if not bv then
+				bv = Instance.new("BodyVelocity")
+				bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+				bv.Velocity = Vector3.new(0,0,0)
+				bv.Parent = hrp
+			end
+			if not bg then
+				bg = Instance.new("BodyGyro")
+				bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
+				bg.CFrame = hrp.CFrame
+				bg.Parent = hrp
+			end
+			humanoid.PlatformStand = true
+			setFlyingAnimations(true)
+		else
+			flyOnOff.Text = "Fly: Off"
+			flyOnOff.BackgroundColor3 = primaryMedium
+			stopFly()
+		end
+	end
+end)
+
+speedBox.FocusLost:Connect(function()
+	local val = tonumber(speedBox.Text)
+	if val then flySpeed = val end
+end)
+
+keyBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = keyBox.Text
+	if #text > 1 then text = text:sub(1,1) end
+	text = text:upper()
+	keyBox.Text = text
+	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
+	if success and keyEnum then flyKey = keyEnum end
+end)
+
+noclipButton.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	if noclip then
+		noclipButton.Text = "Fly Noclip: On"
+		noclipButton.BackgroundColor3 = secondary
+	else
+		noclipButton.Text = "Fly Noclip: Off"
+		noclipButton.BackgroundColor3 = primaryMedium
+	end
+end)
+
+-- ====== RunService Loop ======
+runService.RenderStepped:Connect(function()
+	if flying and bv and bg then
+		local cam = workspace.CurrentCamera
+		local moveDir = Vector3.new(0,0,0)
+		if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
+		if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0,1,0) end
+
+		if moveDir.Magnitude > 0 then
+			moveDir = moveDir.Unit * flySpeed
+		end
+
+		bv.Velocity = moveDir
+		bg.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
+
+		for _, part in pairs(character:GetChildren()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = not noclip
+			end
+		end
 	end
 end)
