@@ -313,18 +313,24 @@ local function disableESP()
 	print("ESP Debug: Disabling ESP for all players")
 	-- Alle ESP Objekte entfernen
 	for playerName, espData in pairs(espObjects) do
-		if espData.highlight then espData.highlight:Destroy() end
+		pcall(function()
+			if espData and espData.highlight then 
+				espData.highlight:Destroy() 
+			end
+		end)
 	end
 	espObjects = {}
 	
 	-- Zusätzlich: Alle Highlights im Spiel entfernen die ESP sein könnten
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-		if targetPlayer.Character then
-			for _, child in pairs(targetPlayer.Character:GetChildren()) do
-				if child:IsA("Highlight") and child.Name:find("ESPHighlight") then
-					child:Destroy()
+		if targetPlayer and targetPlayer.Character then
+			pcall(function()
+				for _, child in pairs(targetPlayer.Character:GetChildren()) do
+					if child:IsA("Highlight") and child.Name:find("ESPHighlight") then
+						child:Destroy()
+					end
 				end
-			end
+			end)
 		end
 	end
 end
@@ -459,15 +465,15 @@ local function startESPUpdateLoop()
 	espUpdateConnection = runService.Heartbeat:Connect(function()
 		if espEnabled then
 			-- Prüfe alle Spieler alle 60 Frames (ca. 1x pro Sekunde)
-			if tick() % 1 < 0.016 then
+			if math.floor(tick() * 60) % 60 == 0 then
 				for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-					if targetPlayer ~= player and targetPlayer.Character then
+					if targetPlayer and targetPlayer ~= player and targetPlayer.Character then
 						local hasValidESP = false
 						
 						-- Prüfe ob Spieler bereits gültiges ESP hat
 						if espObjects[targetPlayer.Name] then
 							local espData = espObjects[targetPlayer.Name]
-							if espData.highlight and espData.highlight.Parent and espData.character == targetPlayer.Character then
+							if espData and espData.highlight and espData.highlight.Parent and espData.character == targetPlayer.Character then
 								hasValidESP = true
 							end
 						end
@@ -476,7 +482,9 @@ local function startESPUpdateLoop()
 						if not hasValidESP then
 							print("ESP Debug: Creating missing ESP for " .. targetPlayer.Name)
 							spawn(function()
-								createESPForPlayer(targetPlayer)
+								pcall(function()
+									createESPForPlayer(targetPlayer)
+								end)
 							end)
 						end
 						
@@ -490,7 +498,9 @@ local function startESPUpdateLoop()
 							if not hasValidNametag then
 								print("ESP Debug: Creating missing nametag for " .. targetPlayer.Name)
 								spawn(function()
-									createNametagForPlayer(targetPlayer)
+									pcall(function()
+										createNametagForPlayer(targetPlayer)
+									end)
 								end)
 							end
 						end
@@ -499,16 +509,20 @@ local function startESPUpdateLoop()
 				
 				-- Entferne ESP für nicht mehr existierende Spieler
 				for playerName, espData in pairs(espObjects) do
-					local targetPlayer = game.Players:FindFirstChild(playerName)
-					if not targetPlayer or not targetPlayer.Character or espData.character ~= targetPlayer.Character then
-						print("ESP Debug: Removing invalid ESP for " .. playerName)
-						if espData.highlight then
-							espData.highlight:Destroy()
+					if espData then
+						local targetPlayer = game.Players:FindFirstChild(playerName)
+						if not targetPlayer or not targetPlayer.Character or (espData.character and espData.character ~= targetPlayer.Character) then
+							print("ESP Debug: Removing invalid ESP for " .. playerName)
+							pcall(function()
+								if espData.highlight then
+									espData.highlight:Destroy()
+								end
+								if espData.nametag then
+									espData.nametag:Destroy()
+								end
+							end)
+							espObjects[playerName] = nil
 						end
-						if espData.nametag then
-							espData.nametag:Destroy()
-						end
-						espObjects[playerName] = nil
 					end
 				end
 			end
@@ -1087,6 +1101,8 @@ local function stopFly()
 end
 
 flyOnOff.MouseButton1Click:Connect(function()
+	if not character or not hrp or not humanoid then return end
+	
 	flying = not flying
 	if flying then
 		flyOnOff.Text = "Fly: On"
@@ -1116,6 +1132,8 @@ end)
 uis.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
 	if input.KeyCode == flyKey then
+		if not character or not hrp or not humanoid then return end
+		
 		-- Toggle Fly
 		flying = not flying
 		if flying then
