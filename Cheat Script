@@ -217,58 +217,106 @@ playerListFrame.CanvasSize = UDim2.new(0,0,0,0)
 playerListFrame.Parent = playerScroll
 Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0,6)
 
+-- ====== SUCHLEISTE ======
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1,-10,0,25)
+searchBox.Position = UDim2.new(0,5,0,5)
+searchBox.BackgroundColor3 = primaryMedium
+searchBox.TextColor3 = textColor
+searchBox.PlaceholderText = "Search players..."
+searchBox.PlaceholderColor3 = Color3.fromRGB(150,150,150)
+searchBox.Text = ""
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 12
+searchBox.Parent = playerListFrame
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0,4)
+
 -- Dropdown Toggle
 local dropdownOpen = false
 playerSelectButton.MouseButton1Click:Connect(function()
 	dropdownOpen = not dropdownOpen
 	playerListFrame.Visible = dropdownOpen
-	updatePlayerList()
+	if dropdownOpen then
+		searchBox.Text = ""
+		updatePlayerList("")
+	end
+	updateButtonPositions()
 end)
 
--- ====== PLAYER LIST UPDATE FUNKTION ======
-function updatePlayerList()
-	-- Alle alten Buttons löschen
+-- ====== PLAYER LIST UPDATE FUNKTION MIT SUCHE ======
+function updatePlayerList(searchQuery)
+	searchQuery = searchQuery or ""
+	searchQuery = searchQuery:lower()
+	
+	-- Alle alten Buttons löschen (außer Suchbox)
 	for _, child in pairs(playerListFrame:GetChildren()) do
-		if child:IsA("TextButton") then
+		if child:IsA("TextButton") and child ~= searchBox then
 			child:Destroy()
 		end
 	end
 
-	local yPos = 5
+	local yPos = 35 -- Start nach der Suchbox
 	local players = game.Players:GetPlayers()
+	local matchingPlayers = {}
 
+	-- Filter Spieler basierend auf Suche
 	for _, targetPlayer in pairs(players) do
 		if targetPlayer ~= player then -- Eigenen Spieler ausschließen
-			local playerBtn = Instance.new("TextButton")
-			playerBtn.Size = UDim2.new(1,-10,0,30)
-			playerBtn.Position = UDim2.new(0,5,0,yPos)
-			playerBtn.BackgroundColor3 = primaryMedium
-			playerBtn.TextColor3 = textColor
-			playerBtn.Text = targetPlayer.Name
-			playerBtn.Font = Enum.Font.Gotham
-			playerBtn.TextSize = 12
-			playerBtn.Parent = playerListFrame
-			Instance.new("UICorner", playerBtn).CornerRadius = UDim.new(0,4)
-
-			playerBtn.MouseButton1Click:Connect(function()
-				selectedPlayer = targetPlayer
-				playerSelectButton.Text = targetPlayer.Name
-				playerListFrame.Visible = false
-				dropdownOpen = false
-			end)
-
-			yPos = yPos + 35
+			local playerName = targetPlayer.Name:lower()
+			if searchQuery == "" or playerName:find(searchQuery, 1, true) then
+				table.insert(matchingPlayers, targetPlayer)
+			end
 		end
 	end
 
+	-- Erstelle Buttons für gefilterte Spieler
+	for _, targetPlayer in pairs(matchingPlayers) do
+		local playerBtn = Instance.new("TextButton")
+		playerBtn.Size = UDim2.new(1,-10,0,30)
+		playerBtn.Position = UDim2.new(0,5,0,yPos)
+		playerBtn.BackgroundColor3 = primaryMedium
+		playerBtn.TextColor3 = textColor
+		playerBtn.Text = targetPlayer.Name
+		playerBtn.Font = Enum.Font.Gotham
+		playerBtn.TextSize = 12
+		playerBtn.Parent = playerListFrame
+		Instance.new("UICorner", playerBtn).CornerRadius = UDim.new(0,4)
+
+		playerBtn.MouseButton1Click:Connect(function()
+			selectedPlayer = targetPlayer
+			playerSelectButton.Text = targetPlayer.Name
+			playerListFrame.Visible = false
+			dropdownOpen = false
+			updateButtonPositions()
+		end)
+
+		yPos = yPos + 35
+	end
+
 	playerListFrame.CanvasSize = UDim2.new(0,0,0,yPos + 5)
+end
+
+-- Suchbox Event für Live-Suche
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	updatePlayerList(searchBox.Text)
+end)
+
+-- ====== DYNAMISCHE BUTTON POSITIONIERUNG ======
+local function updateButtonPositions()
+	local baseY = 50 -- Position direkt nach playerSelectFrame
+	if dropdownOpen then
+		baseY = 210 -- Position nach dem geöffneten Dropdown
+	end
+	
+	viewButton.Position = UDim2.new(0,10,0,baseY)
+	gotoButton.Position = UDim2.new(0,10,0,baseY + 40)
 end
 
 -- ====== VIEW BUTTON ======
 local viewButton = Instance.new("TextButton")
 viewButton.Text = "View: Off"
 viewButton.Size = UDim2.new(0,220,0,30)
-viewButton.Position = UDim2.new(0,10,0,220)
+viewButton.Position = UDim2.new(0,10,0,50) -- Anfangsposition
 viewButton.BackgroundColor3 = primaryMedium
 viewButton.TextColor3 = textColor
 viewButton.Font = Enum.Font.Gotham
@@ -280,7 +328,7 @@ Instance.new("UICorner", viewButton).CornerRadius = UDim.new(0,6)
 local gotoButton = Instance.new("TextButton")
 gotoButton.Text = "Goto Player"
 gotoButton.Size = UDim2.new(0,220,0,30)
-gotoButton.Position = UDim2.new(0,10,0,260)
+gotoButton.Position = UDim2.new(0,10,0,90) -- Anfangsposition
 gotoButton.BackgroundColor3 = primaryMedium
 gotoButton.TextColor3 = textColor
 gotoButton.Font = Enum.Font.Gotham
@@ -371,7 +419,7 @@ end)
 -- ====== PLAYER EVENTS - Dropdown automatisch aktualisieren ======
 game.Players.PlayerAdded:Connect(function()
 	if dropdownOpen then
-		updatePlayerList()
+		updatePlayerList(searchBox.Text)
 	end
 end)
 
@@ -386,7 +434,7 @@ game.Players.PlayerRemoving:Connect(function(leavingPlayer)
 	end
 
 	if dropdownOpen then
-		updatePlayerList()
+		updatePlayerList(searchBox.Text)
 	end
 end)
 
