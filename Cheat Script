@@ -308,8 +308,15 @@ local function updateButtonPositions()
 		baseY = 210 -- Position nach dem geöffneten Dropdown
 	end
 	
-	viewButton.Position = UDim2.new(0,10,0,baseY)
-	gotoButton.Position = UDim2.new(0,10,0,baseY + 40)
+	-- Animiere die Buttons nach oben oder unten
+	local tweenService = game:GetService("TweenService")
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	
+	local viewTween = tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)})
+	local gotoTween = tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)})
+	
+	viewTween:Play()
+	gotoTween:Play()
 end
 
 -- ====== VIEW BUTTON ======
