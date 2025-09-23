@@ -1,0 +1,1268 @@
+local player = game.Players.LocalPlayer
+local uis = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+local flying = false
+local flySpeed = 50
+local flyKey = Enum.KeyCode.E
+local noclip = false
+local bv, bg
+
+-- ====== Farben ======
+local primaryDark = Color3.fromRGB(30,30,30)
+local primaryMedium = Color3.fromRGB(50,50,50)
+local primaryLight = Color3.fromRGB(70,70,70)
+local secondary = Color3.fromRGB(128,0,255)
+local textColor = Color3.fromRGB(255,255,255)
+
+-- ====== GUI erstellen ======
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TabletGUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0,400,0,300)
+mainFrame.Position = UDim2.new(0.3,0,0.3,0)
+mainFrame.BackgroundColor3 = primaryMedium
+mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,12)
+
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1,0,0,30)
+topBar.BackgroundColor3 = primaryLight
+topBar.Parent = mainFrame
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1,0,1,0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Tablet Menu"
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 18
+titleLabel.TextColor3 = textColor
+titleLabel.Parent = topBar
+
+-- ====== Dragging ======
+local dragging, dragInput, mousePos, framePos = false, nil, nil, nil
+topBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		mousePos = input.Position
+		framePos = mainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+topBar.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		dragInput = input
+	end
+end)
+uis.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - mousePos
+		mainFrame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+	end
+end)
+
+-- ====== Left Buttons ======
+local leftScroll = Instance.new("ScrollingFrame")
+leftScroll.Size = UDim2.new(0,150,1,-30)
+leftScroll.Position = UDim2.new(0,0,0,30)
+leftScroll.BackgroundColor3 = primaryDark
+leftScroll.ScrollBarThickness = 6
+leftScroll.Parent = mainFrame
+Instance.new("UICorner", leftScroll).CornerRadius = UDim.new(0,8)
+
+local flyButton = Instance.new("TextButton")
+flyButton.Text = "Fly Settings"
+flyButton.Size = UDim2.new(1,-10,0,50)
+flyButton.BackgroundColor3 = primaryMedium
+flyButton.TextColor3 = textColor
+flyButton.Parent = leftScroll
+Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0,6)
+
+local espButton = Instance.new("TextButton")
+espButton.Text = "ESP Settings"
+espButton.Size = UDim2.new(1,-10,0,50)
+espButton.BackgroundColor3 = primaryMedium
+espButton.TextColor3 = textColor
+espButton.Parent = leftScroll
+Instance.new("UICorner", espButton).CornerRadius = UDim.new(0,6)
+
+-- ====== NEUER PLAYER SETTINGS BUTTON ======
+local playerButton = Instance.new("TextButton")
+playerButton.Text = "Player Settings"
+playerButton.Size = UDim2.new(1,-10,0,50)
+playerButton.BackgroundColor3 = primaryMedium
+playerButton.TextColor3 = textColor
+playerButton.Parent = leftScroll
+Instance.new("UICorner", playerButton).CornerRadius = UDim.new(0,6)
+
+local guiButton = Instance.new("TextButton")
+guiButton.Text = "Gui Settings"
+guiButton.Size = UDim2.new(1,-10,0,50)
+guiButton.BackgroundColor3 = primaryMedium
+guiButton.TextColor3 = textColor
+guiButton.Parent = leftScroll
+Instance.new("UICorner", guiButton).CornerRadius = UDim.new(0,6)
+
+local function updateButtonPositions()
+	local lastY = 5
+	flyButton.Position = UDim2.new(0,5,0,lastY)
+	lastY = lastY + flyButton.Size.Y.Offset + 5
+	espButton.Position = UDim2.new(0,5,0,lastY)
+	lastY = lastY + espButton.Size.Y.Offset + 5
+	playerButton.Position = UDim2.new(0,5,0,lastY)  -- Neuer Button Position
+	lastY = lastY + playerButton.Size.Y.Offset + 5
+	guiButton.Position = UDim2.new(0,5,0,lastY)
+end
+updateButtonPositions()
+
+-- ====== Right Panels ======
+local flyScroll = Instance.new("ScrollingFrame")
+flyScroll.Size = UDim2.new(0,240,1,-30)
+flyScroll.Position = UDim2.new(1,0,0,30)
+flyScroll.BackgroundColor3 = primaryMedium
+flyScroll.ScrollBarThickness = 6
+flyScroll.Visible = false
+flyScroll.Parent = mainFrame
+Instance.new("UICorner", flyScroll).CornerRadius = UDim.new(0,8)
+
+local espScroll = Instance.new("ScrollingFrame")
+espScroll.Size = UDim2.new(0,240,1,-30)
+espScroll.Position = UDim2.new(1,0,0,30)
+espScroll.BackgroundColor3 = primaryMedium
+espScroll.ScrollBarThickness = 6
+espScroll.Visible = false
+espScroll.CanvasSize = UDim2.new(0,0,0,800)
+espScroll.Parent = mainFrame
+Instance.new("UICorner", espScroll).CornerRadius = UDim.new(0,8)
+
+-- ====== NEUER PLAYER SCROLL FRAME ======
+local playerScroll = Instance.new("ScrollingFrame")
+playerScroll.Size = UDim2.new(0,240,1,-30)
+playerScroll.Position = UDim2.new(1,0,0,30)
+playerScroll.BackgroundColor3 = primaryMedium
+playerScroll.ScrollBarThickness = 6
+playerScroll.Visible = false
+playerScroll.CanvasSize = UDim2.new(0,0,0,400)
+playerScroll.Parent = mainFrame
+Instance.new("UICorner", playerScroll).CornerRadius = UDim.new(0,8)
+
+local guiScroll = Instance.new("ScrollingFrame")
+guiScroll.Size = UDim2.new(0,240,1,-30)
+guiScroll.Position = UDim2.new(1,0,0,30)
+guiScroll.BackgroundColor3 = primaryMedium
+guiScroll.ScrollBarThickness = 6
+guiScroll.Visible = false
+guiScroll.Parent = mainFrame
+Instance.new("UICorner", guiScroll).CornerRadius = UDim.new(0,8)
+
+-- ====== PLAYER SETTINGS VARIABLEN ======
+local selectedPlayer = nil
+local viewingPlayer = false
+local originalCamera = nil
+local cameraConnection = nil
+
+-- ====== Toggle Function - AKTUALISIERT für Player Settings ======
+local function toggleScrollingFrame(frame)
+	for _, other in ipairs({flyScroll, espScroll, playerScroll, guiScroll}) do
+		if other ~= frame then
+			other.Visible = false
+			other.Position = UDim2.new(1,0,0,30)
+		end
+	end
+	frame.Visible = not frame.Visible
+	frame.Position = frame.Visible and UDim2.new(0.38,0,0,30) or UDim2.new(1,0,0,30)
+end
+
+-- ====== Button Connections - AKTUALISIERT ======
+flyButton.MouseButton1Click:Connect(function() toggleScrollingFrame(flyScroll) end)
+espButton.MouseButton1Click:Connect(function() toggleScrollingFrame(espScroll) end)
+playerButton.MouseButton1Click:Connect(function() toggleScrollingFrame(playerScroll) end)
+guiButton.MouseButton1Click:Connect(function() toggleScrollingFrame(guiScroll) end)
+
+-- ====== PLAYER AUSWAHL DROPDOWN ======
+local playerSelectFrame = Instance.new("Frame")
+playerSelectFrame.Size = UDim2.new(0,220,0,30)
+playerSelectFrame.Position = UDim2.new(0,10,0,10)
+playerSelectFrame.BackgroundColor3 = primaryDark
+playerSelectFrame.Parent = playerScroll
+Instance.new("UICorner", playerSelectFrame).CornerRadius = UDim.new(0,6)
+
+local playerSelectButton = Instance.new("TextButton")
+playerSelectButton.Size = UDim2.new(1,0,1,0)
+playerSelectButton.BackgroundTransparency = 1
+playerSelectButton.Text = "Select Player"
+playerSelectButton.TextColor3 = textColor
+playerSelectButton.Font = Enum.Font.Gotham
+playerSelectButton.TextSize = 14
+playerSelectButton.Parent = playerSelectFrame
+
+-- Dropdown Liste
+local playerListFrame = Instance.new("ScrollingFrame")
+playerListFrame.Size = UDim2.new(0,220,0,150)
+playerListFrame.Position = UDim2.new(0,10,0,50)
+playerListFrame.BackgroundColor3 = primaryDark
+playerListFrame.ScrollBarThickness = 4
+playerListFrame.Visible = false
+playerListFrame.CanvasSize = UDim2.new(0,0,0,0)
+playerListFrame.Parent = playerScroll
+Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0,6)
+
+-- Dropdown Toggle
+local dropdownOpen = false
+playerSelectButton.MouseButton1Click:Connect(function()
+	dropdownOpen = not dropdownOpen
+	playerListFrame.Visible = dropdownOpen
+	updatePlayerList()
+end)
+
+-- ====== PLAYER LIST UPDATE FUNKTION ======
+function updatePlayerList()
+	-- Alle alten Buttons löschen
+	for _, child in pairs(playerListFrame:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	local yPos = 5
+	local players = game.Players:GetPlayers()
+
+	for _, targetPlayer in pairs(players) do
+		if targetPlayer ~= player then -- Eigenen Spieler ausschließen
+			local playerBtn = Instance.new("TextButton")
+			playerBtn.Size = UDim2.new(1,-10,0,30)
+			playerBtn.Position = UDim2.new(0,5,0,yPos)
+			playerBtn.BackgroundColor3 = primaryMedium
+			playerBtn.TextColor3 = textColor
+			playerBtn.Text = targetPlayer.Name
+			playerBtn.Font = Enum.Font.Gotham
+			playerBtn.TextSize = 12
+			playerBtn.Parent = playerListFrame
+			Instance.new("UICorner", playerBtn).CornerRadius = UDim.new(0,4)
+
+			playerBtn.MouseButton1Click:Connect(function()
+				selectedPlayer = targetPlayer
+				playerSelectButton.Text = targetPlayer.Name
+				playerListFrame.Visible = false
+				dropdownOpen = false
+			end)
+
+			yPos = yPos + 35
+		end
+	end
+
+	playerListFrame.CanvasSize = UDim2.new(0,0,0,yPos + 5)
+end
+
+-- ====== VIEW BUTTON ======
+local viewButton = Instance.new("TextButton")
+viewButton.Text = "View: Off"
+viewButton.Size = UDim2.new(0,220,0,30)
+viewButton.Position = UDim2.new(0,10,0,220)
+viewButton.BackgroundColor3 = primaryMedium
+viewButton.TextColor3 = textColor
+viewButton.Font = Enum.Font.Gotham
+viewButton.TextSize = 14
+viewButton.Parent = playerScroll
+Instance.new("UICorner", viewButton).CornerRadius = UDim.new(0,6)
+
+-- ====== GOTO BUTTON ======
+local gotoButton = Instance.new("TextButton")
+gotoButton.Text = "Goto Player"
+gotoButton.Size = UDim2.new(0,220,0,30)
+gotoButton.Position = UDim2.new(0,10,0,260)
+gotoButton.BackgroundColor3 = primaryMedium
+gotoButton.TextColor3 = textColor
+gotoButton.Font = Enum.Font.Gotham
+gotoButton.TextSize = 14
+gotoButton.Parent = playerScroll
+Instance.new("UICorner", gotoButton).CornerRadius = UDim.new(0,6)
+
+-- ====== VIEW FUNKTIONALITÄT ======
+local function stopViewing()
+	if cameraConnection then
+		cameraConnection:Disconnect()
+		cameraConnection = nil
+	end
+	if originalCamera then
+		workspace.CurrentCamera.CameraSubject = player.Character and player.Character:FindFirstChild("Humanoid")
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+	end
+	viewingPlayer = false
+	viewButton.Text = "View: Off"
+	viewButton.BackgroundColor3 = primaryMedium
+end
+
+local function startViewing(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+
+	if not originalCamera then
+		originalCamera = workspace.CurrentCamera
+	end
+
+	local targetHumanoid = targetPlayer.Character:FindFirstChild("Humanoid")
+	if targetHumanoid then
+		workspace.CurrentCamera.CameraSubject = targetHumanoid
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+
+		-- Verbindung erstellen um zu prüfen ob der Spieler noch da ist
+		cameraConnection = targetPlayer.CharacterRemoving:Connect(function()
+			stopViewing()
+		end)
+
+		viewingPlayer = true
+		viewButton.Text = "View: On"
+		viewButton.BackgroundColor3 = secondary
+	end
+end
+
+viewButton.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		-- Warnung anzeigen wenn kein Spieler ausgewählt
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
+		return
+	end
+
+	if viewingPlayer then
+		stopViewing()
+	else
+		startViewing(selectedPlayer)
+	end
+end)
+
+-- ====== GOTO FUNKTIONALITÄT ======
+gotoButton.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		-- Warnung anzeigen
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
+		return
+	end
+
+	if not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		playerSelectButton.Text = "Player not found!"
+		wait(2)
+		playerSelectButton.Text = selectedPlayer.Name
+		return
+	end
+
+	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+		return
+	end
+
+	-- Teleportiere zum Spieler
+	local targetPosition = selectedPlayer.Character.HumanoidRootPart.Position
+	player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 0, 3))
+end)
+
+-- ====== PLAYER EVENTS - Dropdown automatisch aktualisieren ======
+game.Players.PlayerAdded:Connect(function()
+	if dropdownOpen then
+		updatePlayerList()
+	end
+end)
+
+game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	-- Stoppe View wenn der betrachtete Spieler das Spiel verlässt
+	if selectedPlayer == leavingPlayer then
+		if viewingPlayer then
+			stopViewing()
+		end
+		selectedPlayer = nil
+		playerSelectButton.Text = "Select Player"
+	end
+
+	if dropdownOpen then
+		updatePlayerList()
+	end
+end)
+
+-- Stoppe View wenn der eigene Character respawnt
+player.CharacterAdded:Connect(function()
+	if viewingPlayer then
+		stopViewing()
+	end
+	character = player.Character
+	hrp = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+end)
+
+local closeKeyLabel = Instance.new("TextLabel")
+closeKeyLabel.Size = UDim2.new(0,200,0,20)
+closeKeyLabel.Position = UDim2.new(0,10,0,20)
+closeKeyLabel.BackgroundTransparency = 1
+closeKeyLabel.TextColor3 = textColor
+closeKeyLabel.TextXAlignment = Enum.TextXAlignment.Left
+closeKeyLabel.Text = "GUI Toggle Key"
+closeKeyLabel.Parent = guiScroll
+
+-- ====== GUI Close Key ======
+local closeKey = Enum.KeyCode.Q
+local closeKeyBox = Instance.new("TextBox")
+closeKeyBox.Size = UDim2.new(0,200,0,30)
+closeKeyBox.Position = UDim2.new(0,10,0,40)
+closeKeyBox.Text = "Q"
+closeKeyBox.Parent = guiScroll
+closeKeyBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = closeKeyBox.Text
+	if #text > 1 then text = text:sub(1,1) end
+	text = text:upper()
+	closeKeyBox.Text = text
+	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
+	if success and keyEnum then closeKey = keyEnum end
+end)
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == closeKey then
+		mainFrame.Visible = not mainFrame.Visible
+	end
+end)
+
+-- ====== Fly/Noclip Buttons ======
+local flyOnOff = Instance.new("TextButton")
+flyOnOff.Text = "Fly: Off"
+flyOnOff.Size = UDim2.new(0,200,0,30)
+flyOnOff.Position = UDim2.new(0,10,0,10)
+flyOnOff.BackgroundColor3 = primaryMedium
+flyOnOff.TextColor3 = textColor
+flyOnOff.Parent = flyScroll
+Instance.new("UICorner", flyOnOff).CornerRadius = UDim.new(0,6)
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0,200,0,20)
+speedLabel.Position = UDim2.new(0,10,0,60)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = textColor
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Text = "Fly Speed:"
+speedLabel.Parent = flyScroll
+
+local speedBox = Instance.new("TextBox")
+speedBox.Size = UDim2.new(0,200,0,30)
+speedBox.Position = UDim2.new(0,10,0,80)
+speedBox.Text = tostring(flySpeed)
+speedBox.Parent = flyScroll
+
+local keyLabel = Instance.new("TextLabel")
+keyLabel.Size = UDim2.new(0,200,0,20)
+keyLabel.Position = UDim2.new(0,10,0,130)
+keyLabel.BackgroundTransparency = 1
+keyLabel.TextColor3 = textColor
+keyLabel.TextXAlignment = Enum.TextXAlignment.Left
+keyLabel.Text = "Fly Key:"
+keyLabel.Parent = flyScroll
+
+local keyBox = Instance.new("TextBox")
+keyBox.Size = UDim2.new(0,200,0,30)
+keyBox.Position = UDim2.new(0,10,0,150)
+keyBox.Text = flyKey.Name
+keyBox.Parent = flyScroll
+
+local noclipButton = Instance.new("TextButton")
+noclipButton.Text = "Fly Noclip: Off"
+noclipButton.Size = UDim2.new(0,200,0,30)
+noclipButton.Position = UDim2.new(0,10,0,190)
+noclipButton.BackgroundColor3 = primaryMedium
+noclipButton.TextColor3 = textColor
+noclipButton.Parent = flyScroll
+Instance.new("UICorner", noclipButton).CornerRadius = UDim.new(0,6)
+
+-- ====== Farbauswahl (sichtbar) ======
+local function createColorPicker(labelText, defaultColor, yPos, onChange)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0,200,0,20)
+	label.Position = UDim2.new(0,10,0,yPos)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = textColor
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Text = labelText
+	label.Parent = guiScroll
+
+	local colorBox = Instance.new("TextButton")
+	colorBox.Size = UDim2.new(0,200,0,30)
+	colorBox.Position = UDim2.new(0,10,0,yPos+20)
+	colorBox.BackgroundColor3 = defaultColor
+	colorBox.Text = ""
+	colorBox.BorderSizePixel = 2
+	colorBox.Parent = guiScroll
+
+	local pickerOpen = false
+	local pickerFrame
+
+	local colors = {
+		Color3.fromRGB(30,30,30), Color3.fromRGB(50,50,50), Color3.fromRGB(70,70,70),
+		Color3.fromRGB(100,0,255), Color3.fromRGB(128,0,255), Color3.fromRGB(200,50,255),
+		Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255),
+		Color3.fromRGB(255,255,0), Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,128),
+		Color3.fromRGB(0,255,255), Color3.fromRGB(255,192,203), Color3.fromRGB(192,192,192)
+	}
+
+	colorBox.MouseButton1Click:Connect(function()
+		if pickerOpen then
+			if pickerFrame then pickerFrame:Destroy() end
+			pickerOpen = false
+			return
+		end
+		pickerOpen = true
+		pickerFrame = Instance.new("Frame")
+		pickerFrame.Size = UDim2.new(0,200,0,160)
+		pickerFrame.Position = colorBox.Position + UDim2.new(0,0,0,35)
+		pickerFrame.BackgroundColor3 = primaryMedium
+		pickerFrame.Parent = guiScroll
+		Instance.new("UICorner", pickerFrame).CornerRadius = UDim.new(0,8)
+
+		-- Close X oben rechts
+		local closeBtn = Instance.new("TextButton")
+		closeBtn.Size = UDim2.new(0,20,0,20)
+		closeBtn.Position = UDim2.new(1,-25,0,5)
+		closeBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+		closeBtn.Text = "X"
+		closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+		closeBtn.Parent = pickerFrame
+		closeBtn.MouseButton1Click:Connect(function()
+			pickerFrame:Destroy()
+			pickerOpen = false
+		end)
+
+		for i, c in ipairs(colors) do
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(0,30,0,30)
+			btn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
+			btn.BackgroundColor3 = c
+			btn.Text = ""
+			btn.Parent = pickerFrame
+			btn.MouseButton1Click:Connect(function()
+				colorBox.BackgroundColor3 = c
+				onChange(c)
+				pickerFrame:Destroy()
+				pickerOpen = false
+			end)
+		end
+	end)
+end
+
+createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
+	primaryDark = c
+	primaryMedium = c:Lerp(Color3.fromRGB(50,50,50),0.5)
+	primaryLight = c:Lerp(Color3.fromRGB(70,70,70),0.7)
+	mainFrame.BackgroundColor3 = primaryMedium
+	topBar.BackgroundColor3 = primaryLight
+	leftScroll.BackgroundColor3 = primaryDark
+	flyScroll.BackgroundColor3 = primaryMedium
+	guiScroll.BackgroundColor3 = primaryMedium
+	espScroll.BackgroundColor3 = primaryMedium
+	playerScroll.BackgroundColor3 = primaryMedium  -- Neue Farbe hinzugefügt
+	playerSelectFrame.BackgroundColor3 = primaryDark
+	playerListFrame.BackgroundColor3 = primaryDark
+	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
+	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
+	flyButton.BackgroundColor3 = primaryMedium
+	guiButton.BackgroundColor3 = primaryMedium
+	espButton.BackgroundColor3 = primaryMedium
+	playerButton.BackgroundColor3 = primaryMedium  -- Neue Farbe hinzugefügt
+	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+	gotoButton.BackgroundColor3 = primaryMedium
+end)
+
+createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
+	secondary = c
+	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
+	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
+	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+end)
+
+-- ====== Animation Control ======
+local function setFlyingAnimations(enabled)
+	if enabled then
+		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	else
+		humanoid.WalkSpeed = 16
+		humanoid.JumpPower = 50
+	end
+end
+
+-- ====== Fly/Noclip Logic ======
+local function stopFly()
+	if bv then bv:Destroy() bv = nil end
+	if bg then bg:Destroy() bg = nil end
+	humanoid.PlatformStand = false
+	setFlyingAnimations(false)
+	humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+	local velocity = hrp.Velocity
+	hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
+		end
+	end
+end
+
+flyOnOff.MouseButton1Click:Connect(function()
+	flying = not flying
+	if flying then
+		flyOnOff.Text = "Fly: On"
+		flyOnOff.BackgroundColor3 = secondary
+		if not bv then
+			bv = Instance.new("BodyVelocity")
+			bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+			bv.Velocity = Vector3.new(0,0,0)
+			bv.Parent = hrp
+		end
+		if not bg then
+			bg = Instance.new("BodyGyro")
+			bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
+			bg.CFrame = hrp.CFrame
+			bg.Parent = hrp
+		end
+		humanoid.PlatformStand = true
+		setFlyingAnimations(true)
+	else
+		flyOnOff.Text = "Fly: Off"
+		flyOnOff.BackgroundColor3 = primaryMedium
+		stopFly()
+	end
+end)
+
+-- ====== Fly Key Fix ======
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == flyKey then
+		-- Toggle Fly
+		flying = not flying
+		if flying then
+			flyOnOff.Text = "Fly: On"
+			flyOnOff.BackgroundColor3 = secondary
+			if not bv then
+				bv = Instance.new("BodyVelocity")
+				bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+				bv.Velocity = Vector3.new(0,0,0)
+				bv.Parent = hrp
+			end
+			if not bg then
+				bg = Instance.new("BodyGyro")
+				bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
+				bg.CFrame = hrp.CFrame
+				bg.Parent = hrp
+			end
+			humanoid.PlatformStand = true
+			setFlyingAnimations(true)
+		else
+			flyOnOff.Text = "Fly: Off"
+			flyOnOff.BackgroundColor3 = primaryMedium
+			stopFly()
+		end
+	end
+end)
+
+speedBox.FocusLost:Connect(function()
+	local val = tonumber(speedBox.Text)
+	if val then flySpeed = val end
+end)
+
+keyBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = keyBox.Text
+	if #text > 1 then text = text:sub(1,1) end
+	text = text:upper()
+	keyBox.Text = text
+	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
+	if success and keyEnum then flyKey = keyEnum end
+end)
+
+noclipButton.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	if noclip then
+		noclipButton.Text = "Fly Noclip: On"
+		noclipButton.BackgroundColor3 = secondary
+	else
+		noclipButton.Text = "Fly Noclip: Off"
+		noclipButton.BackgroundColor3 = primaryMedium
+	end
+end)
+
+-- ====== RunService Loop ======
+runService.RenderStepped:Connect(function()
+	if flying and bv and bg then
+		local cam = workspace.CurrentCamera
+		local moveDir = Vector3.new(0,0,0)
+		if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
+		if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0,1,0) end
+
+		if moveDir.Magnitude > 0 then
+			moveDir = moveDir.Unit * flySpeed
+		end
+
+		bv.Velocity = moveDir
+		bg.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
+
+		for _, part in pairs(character:GetChildren()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = not noclip
+			end
+		end
+	end
+end)
+
+-- ====== IMPROVED ESP SYSTEM ======
+local espEnabled = false
+local espNametags = false
+local espPlayers = false
+local espSkeleton = false
+local espObjects = {}
+local playerConnections = {}
+
+-- Farb-Variablen für jede ESP-Funktion
+local nametagColor = Color3.fromRGB(255, 255, 255)
+local playerColor = Color3.fromRGB(255, 255, 255)
+local skeletonColor = Color3.fromRGB(255, 255, 255)
+
+-- Farbpicker-Funktion für ESP
+local function createESPColorPicker(labelText, initialColor, yPos, callback)
+	-- Label
+	local label = Instance.new("TextLabel")
+	label.Text = labelText
+	label.Size = UDim2.new(0,220,0,20)
+	label.Position = UDim2.new(0,10,0,yPos)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = textColor
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 12
+	label.Parent = espScroll
+
+	-- RGB Sliders
+	local function createSlider(colorName, colorIndex, sliderY)
+		local sliderLabel = Instance.new("TextLabel")
+		sliderLabel.Text = colorName .. ": " .. math.floor(initialColor[colorIndex] * 255)
+		sliderLabel.Size = UDim2.new(0,60,0,20)
+		sliderLabel.Position = UDim2.new(0,20,0,sliderY)
+		sliderLabel.BackgroundTransparency = 1
+		sliderLabel.TextColor3 = textColor
+		sliderLabel.Font = Enum.Font.Gotham
+		sliderLabel.TextSize = 10
+		sliderLabel.Parent = espScroll
+
+		local sliderFrame = Instance.new("Frame")
+		sliderFrame.Size = UDim2.new(0,140,0,15)
+		sliderFrame.Position = UDim2.new(0,80,0,sliderY + 2)
+		sliderFrame.BackgroundColor3 = primaryDark
+		sliderFrame.Parent = espScroll
+		Instance.new("UICorner", sliderFrame).CornerRadius = UDim.new(0,8)
+
+		local sliderButton = Instance.new("TextButton")
+		sliderButton.Size = UDim2.new(0,20,0,15)
+		sliderButton.Position = UDim2.new(initialColor[colorIndex],0,0,0)
+		sliderButton.BackgroundColor3 = secondary
+		sliderButton.Text = ""
+		sliderButton.Parent = sliderFrame
+		Instance.new("UICorner", sliderButton).CornerRadius = UDim.new(0,8)
+
+		local dragging = false
+		local function updateSlider(input)
+			local relativeX = input.Position.X - sliderFrame.AbsolutePosition.X
+			local percentage = math.clamp(relativeX / sliderFrame.AbsoluteSize.X, 0, 1)
+			sliderButton.Position = UDim2.new(percentage, 0, 0, 0)
+
+			local newColor = Color3.new(
+				colorIndex == "R" and percentage or initialColor.R,
+				colorIndex == "G" and percentage or initialColor.G,
+				colorIndex == "B" and percentage or initialColor.B
+			)
+			initialColor = newColor
+			sliderLabel.Text = colorName .. ": " .. math.floor(percentage * 255)
+			callback(newColor)
+		end
+
+		sliderButton.MouseButton1Down:Connect(function()
+			dragging = true
+		end)
+
+		game:GetService("UserInputService").InputChanged:Connect(function(input)
+			if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+				updateSlider(input)
+			end
+		end)
+
+		game:GetService("UserInputService").InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				dragging = false
+			end
+		end)
+
+		return sliderLabel, sliderButton
+	end
+
+	-- Farbvorschau
+	local colorPreview = Instance.new("Frame")
+	colorPreview.Size = UDim2.new(0,30,0,60)
+	colorPreview.Position = UDim2.new(0,20,0,yPos + 25)
+	colorPreview.BackgroundColor3 = initialColor
+	colorPreview.Parent = espScroll
+	Instance.new("UICorner", colorPreview).CornerRadius = UDim.new(0,4)
+
+	-- RGB Sliders erstellen
+	createSlider("R", "R", yPos + 25)
+	createSlider("G", "G", yPos + 45)
+	createSlider("B", "B", yPos + 65)
+
+	-- Callback für Farbänderungen
+	local originalCallback = callback
+	callback = function(newColor)
+		colorPreview.BackgroundColor3 = newColor
+		originalCallback(newColor)
+	end
+end
+
+-- ESP Haupt-Toggle Button
+local espOnOff = Instance.new("TextButton")
+espOnOff.Text = "ESP: Off"
+espOnOff.Size = UDim2.new(0,220,0,30)
+espOnOff.Position = UDim2.new(0,10,0,10)
+espOnOff.BackgroundColor3 = primaryMedium
+espOnOff.TextColor3 = textColor
+espOnOff.Parent = espScroll
+Instance.new("UICorner", espOnOff).CornerRadius = UDim.new(0,6)
+
+-- ESP Nametags Button
+local nametagsButton = Instance.new("TextButton")
+nametagsButton.Text = "ESP Nametags: Off"
+nametagsButton.Size = UDim2.new(0,220,0,30)
+nametagsButton.Position = UDim2.new(0,10,0,50)
+nametagsButton.BackgroundColor3 = primaryMedium
+nametagsButton.TextColor3 = textColor
+nametagsButton.Parent = espScroll
+Instance.new("UICorner", nametagsButton).CornerRadius = UDim.new(0,6)
+
+-- Nametag Farbpicker
+createESPColorPicker("Nametag Farbe:", nametagColor, 90, function(newColor)
+	nametagColor = newColor
+	updateAllESP()
+end)
+
+-- ESP Players Button
+local playersButton = Instance.new("TextButton")
+playersButton.Text = "ESP Players: Off"
+playersButton.Size = UDim2.new(0,220,0,30)
+playersButton.Position = UDim2.new(0,10,0,200)
+playersButton.BackgroundColor3 = primaryMedium
+playersButton.TextColor3 = textColor
+playersButton.Parent = espScroll
+Instance.new("UICorner", playersButton).CornerRadius = UDim.new(0,6)
+
+-- Player Farbpicker
+createESPColorPicker("Player Farbe:", playerColor, 240, function(newColor)
+	playerColor = newColor
+	updateAllESP()
+end)
+
+-- ESP Skeleton Button
+local skeletonButton = Instance.new("TextButton")
+skeletonButton.Text = "ESP Skeleton: Off"
+skeletonButton.Size = UDim2.new(0,220,0,30)
+skeletonButton.Position = UDim2.new(0,10,0,350)
+skeletonButton.BackgroundColor3 = primaryMedium
+skeletonButton.TextColor3 = textColor
+skeletonButton.Parent = espScroll
+Instance.new("UICorner", skeletonButton).CornerRadius = UDim.new(0,6)
+
+-- Skeleton Farbpicker
+createESPColorPicker("Skeleton Farbe:", skeletonColor, 390, function(newColor)
+	skeletonColor = newColor
+	updateAllESP()
+end)
+
+-- ====== COMPLETELY NEW ESP SYSTEM - GUARANTEED TO WORK FOR ALL PLAYERS ======
+
+-- Enhanced ESP creation function with multiple fallback methods
+local function createAdvancedESP(targetPlayer)
+	if not targetPlayer then return end
+
+	-- Wait for character with extended timeout
+	local character = targetPlayer.Character
+	local waitTime = 0
+	while not character and waitTime < 10 do
+		wait(0.1)
+		character = targetPlayer.Character
+		waitTime = waitTime + 0.1
+	end
+
+	if not character then return end
+
+	-- Remove existing ESP
+	if espObjects[targetPlayer.UserId] then
+		pcall(function() espObjects[targetPlayer.UserId]:Destroy() end)
+		espObjects[targetPlayer.UserId] = nil
+	end
+
+	local espFolder = Instance.new("Folder")
+	espFolder.Name = "ESP_" .. targetPlayer.Name
+	espFolder.Parent = workspace.CurrentCamera
+
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+	-- Nametags ESP
+	if espEnabled and espNametags and humanoidRootPart then
+		pcall(function()
+			local billboardGui = Instance.new("BillboardGui")
+			billboardGui.Size = UDim2.new(0, 200, 0, 50)
+			billboardGui.Adornee = humanoidRootPart
+			billboardGui.AlwaysOnTop = true
+			billboardGui.StudsOffset = Vector3.new(0, -3, 0)
+			billboardGui.Parent = espFolder
+
+			local nameLabel = Instance.new("TextLabel")
+			nameLabel.Size = UDim2.new(1, 0, 1, 0)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = targetPlayer.Name
+			nameLabel.TextColor3 = nametagColor
+			nameLabel.TextStrokeTransparency = 0
+			nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+			nameLabel.Font = Enum.Font.GothamBold
+			nameLabel.TextSize = 14
+			nameLabel.Parent = billboardGui
+		end)
+	end
+
+	-- IMPROVED Player Outline ESP - Funktioniert jetzt für ALLE Charaktere
+	if espEnabled and espPlayers then
+		-- Alte Highlights entfernen
+		for _, obj in pairs(espFolder:GetChildren()) do
+			if obj:IsA("Highlight") then
+				obj:Destroy()
+			end
+		end
+
+		-- Alle BaseParts sammeln
+		local allParts = {}
+		for _, descendant in pairs(character:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				table.insert(allParts, descendant)
+			end
+		end
+
+		-- Highlight erstellen, wenn BaseParts existieren
+		if #allParts > 0 then
+			local highlight = Instance.new("Highlight")
+			highlight.FillColor = playerColor
+			highlight.OutlineColor = playerColor
+			highlight.FillTransparency = 0.9 -- transparent
+			highlight.OutlineTransparency = 0 -- sichtbare Umrandung
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			highlight.Adornee = character -- funktioniert für das ganze Model
+			highlight.Parent = espFolder
+		end
+	end
+
+	-- Skeleton ESP with enhanced visibility
+	if espEnabled and espSkeleton then
+		local function createEnhancedLine(part1, part2)
+			if not part1 or not part2 then return end
+
+			pcall(function()
+				local startPart = Instance.new("Part")
+				startPart.Name = "SkeletonStart"
+				startPart.Size = Vector3.new(0.2, 0.2, 0.2)
+				startPart.Material = Enum.Material.Neon
+				startPart.Color = skeletonColor
+				startPart.CanCollide = false
+				startPart.Anchored = true
+				startPart.Transparency = 0.3
+				startPart.Parent = espFolder
+
+				local endPart = Instance.new("Part")
+				endPart.Name = "SkeletonEnd" 
+				endPart.Size = Vector3.new(0.2, 0.2, 0.2)
+				endPart.Material = Enum.Material.Neon
+				endPart.Color = skeletonColor
+				endPart.CanCollide = false
+				endPart.Anchored = true
+				endPart.Transparency = 0.3
+				endPart.Parent = espFolder
+
+				local attachment1 = Instance.new("Attachment")
+				attachment1.Parent = startPart
+				local attachment2 = Instance.new("Attachment")
+				attachment2.Parent = endPart
+
+				-- Main bright beam
+				local beam1 = Instance.new("Beam")
+				beam1.Attachment0 = attachment1
+				beam1.Attachment1 = attachment2
+				beam1.Color = ColorSequence.new(skeletonColor)
+				beam1.FaceCamera = true
+				beam1.Width0 = 0.3
+				beam1.Width1 = 0.3
+				beam1.Transparency = NumberSequence.new(0)
+				beam1.ZOffset = 2
+				beam1.LightEmission = 1
+				beam1.Parent = espFolder
+
+				-- Outer glow beam
+				local beam2 = Instance.new("Beam")
+				beam2.Attachment0 = attachment1
+				beam2.Attachment1 = attachment2
+				beam2.Color = ColorSequence.new(skeletonColor)
+				beam2.FaceCamera = true
+				beam2.Width0 = 0.6
+				beam2.Width1 = 0.6
+				beam2.Transparency = NumberSequence.new(0.7)
+				beam2.ZOffset = 1
+				beam2.LightEmission = 0.8
+				beam2.Parent = espFolder
+
+				-- Highlights for extra visibility
+				local highlight1 = Instance.new("Highlight")
+				highlight1.Adornee = startPart
+				highlight1.FillColor = skeletonColor
+				highlight1.OutlineColor = skeletonColor
+				highlight1.FillTransparency = 0.5
+				highlight1.OutlineTransparency = 0
+				highlight1.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				highlight1.Parent = espFolder
+
+				local highlight2 = Instance.new("Highlight")
+				highlight2.Adornee = endPart
+				highlight2.FillColor = skeletonColor
+				highlight2.OutlineColor = skeletonColor
+				highlight2.FillTransparency = 0.5
+				highlight2.OutlineTransparency = 0
+				highlight2.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				highlight2.Parent = espFolder
+
+				-- Position update function
+				local function updatePositions()
+					if part1.Parent and part2.Parent then
+						startPart.CFrame = part1.CFrame
+						endPart.CFrame = part2.CFrame
+					end
+				end
+
+				-- Continuous position updating
+				local connection
+				connection = game:GetService("RunService").Heartbeat:Connect(function()
+					if startPart and startPart.Parent and endPart and endPart.Parent and part1.Parent and part2.Parent then
+						updatePositions()
+					else
+						if connection then connection:Disconnect() end
+					end
+				end)
+
+				updatePositions()
+			end)
+		end
+
+		-- Create skeleton connections for both R6 and R15
+		pcall(function()
+			local head = character:FindFirstChild("Head")
+			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+			local leftArm = character:FindFirstChild("Left Arm") or character:FindFirstChild("LeftUpperArm")
+			local rightArm = character:FindFirstChild("Right Arm") or character:FindFirstChild("RightUpperArm")
+			local leftLeg = character:FindFirstChild("Left Leg") or character:FindFirstChild("LeftUpperLeg")
+			local rightLeg = character:FindFirstChild("Right Leg") or character:FindFirstChild("RightUpperLeg")
+
+			local lowerTorso = character:FindFirstChild("LowerTorso")
+			local leftForearm = character:FindFirstChild("LeftLowerArm")
+			local rightForearm = character:FindFirstChild("RightLowerArm")
+			local leftShin = character:FindFirstChild("LeftLowerLeg")
+			local rightShin = character:FindFirstChild("RightLowerLeg")
+
+			if torso then
+				if head then createEnhancedLine(torso, head) end
+				if leftArm then createEnhancedLine(torso, leftArm) end
+				if rightArm then createEnhancedLine(torso, rightArm) end
+				if lowerTorso then 
+					createEnhancedLine(torso, lowerTorso)
+					if leftLeg then createEnhancedLine(lowerTorso, leftLeg) end
+					if rightLeg then createEnhancedLine(lowerTorso, rightLeg) end
+				else
+					if leftLeg then createEnhancedLine(torso, leftLeg) end
+					if rightLeg then createEnhancedLine(torso, rightLeg) end
+				end
+
+				if leftForearm and leftArm then createEnhancedLine(leftArm, leftForearm) end
+				if rightForearm and rightArm then createEnhancedLine(rightArm, rightForearm) end
+				if leftShin and leftLeg then createEnhancedLine(leftLeg, leftShin) end
+				if rightShin and rightLeg then createEnhancedLine(rightLeg, rightShin) end
+			end
+		end)
+	end
+
+	espObjects[targetPlayer.UserId] = espFolder
+end
+
+-- Remove ESP for a player
+local function removeESPForPlayer(targetPlayer)
+	if espObjects[targetPlayer.UserId] then
+		pcall(function() espObjects[targetPlayer.UserId]:Destroy() end)
+		espObjects[targetPlayer.UserId] = nil
+	end
+end
+
+-- Enhanced player connection management
+local function setupPlayerConnection(targetPlayer)
+	if playerConnections[targetPlayer.UserId] then
+		-- Clean up existing connections
+		for _, connection in pairs(playerConnections[targetPlayer.UserId]) do
+			if connection then connection:Disconnect() end
+		end
+	end
+
+	local connections = {}
+
+	-- Character added event
+	connections.charAdded = targetPlayer.CharacterAdded:Connect(function()
+		wait(1) -- Wait for character to fully load
+		if espEnabled then
+			createAdvancedESP(targetPlayer)
+		end
+	end)
+
+	-- Immediate ESP creation if character already exists
+	spawn(function()
+		wait(0.5)
+		if targetPlayer.Character then
+			createAdvancedESP(targetPlayer)
+		end
+	end)
+
+	playerConnections[targetPlayer.UserId] = connections
+end
+
+-- Update all ESP function
+function updateAllESP()
+	-- Clear all existing ESP
+	for userId, espFolder in pairs(espObjects) do
+		pcall(function() espFolder:Destroy() end)
+	end
+	espObjects = {}
+
+	-- Recreate ESP for all players if enabled
+	if espEnabled then
+		for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+			if targetPlayer.Character then
+				createAdvancedESP(targetPlayer)
+			end
+		end
+	end
+end
+
+-- Enhanced monitoring system - checks every 3 seconds
+spawn(function()
+	while true do
+		wait(3)
+
+		if espEnabled then
+			for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+				-- Check if player needs ESP
+				if not espObjects[targetPlayer.UserId] and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+					createAdvancedESP(targetPlayer)
+				end
+			end
+		end
+	end
+end)
+
+-- Button Events
+espOnOff.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	if espEnabled then
+		espOnOff.Text = "ESP: On"
+		espOnOff.BackgroundColor3 = secondary
+	else
+		espOnOff.Text = "ESP: Off"
+		espOnOff.BackgroundColor3 = primaryMedium
+	end
+	updateAllESP()
+end)
+
+nametagsButton.MouseButton1Click:Connect(function()
+	espNametags = not espNametags
+	if espNametags then
+		nametagsButton.Text = "ESP Nametags: On"
+		nametagsButton.BackgroundColor3 = secondary
+	else
+		nametagsButton.Text = "ESP Nametags: Off"
+		nametagsButton.BackgroundColor3 = primaryMedium
+	end
+	updateAllESP()
+end)
+
+playersButton.MouseButton1Click:Connect(function()
+	espPlayers = not espPlayers
+	if espPlayers then
+		playersButton.Text = "ESP Players: On"
+		playersButton.BackgroundColor3 = secondary
+	else
+		playersButton.Text = "ESP Players: Off"
+		playersButton.BackgroundColor3 = primaryMedium
+	end
+	updateAllESP()
+end)
+
+skeletonButton.MouseButton1Click:Connect(function()
+	espSkeleton = not espSkeleton
+	if espSkeleton then
+		skeletonButton.Text = "ESP Skeleton: On"
+		skeletonButton.BackgroundColor3 = secondary
+	else
+		skeletonButton.Text = "ESP Skeleton: Off"
+		skeletonButton.BackgroundColor3 = primaryMedium
+	end
+	updateAllESP()
+end)
+
+-- Player Events - Enhanced for better reliability
+game.Players.PlayerAdded:Connect(function(newPlayer)
+	setupPlayerConnection(newPlayer)
+end)
+
+game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	removeESPForPlayer(leavingPlayer)
+
+	-- Clean up connections
+	if playerConnections[leavingPlayer.UserId] then
+		for _, connection in pairs(playerConnections[leavingPlayer.UserId]) do
+			if connection then connection:Disconnect() end
+		end
+		playerConnections[leavingPlayer.UserId] = nil
+	end
+end)
+
+-- Setup connections for existing players
+for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+	setupPlayerConnection(targetPlayer)
+end
+
+-- Handle local player respawning
+player.CharacterAdded:Connect(function()
+	character = player.Character
+	hrp = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+	wait(0.5)
+	if espEnabled then
+		createAdvancedESP(player)
+	end
+end)
