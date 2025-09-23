@@ -206,11 +206,36 @@ Instance.new("UICorner", espColorBox).CornerRadius = UDim.new(0,6)
 
 -- ====== ESP FUNKTIONEN ======
 local function createESPForPlayer(targetPlayer)
-	if not targetPlayer.Character then return end
+	if not targetPlayer then 
+		print("ESP Debug: targetPlayer is nil")
+		return 
+	end
 	if targetPlayer == player then return end -- Eigenen Spieler ausschließen
-	if espObjects[targetPlayer.Name] then return end -- Bereits vorhanden
+	if not targetPlayer.Character then 
+		print("ESP Debug: " .. targetPlayer.Name .. " has no character")
+		return 
+	end
+	
+	-- Entferne altes ESP falls vorhanden
+	if espObjects[targetPlayer.Name] then
+		removeESPForPlayer(targetPlayer)
+	end
 	
 	local character = targetPlayer.Character
+	
+	-- Warte bis Character vollständig geladen ist
+	local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
+	if not humanoidRootPart then
+		print("ESP Debug: " .. targetPlayer.Name .. " - HumanoidRootPart not found")
+		return
+	end
+	
+	-- Entferne alle existierenden ESP Highlights vom Character
+	for _, child in pairs(character:GetChildren()) do
+		if child:IsA("Highlight") and child.Name:find("ESPHighlight") then
+			child:Destroy()
+		end
+	end
 	
 	-- ESP Highlight erstellen
 	local espHighlight = Instance.new("Highlight")
@@ -226,8 +251,11 @@ local function createESPForPlayer(targetPlayer)
 	-- ESP Objekte speichern
 	espObjects[targetPlayer.Name] = {
 		highlight = espHighlight,
-		player = targetPlayer
+		player = targetPlayer,
+		character = character
 	}
+	
+	print("ESP Debug: Successfully created ESP for " .. targetPlayer.Name)
 end
 
 local function removeESPForPlayer(targetPlayer)
@@ -250,20 +278,43 @@ local function updateESPColors()
 end
 
 local function enableESP()
-	-- ESP für alle existierenden Spieler erstellen
+	print("ESP Debug: Enabling ESP for all players")
+	-- Warte kurz und erstelle dann ESP für alle Spieler
+	wait(0.1)
+	
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-		if targetPlayer ~= player and targetPlayer.Character then
-			createESPForPlayer(targetPlayer)
+		if targetPlayer ~= player then
+			print("ESP Debug: Attempting to create ESP for " .. targetPlayer.Name)
+			spawn(function()
+				-- Warte bis Character existiert
+				if not targetPlayer.Character then
+					targetPlayer.CharacterAdded:Wait()
+				end
+				wait(1) -- Extra Wartezeit für vollständiges Laden
+				createESPForPlayer(targetPlayer)
+			end)
 		end
 	end
 end
 
 local function disableESP()
+	print("ESP Debug: Disabling ESP for all players")
 	-- Alle ESP Objekte entfernen
 	for playerName, espData in pairs(espObjects) do
 		if espData.highlight then espData.highlight:Destroy() end
 	end
 	espObjects = {}
+	
+	-- Zusätzlich: Alle Highlights im Spiel entfernen die ESP sein könnten
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer.Character then
+			for _, child in pairs(targetPlayer.Character:GetChildren()) do
+				if child:IsA("Highlight") and child.Name:find("ESPHighlight") then
+					child:Destroy()
+				end
+			end
+		end
+	end
 end
 
 -- ====== ESP BUTTON FUNKTIONALITÄT ======
@@ -365,30 +416,40 @@ local function startESPUpdateLoop()
 	
 	espUpdateConnection = runService.Heartbeat:Connect(function()
 		if espEnabled then
-			-- Prüfe alle Spieler und erstelle ESP falls nötig
-			for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-				if targetPlayer ~= player and targetPlayer.Character then
-					if not espObjects[targetPlayer.Name] then
-						createESPForPlayer(targetPlayer)
-					else
-						-- Prüfe ob ESP noch existiert, falls nicht erstelle neu
-						local espData = espObjects[targetPlayer.Name]
-						if not espData.highlight or not espData.highlight.Parent then
-							espObjects[targetPlayer.Name] = nil
-							createESPForPlayer(targetPlayer)
+			-- Prüfe alle Spieler alle 60 Frames (ca. 1x pro Sekunde)
+			if tick() % 1 < 0.016 then
+				for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+					if targetPlayer ~= player and targetPlayer.Character then
+						local hasValidESP = false
+						
+						-- Prüfe ob Spieler bereits gültiges ESP hat
+						if espObjects[targetPlayer.Name] then
+							local espData = espObjects[targetPlayer.Name]
+							if espData.highlight and espData.highlight.Parent and espData.character == targetPlayer.Character then
+								hasValidESP = true
+							end
+						end
+						
+						-- Erstelle ESP wenn es fehlt oder ungültig ist
+						if not hasValidESP then
+							print("ESP Debug: Creating missing ESP for " .. targetPlayer.Name)
+							spawn(function()
+								createESPForPlayer(targetPlayer)
+							end)
 						end
 					end
 				end
-			end
-			
-			-- Entferne ESP für Spieler die nicht mehr existieren
-			for playerName, espData in pairs(espObjects) do
-				local targetPlayer = game.Players:FindFirstChild(playerName)
-				if not targetPlayer or not targetPlayer.Character then
-					if espData.highlight then
-						espData.highlight:Destroy()
+				
+				-- Entferne ESP für nicht mehr existierende Spieler
+				for playerName, espData in pairs(espObjects) do
+					local targetPlayer = game.Players:FindFirstChild(playerName)
+					if not targetPlayer or not targetPlayer.Character or espData.character ~= targetPlayer.Character then
+						print("ESP Debug: Removing invalid ESP for " .. playerName)
+						if espData.highlight then
+							espData.highlight:Destroy()
+						end
+						espObjects[playerName] = nil
 					end
-					espObjects[playerName] = nil
 				end
 			end
 		end
