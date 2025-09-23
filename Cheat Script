@@ -1,4 +1,3 @@
--- ====== SICHERE INITIALISIERUNG ======
 local player = game.Players.LocalPlayer
 if not player then
 	error("LocalPlayer not found - make sure this is a LocalScript")
