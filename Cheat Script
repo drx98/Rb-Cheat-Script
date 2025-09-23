@@ -211,33 +211,21 @@ local function createESPForPlayer(targetPlayer)
 	if espObjects[targetPlayer.Name] then return end -- Bereits vorhanden
 	
 	local character = targetPlayer.Character
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return end
 	
-	-- ESP Box erstellen
-	local espBox = Instance.new("BoxHandleAdornment")
-	espBox.Name = "ESPBox_" .. targetPlayer.Name
-	espBox.Adornee = humanoidRootPart
-	espBox.Size = Vector3.new(4, 6, 1)
-	espBox.Color3 = espColor
-	espBox.Transparency = 0.7
-	espBox.AlwaysOnTop = true
-	espBox.ZIndex = 5
-	espBox.Parent = humanoidRootPart
-	
-	-- ESP Outline erstellen
-	local espOutline = Instance.new("SelectionBox")
-	espOutline.Name = "ESPOutline_" .. targetPlayer.Name
-	espOutline.Adornee = character
-	espOutline.Color3 = espColor
-	espOutline.LineThickness = 0.1
-	espOutline.Transparency = 0.3
-	espOutline.Parent = character
+	-- ESP Highlight erstellen
+	local espHighlight = Instance.new("Highlight")
+	espHighlight.Name = "ESPHighlight_" .. targetPlayer.Name
+	espHighlight.Adornee = character
+	espHighlight.FillColor = espColor
+	espHighlight.OutlineColor = espColor
+	espHighlight.FillTransparency = 0.5
+	espHighlight.OutlineTransparency = 0
+	espHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	espHighlight.Parent = character
 	
 	-- ESP Objekte speichern
 	espObjects[targetPlayer.Name] = {
-		box = espBox,
-		outline = espOutline,
+		highlight = espHighlight,
 		player = targetPlayer
 	}
 end
@@ -245,11 +233,8 @@ end
 local function removeESPForPlayer(targetPlayer)
 	local playerName = targetPlayer.Name
 	if espObjects[playerName] then
-		if espObjects[playerName].box then
-			espObjects[playerName].box:Destroy()
-		end
-		if espObjects[playerName].outline then
-			espObjects[playerName].outline:Destroy()
+		if espObjects[playerName].highlight then
+			espObjects[playerName].highlight:Destroy()
 		end
 		espObjects[playerName] = nil
 	end
@@ -257,11 +242,9 @@ end
 
 local function updateESPColors()
 	for playerName, espData in pairs(espObjects) do
-		if espData.box and espData.box.Parent then
-			espData.box.Color3 = espColor
-		end
-		if espData.outline and espData.outline.Parent then
-			espData.outline.Color3 = espColor
+		if espData.highlight and espData.highlight.Parent then
+			espData.highlight.FillColor = espColor
+			espData.highlight.OutlineColor = espColor
 		end
 	end
 end
@@ -278,8 +261,7 @@ end
 local function disableESP()
 	-- Alle ESP Objekte entfernen
 	for playerName, espData in pairs(espObjects) do
-		if espData.box then espData.box:Destroy() end
-		if espData.outline then espData.outline:Destroy() end
+		if espData.highlight then espData.highlight:Destroy() end
 	end
 	espObjects = {}
 end
