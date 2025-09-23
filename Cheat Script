@@ -1,80 +1,1647 @@
--- ====== ROBLOX SCRIPT TROUBLESHOOTING TEST ======
--- Teste zuerst dieses Mini-Script um das Problem zu identifizieren
-
--- Test 1: Grundlegende Verfügbarkeit
-print("=== ROBLOX SCRIPT DEBUG TEST ===")
-print("1. Script gestartet")
-
--- Test 2: game Service
-if game then
-    print("2. game service: OK")
-else
-    print("2. game service: FEHLER")
-    return
+-- ====== SICHERE INITIALISIERUNG ======
+local player = game.Players.LocalPlayer
+if not player then
+	error("LocalPlayer not found - make sure this is a LocalScript")
+	return
 end
 
--- Test 3: Players Service  
-local playersService = game:GetService("Players")
-if playersService then
-    print("3. Players service: OK")
-else
-    print("3. Players service: FEHLER")
-    return
-end
-
--- Test 4: LocalPlayer
-local player = playersService.LocalPlayer
-if player then
-    print("4. LocalPlayer: OK - " .. player.Name)
-else
-    print("4. LocalPlayer: FEHLER - Das ist kein LocalScript!")
-    print("   LÖSUNG: Erstelle ein LocalScript, nicht ein normales Script")
-    return
-end
-
--- Test 5: Andere Services
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 
-if uis then
-    print("5. UserInputService: OK")
-else
-    print("5. UserInputService: FEHLER")
-end
-
-if runService then
-    print("6. RunService: OK")
-else
-    print("6. RunService: FEHLER")
-end
-
--- Test 6: Character
+-- Sichere Character-Initialisierung
 local character = player.Character
-if character then
-    print("7. Character: OK - " .. character.Name)
-    
-    -- Test 7: HumanoidRootPart
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        print("8. HumanoidRootPart: OK")
-    else
-        print("8. HumanoidRootPart: Nicht gefunden, warte...")
-        character.ChildAdded:Connect(function(child)
-            if child.Name == "HumanoidRootPart" then
-                print("8. HumanoidRootPart: Jetzt OK")
-            end
-        end)
-    end
-else
-    print("7. Character: Nicht geladen, warte auf spawn...")
-    player.CharacterAdded:Connect(function(char)
-        print("7. Character: Jetzt OK - " .. char.Name)
-    end)
+if not character then
+	character = player.CharacterAdded:Wait()
 end
 
-print("=== TEST ABGESCHLOSSEN ===")
-print("Falls alle Tests OK sind, kannst du das Haupt-Script verwenden")
-print("Falls Fehler auftreten, prüfe:")
-print("1. Verwende ein LocalScript (nicht normales Script)")
-print("2. Platziere es in StarterPlayerScripts oder StarterPack") 
-print("3. Nicht in Workspace oder ServerScriptService")
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+-- Validierung
+if not hrp or not humanoid then
+	error("Character components not found")
+	return
+end
+
+print("ESP Debug: Script initialized successfully")
+
+local flying = false
+local flySpeed = 50
+local flyKey = Enum.KeyCode.E
+local noclip = false
+local bv, bg
+
+-- ====== ESP VARIABLEN - ERWEITERT FÜR UNLIMITED HIGHLIGHTS ======
+local espEnabled = false
+local espColor = Color3.fromRGB(255, 255, 255)
+local espObjects = {}
+local espUpdateConnection = nil
+local playerConnections = {} -- Für Event-Cleanup
+local highlightPool = {} -- Pool für wiederverwendbare Highlights
+local maxHighlights = 200 -- Sicherheits-Maximum
+local activeHighlightCount = 0
+
+-- ====== HIGHLIGHT POOL MANAGEMENT SYSTEM ======
+local function createHighlightFromPool()
+	-- Versuche ein Highlight aus dem Pool zu holen
+	if #highlightPool > 0 then
+		local highlight = table.remove(highlightPool, 1)
+		if highlight and highlight.Parent == nil then
+			return highlight
+		end
+	end
+	
+	-- Erstelle neues Highlight wenn Pool leer oder ungültig
+	if activeHighlightCount < maxHighlights then
+		local highlight = Instance.new("Highlight")
+		activeHighlightCount = activeHighlightCount + 1
+		print("ESP Debug: Created new highlight. Total active: " .. activeHighlightCount)
+		return highlight
+	else
+		print("ESP Debug: Highlight limit reached (" .. maxHighlights .. "), recycling oldest")
+		return recycleOldestHighlight()
+	end
+end
+
+local function returnHighlightToPool(highlight)
+	if highlight and highlight.Parent then
+		-- Reset Highlight-Eigenschaften
+		highlight.Adornee = nil
+		highlight.Parent = nil
+		highlight.Name = "PooledHighlight"
+		
+		-- Zurück in den Pool
+		table.insert(highlightPool, highlight)
+		print("ESP Debug: Returned highlight to pool. Pool size: " .. #highlightPool)
+	end
+end
+
+local function recycleOldestHighlight()
+	-- Finde das älteste ESP-Objekt
+	local oldestPlayer = nil
+	local oldestTime = math.huge
+	
+	for playerName, espData in pairs(espObjects) do
+		if espData.creationTime and espData.creationTime < oldestTime then
+			oldestTime = espData.creationTime
+			oldestPlayer = playerName
+		end
+	end
+	
+	if oldestPlayer then
+		print("ESP Debug: Recycling highlight from " .. oldestPlayer)
+		local highlight = espObjects[oldestPlayer].highlight
+		espObjects[oldestPlayer] = nil
+		
+		-- Reset und return
+		if highlight then
+			highlight.Adornee = nil
+			highlight.Parent = nil
+			return highlight
+		end
+	end
+	
+	-- Fallback: Erstelle neues Highlight
+	return Instance.new("Highlight")
+end
+
+-- ====== DYNAMISCHE HIGHLIGHT LIMITS BASIEREND AUF SERVERGRÖSSE ======
+local function updateHighlightLimits()
+	local playerCount = #game.Players:GetPlayers() - 1 -- Ohne lokalen Spieler
+	
+	-- Dynamisches Limit basierend auf Servergröße
+	if playerCount <= 10 then
+		maxHighlights = playerCount + 5 -- Kleine Server: Alle + Reserve
+	elseif playerCount <= 30 then
+		maxHighlights = playerCount + 2 -- Mittlere Server: Alle + kleine Reserve
+	else
+		maxHighlights = math.min(playerCount, 150) -- Große Server: Maximum 150
+	end
+	
+	print("ESP Debug: Updated highlight limit to " .. maxHighlights .. " for " .. playerCount .. " players")
+end
+
+-- ====== ROBUSTES ESP SYSTEM MIT HIGHLIGHT RECYCLING ======
+local function createESPForPlayer(targetPlayer)
+	if not targetPlayer or targetPlayer == player then 
+		return 
+	end
+
+	local playerName = targetPlayer.Name
+	print("ESP Debug: Creating ESP for " .. playerName)
+
+	-- Cleanup alte ESP-Objekte (mit Recycling)
+	if espObjects[playerName] then
+		if espObjects[playerName].highlight then
+			returnHighlightToPool(espObjects[playerName].highlight)
+		end
+		espObjects[playerName] = nil
+	end
+
+	-- Erweiterte Character-Wartezeit für große Server
+	local character = targetPlayer.Character
+	local playerCount = #game.Players:GetPlayers()
+	local maxWaitTime = playerCount > 35 and 15 or 10
+	
+	if not character then
+		print("ESP Debug: Waiting for character for " .. playerName .. " (Server size: " .. playerCount .. ")")
+		local startTime = tick()
+		repeat
+			wait(0.1)
+			character = targetPlayer.Character
+		until character or tick() - startTime > maxWaitTime
+
+		if not character then
+			print("ESP Debug: Timeout waiting for character for " .. playerName)
+			return
+		end
+	end
+
+	-- Robuste HumanoidRootPart-Erkennung
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then
+		print("ESP Debug: Waiting for HumanoidRootPart for " .. playerName)
+		local attempts = 0
+		local maxAttempts = playerCount > 35 and 100 or 50
+		
+		while not humanoidRootPart and attempts < maxAttempts do
+			wait(0.1)
+			if not targetPlayer.Character then
+				character = targetPlayer.Character
+				if not character then break end
+			end
+			humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+			attempts = attempts + 1
+		end
+
+		if not humanoidRootPart then
+			print("ESP Debug: HumanoidRootPart not found for " .. playerName .. " after " .. attempts .. " attempts")
+			return
+		end
+	end
+
+	-- Zusätzliche Validierung
+	if not targetPlayer.Parent or not targetPlayer.Character or targetPlayer.Character ~= character then
+		print("ESP Debug: Player validation failed for " .. playerName)
+		return
+	end
+
+	-- Entferne alle existierenden ESP Highlights vom Character (wichtig für Recycling)
+	for _, child in pairs(character:GetChildren()) do
+		if child:IsA("Highlight") and (child.Name:find("ESPHighlight") or child.Name:find("ESP_Highlight")) then
+			child:Destroy()
+		end
+	end
+
+	-- Hole Highlight aus Pool oder erstelle neues
+	local espHighlight = createHighlightFromPool()
+	if not espHighlight then
+		print("ESP Debug: Failed to get highlight for " .. playerName)
+		return
+	end
+
+	-- Konfiguriere Highlight
+	espHighlight.Name = "ESP_Highlight_" .. playerName
+	espHighlight.Adornee = character
+	espHighlight.FillColor = espColor
+	espHighlight.OutlineColor = espColor
+	espHighlight.FillTransparency = 0.4
+	espHighlight.OutlineTransparency = 0
+	espHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	
+	-- Robuste Parenting
+	local success = pcall(function()
+		espHighlight.Parent = character
+	end)
+	
+	if not success then
+		print("ESP Debug: Failed to parent highlight for " .. playerName)
+		returnHighlightToPool(espHighlight)
+		return
+	end
+
+	-- Speichere ESP-Objekt
+	espObjects[playerName] = {
+		highlight = espHighlight,
+		player = targetPlayer,
+		character = character,
+		lastUpdate = tick(),
+		creationTime = tick()
+	}
+
+	print("ESP Debug: Successfully created ESP for " .. playerName .. " (" .. 
+		  #espObjects .. "/" .. (#game.Players:GetPlayers() - 1) .. " active)")
+	return true
+end
+
+local function removeESPForPlayer(targetPlayer)
+	local playerName = targetPlayer.Name
+	if espObjects[playerName] then
+		if espObjects[playerName].highlight and espObjects[playerName].highlight.Parent then
+			espObjects[playerName].highlight:Destroy()
+		end
+		espObjects[playerName] = nil
+		print("ESP Debug: Removed ESP for " .. playerName)
+	end
+end
+
+local function updateESPColors()
+	for playerName, espData in pairs(espObjects) do
+		if espData.highlight and espData.highlight.Parent then
+			espData.highlight.FillColor = espColor
+			espData.highlight.OutlineColor = espColor
+		end
+	end
+end
+
+local function cleanupInvalidESP()
+	local toRemove = {}
+	for playerName, espData in pairs(espObjects) do
+		local targetPlayer = game.Players:FindFirstChild(playerName)
+		if not targetPlayer or 
+		   not targetPlayer.Character or 
+		   espData.character ~= targetPlayer.Character or
+		   not espData.highlight or
+		   not espData.highlight.Parent then
+			table.insert(toRemove, playerName)
+		end
+	end
+
+	for _, playerName in ipairs(toRemove) do
+		if espObjects[playerName] and espObjects[playerName].highlight then
+			espObjects[playerName].highlight:Destroy()
+		end
+		espObjects[playerName] = nil
+		print("ESP Debug: Cleaned up invalid ESP for " .. playerName)
+	end
+end
+
+local function enableESPForAllPlayers()
+	print("ESP Debug: Enabling ESP for all players")
+	
+	-- Leere die Queue
+	espQueue = {}
+	
+	-- Sammle alle Spieler (außer dem lokalen Spieler)
+	local allPlayers = {}
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer ~= player then
+			table.insert(allPlayers, targetPlayer)
+		end
+	end
+	
+	local playerCount = #allPlayers
+	print("ESP Debug: Found " .. playerCount .. " players to create ESP for")
+	
+	if playerCount > 35 then
+		-- Große Server: Gestaffelte ESP-Erstellung
+		print("ESP Debug: Large server detected, using staged ESP creation")
+		
+		-- Sortiere nach Distanz (nähere Spieler zuerst)
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local myPosition = player.Character.HumanoidRootPart.Position
+			table.sort(allPlayers, function(a, b)
+				if not a.Character or not a.Character:FindFirstChild("HumanoidRootPart") then return false end
+				if not b.Character or not b.Character:FindFirstChild("HumanoidRootPart") then return true end
+				
+				local distA = (a.Character.HumanoidRootPart.Position - myPosition).Magnitude
+				local distB = (b.Character.HumanoidRootPart.Position - myPosition).Magnitude
+				return distA < distB
+			end)
+		end
+		
+		-- Füge alle zur Queue hinzu (wird schrittweise abgearbeitet)
+		for _, targetPlayer in ipairs(allPlayers) do
+			table.insert(espQueue, targetPlayer)
+		end
+		
+	else
+		-- Kleine/mittlere Server: Sofortige Erstellung für die ersten Spieler
+		print("ESP Debug: Small/medium server, creating ESP immediately for first players")
+		
+		local immediateCount = math.min(10, playerCount) -- Maximal 10 sofort
+		for i = 1, immediateCount do
+			spawn(function()
+				createESPForPlayer(allPlayers[i])
+			end)
+		end
+		
+		-- Rest zur Queue hinzufügen
+		for i = immediateCount + 1, playerCount do
+			table.insert(espQueue, allPlayers[i])
+		end
+	end
+	
+	print("ESP Debug: ESP queue initialized with " .. #espQueue .. " players")
+end
+
+local function disableESPForAllPlayers()
+	print("ESP Debug: Disabling ESP for all players")
+	
+	-- Entferne alle ESP-Objekte
+	for playerName, espData in pairs(espObjects) do
+		if espData.highlight then 
+			espData.highlight:Destroy() 
+		end
+	end
+	espObjects = {}
+
+	-- Zusätzliche Sicherheit: Entferne alle ESP-Highlights im Spiel
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer.Character then
+			for _, child in pairs(targetPlayer.Character:GetChildren()) do
+				if child:IsA("Highlight") and (child.Name:find("ESPHighlight") or child.Name:find("ESP_Highlight")) then
+					child:Destroy()
+				end
+			end
+		end
+	end
+end
+
+-- ====== OPTIMIERTER ESP UPDATE LOOP MIT HIGHLIGHT RECYCLING ======
+local espQueue = {} -- Queue für ESP-Erstellung
+local espQueueIndex = 1
+local maxESPPerFrame = 2 -- Maximal 2 ESP pro Frame erstellen
+local lastFullScan = 0
+
+local function startESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+	end
+
+	local lastUpdateTime = 0
+	local frameCount = 0
+	
+	espUpdateConnection = runService.Heartbeat:Connect(function()
+		if not espEnabled then return end
+
+		frameCount = frameCount + 1
+		local currentTime = tick()
+		
+		-- Update Highlight-Limits alle 10 Sekunden
+		if frameCount % (60 * 10) == 0 then
+			updateHighlightLimits()
+		end
+		
+		-- Verarbeite ESP-Queue jeden Frame (aber begrenzt)
+		local processed = 0
+		while processed < maxESPPerFrame and #espQueue > 0 do
+			local targetPlayer = table.remove(espQueue, 1)
+			if targetPlayer and targetPlayer.Parent and targetPlayer ~= player then
+				spawn(function()
+					createESPForPlayer(targetPlayer)
+				end)
+				processed = processed + 1
+			end
+		end
+		
+		-- Vollständiger Scan alle 2 Sekunden
+		if currentTime - lastFullScan >= 2.0 then
+			lastFullScan = currentTime
+			
+			-- Cleanup ungültige ESP-Objekte (mit Recycling)
+			spawn(function()
+				cleanupInvalidESP()
+			end)
+
+			-- Sammle Spieler die ESP benötigen
+			local playersNeedingESP = {}
+			local playerCount = #game.Players:GetPlayers() - 1 -- Ohne lokalen Spieler
+			
+			-- Dynamische Anpassung basierend auf Spieleranzahl
+			if playerCount > 35 then
+				maxESPPerFrame = 1 -- Langsamer bei vielen Spielern
+				print("ESP Debug: Large server (" .. playerCount .. " players), rate: " .. maxESPPerFrame .. "/frame, limit: " .. maxHighlights)
+			elseif playerCount > 20 then
+				maxESPPerFrame = 2 -- Normal
+			else
+				maxESPPerFrame = 3 -- Schneller bei wenigen Spielern
+			end
+
+			-- Prüfe jeden Spieler (in separatem Thread)
+			spawn(function()
+				for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+					if targetPlayer ~= player and targetPlayer.Character then
+						local playerName = targetPlayer.Name
+						local needsESP = false
+
+						if not espObjects[playerName] then
+							needsESP = true
+						else
+							local espData = espObjects[playerName]
+							-- Prüfe ob ESP noch gültig ist
+							if not espData.highlight or 
+							   not espData.highlight.Parent or
+							   espData.character ~= targetPlayer.Character then
+								needsESP = true
+							end
+						end
+
+						if needsESP then
+							table.insert(playersNeedingESP, targetPlayer)
+						end
+					end
+				end
+				
+				-- Füge zur Queue hinzu (sortiert nach Entfernung)
+				if #playersNeedingESP > 0 then
+					-- Sortiere nach Distanz zum lokalen Spieler
+					if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+						local myPosition = player.Character.HumanoidRootPart.Position
+						table.sort(playersNeedingESP, function(a, b)
+							if not a.Character or not a.Character:FindFirstChild("HumanoidRootPart") then return false end
+							if not b.Character or not b.Character:FindFirstChild("HumanoidRootPart") then return true end
+							
+							local distA = (a.Character.HumanoidRootPart.Position - myPosition).Magnitude
+							local distB = (b.Character.HumanoidRootPart.Position - myPosition).Magnitude
+							return distA < distB
+						end)
+					end
+					
+					-- Füge zur Queue hinzu
+					for _, targetPlayer in ipairs(playersNeedingESP) do
+						table.insert(espQueue, targetPlayer)
+					end
+					
+					print("ESP Debug: Added " .. #playersNeedingESP .. " players to ESP queue. Queue size: " .. #espQueue)
+				end
+			end)
+		end
+		
+		-- Status-Update alle 10 Sekunden mit Pool-Informationen
+		if frameCount % (60 * 10) == 0 then
+			local activeESP = 0
+			for _ in pairs(espObjects) do activeESP = activeESP + 1 end
+			local totalPlayers = #game.Players:GetPlayers() - 1
+			print("ESP Debug: Active ESP: " .. activeESP .. "/" .. totalPlayers .. 
+				  " | Queue: " .. #espQueue .. " | Pool: " .. #highlightPool .. 
+				  " | Total Highlights: " .. activeHighlightCount .. "/" .. maxHighlights)
+		end
+	end)
+end
+			end)
+		end
+	end)
+end
+
+local function stopESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+		espUpdateConnection = nil
+	end
+end
+
+-- ====== PLAYER EVENT MANAGEMENT MIT HIGHLIGHT RECYCLING ======
+local function setupPlayerEvents()
+	-- Cleanup alte Connections
+	for playerName, connections in pairs(playerConnections) do
+		for _, connection in pairs(connections) do
+			if connection then connection:Disconnect() end
+		end
+	end
+	playerConnections = {}
+
+	-- Setup Events für alle aktuellen Spieler
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer ~= player then
+			local connections = {}
+
+			-- CharacterAdded Event
+			connections.characterAdded = targetPlayer.CharacterAdded:Connect(function()
+				if espEnabled then
+					print("ESP Debug: Character added for " .. targetPlayer.Name)
+					wait(1) -- Warte bis Character vollständig geladen ist
+					spawn(function()
+						createESPForPlayer(targetPlayer)
+					end)
+				end
+			end)
+
+			-- CharacterRemoving Event
+			connections.characterRemoving = targetPlayer.CharacterRemoving:Connect(function()
+				removeESPForPlayer(targetPlayer)
+			end)
+
+			playerConnections[targetPlayer.Name] = connections
+		end
+	end
+end
+
+-- Event für neue Spieler
+local newPlayerConnection = game.Players.PlayerAdded:Connect(function(newPlayer)
+	-- Update Highlight-Limits wenn neuer Spieler beitritt
+	if espEnabled then
+		updateHighlightLimits()
+	end
+	
+	-- Setup Events für neuen Spieler
+	local connections = {}
+
+	connections.characterAdded = newPlayer.CharacterAdded:Connect(function()
+		if espEnabled then
+			print("ESP Debug: New player character added: " .. newPlayer.Name)
+			wait(1)
+			spawn(function()
+				createESPForPlayer(newPlayer)
+			end)
+		end
+	end)
+
+	connections.characterRemoving = newPlayer.CharacterRemoving:Connect(function()
+		removeESPForPlayer(newPlayer)
+	end)
+
+	playerConnections[newPlayer.Name] = connections
+
+	-- Erstelle sofort ESP falls bereits aktiviert
+	if espEnabled and newPlayer.Character then
+		spawn(function()
+			wait(1)
+			createESPForPlayer(newPlayer)
+		end)
+	end
+end)
+
+-- Event für verlassende Spieler
+local playerLeavingConnection = game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	-- Cleanup ESP (mit Recycling)
+	removeESPForPlayer(leavingPlayer)
+	
+	-- Update Highlight-Limits wenn Spieler das Spiel verlässt
+	if espEnabled then
+		updateHighlightLimits()
+	end
+	
+	-- Cleanup Connections
+	if playerConnections[leavingPlayer.Name] then
+		for _, connection in pairs(playerConnections[leavingPlayer.Name]) do
+			if connection then connection:Disconnect() end
+		end
+		playerConnections[leavingPlayer.Name] = nil
+	end
+end)
+
+-- Setup Events beim Start
+setupPlayerEvents()
+
+-- ====== ESP BUTTON FUNKTIONALITÄT MIT RECYCLING SYSTEM ======
+espPlayerButton.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	
+	if espEnabled then
+		espPlayerButton.Text = "ESP Player: On"
+		espPlayerButton.BackgroundColor3 = secondary
+		print("ESP Debug: ESP enabled - starting systems with highlight recycling")
+		
+		-- Starte alle ESP-Systeme
+		enableESPForAllPlayers()
+		startESPUpdateLoop()
+		
+	else
+		espPlayerButton.Text = "ESP Player: Off"
+		espPlayerButton.BackgroundColor3 = primaryMedium
+		print("ESP Debug: ESP disabled - stopping systems and recycling highlights")
+		
+		-- Stoppe alle ESP-Systeme
+		stopESPUpdateLoop()
+		disableESPForAllPlayers()
+	end
+end)
+
+-- ====== CLEANUP BEI SCRIPT BEENDIGUNG MIT HIGHLIGHT POOL ======
+game:GetService("Players").LocalPlayer.PlayerGui.ChildRemoved:Connect(function(child)
+	if child == screenGui then
+		print("ESP Debug: Script ending - cleaning up all highlights and connections")
+		
+		-- Cleanup alle Connections
+		if newPlayerConnection then newPlayerConnection:Disconnect() end
+		if playerLeavingConnection then playerLeavingConnection:Disconnect() end
+		stopESPUpdateLoop()
+		disableESPForAllPlayers()
+		
+		-- Cleanup Player Connections
+		for playerName, connections in pairs(playerConnections) do
+			for _, connection in pairs(connections) do
+				if connection then connection:Disconnect() end
+			end
+		end
+		
+		-- Cleanup Highlight Pool
+		for _, highlight in pairs(highlightPool) do
+			if highlight then highlight:Destroy() end
+		end
+		highlightPool = {}
+		
+		print("ESP Debug: Full cleanup completed")
+	end
+end)
+
+local function stopESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+		espUpdateConnection = nil
+	end
+end
+
+-- ====== PLAYER EVENT MANAGEMENT - VERBESSERT ======
+local function setupPlayerEvents()
+	-- Cleanup alte Connections
+	for playerName, connections in pairs(playerConnections) do
+		for _, connection in pairs(connections) do
+			if connection then connection:Disconnect() end
+		end
+	end
+	playerConnections = {}
+
+	-- Setup Events für alle aktuellen Spieler
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer ~= player then
+			local connections = {}
+
+			-- CharacterAdded Event
+			connections.characterAdded = targetPlayer.CharacterAdded:Connect(function()
+				if espEnabled then
+					print("ESP Debug: Character added for " .. targetPlayer.Name)
+					wait(1) -- Warte bis Character vollständig geladen ist
+					spawn(function()
+						createESPForPlayer(targetPlayer)
+					end)
+				end
+			end)
+
+			-- CharacterRemoving Event
+			connections.characterRemoving = targetPlayer.CharacterRemoving:Connect(function()
+				removeESPForPlayer(targetPlayer)
+			end)
+
+			playerConnections[targetPlayer.Name] = connections
+		end
+	end
+end
+
+-- Event für neue Spieler
+local newPlayerConnection = game.Players.PlayerAdded:Connect(function(newPlayer)
+	-- Setup Events für neuen Spieler
+	local connections = {}
+
+	connections.characterAdded = newPlayer.CharacterAdded:Connect(function()
+		if espEnabled then
+			print("ESP Debug: New player character added: " .. newPlayer.Name)
+			wait(1)
+			spawn(function()
+				createESPForPlayer(newPlayer)
+			end)
+		end
+	end)
+
+	connections.characterRemoving = newPlayer.CharacterRemoving:Connect(function()
+		removeESPForPlayer(newPlayer)
+	end)
+
+	playerConnections[newPlayer.Name] = connections
+
+	-- Erstelle sofort ESP falls bereits aktiviert
+	if espEnabled and newPlayer.Character then
+		spawn(function()
+			wait(1)
+			createESPForPlayer(newPlayer)
+		end)
+	end
+end)
+
+-- Event für verlassende Spieler
+local playerLeavingConnection = game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	-- Cleanup ESP
+	removeESPForPlayer(leavingPlayer)
+	
+	-- Cleanup Connections
+	if playerConnections[leavingPlayer.Name] then
+		for _, connection in pairs(playerConnections[leavingPlayer.Name]) do
+			if connection then connection:Disconnect() end
+		end
+		playerConnections[leavingPlayer.Name] = nil
+	end
+end)
+
+-- Setup Events beim Start
+setupPlayerEvents()
+
+-- ====== Farben ======
+local primaryDark = Color3.fromRGB(30,30,30)
+local primaryMedium = Color3.fromRGB(50,50,50)
+local primaryLight = Color3.fromRGB(70,70,70)
+local secondary = Color3.fromRGB(128,0,255)
+local textColor = Color3.fromRGB(255,255,255)
+
+-- ====== GUI erstellen ======
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TabletGUI"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0,400,0,300)
+mainFrame.Position = UDim2.new(0.3,0,0.3,0)
+mainFrame.BackgroundColor3 = primaryMedium
+mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,12)
+
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1,0,0,30)
+topBar.BackgroundColor3 = primaryLight
+topBar.Parent = mainFrame
+Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1,0,1,0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Tablet Menu"
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 18
+titleLabel.TextColor3 = textColor
+titleLabel.Parent = topBar
+
+-- ====== Dragging ======
+local dragging, dragInput, mousePos, framePos = false, nil, nil, nil
+topBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		mousePos = input.Position
+		framePos = mainFrame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+topBar.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		dragInput = input
+	end
+end)
+uis.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - mousePos
+		mainFrame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+	end
+end)
+
+-- ====== Left Buttons ======
+local leftScroll = Instance.new("ScrollingFrame")
+leftScroll.Size = UDim2.new(0,150,1,-30)
+leftScroll.Position = UDim2.new(0,0,0,30)
+leftScroll.BackgroundColor3 = primaryDark
+leftScroll.ScrollBarThickness = 6
+leftScroll.Parent = mainFrame
+Instance.new("UICorner", leftScroll).CornerRadius = UDim.new(0,8)
+
+local flyButton = Instance.new("TextButton")
+flyButton.Text = "Fly Settings"
+flyButton.Size = UDim2.new(1,-10,0,50)
+flyButton.BackgroundColor3 = primaryMedium
+flyButton.TextColor3 = textColor
+flyButton.Parent = leftScroll
+Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0,6)
+
+local espButton = Instance.new("TextButton")
+espButton.Text = "ESP Settings"
+espButton.Size = UDim2.new(1,-10,0,50)
+espButton.BackgroundColor3 = primaryMedium
+espButton.TextColor3 = textColor
+espButton.Parent = leftScroll
+Instance.new("UICorner", espButton).CornerRadius = UDim.new(0,6)
+
+local playerButton = Instance.new("TextButton")
+playerButton.Text = "Player Settings"
+playerButton.Size = UDim2.new(1,-10,0,50)
+playerButton.BackgroundColor3 = primaryMedium
+playerButton.TextColor3 = textColor
+playerButton.Parent = leftScroll
+Instance.new("UICorner", playerButton).CornerRadius = UDim.new(0,6)
+
+local guiButton = Instance.new("TextButton")
+guiButton.Text = "Gui Settings"
+guiButton.Size = UDim2.new(1,-10,0,50)
+guiButton.BackgroundColor3 = primaryMedium
+guiButton.TextColor3 = textColor
+guiButton.Parent = leftScroll
+Instance.new("UICorner", guiButton).CornerRadius = UDim.new(0,6)
+
+local function updateLeftButtonPositions()
+	local lastY = 5
+	flyButton.Position = UDim2.new(0,5,0,lastY)
+	lastY = lastY + flyButton.Size.Y.Offset + 5
+	espButton.Position = UDim2.new(0,5,0,lastY)
+	lastY = lastY + espButton.Size.Y.Offset + 5
+	playerButton.Position = UDim2.new(0,5,0,lastY)
+	lastY = lastY + playerButton.Size.Y.Offset + 5
+	guiButton.Position = UDim2.new(0,5,0,lastY)
+end
+updateLeftButtonPositions()
+
+-- ====== Right Panels ======
+local flyScroll = Instance.new("ScrollingFrame")
+flyScroll.Size = UDim2.new(0,240,1,-30)
+flyScroll.Position = UDim2.new(1,0,0,30)
+flyScroll.BackgroundColor3 = primaryMedium
+flyScroll.ScrollBarThickness = 6
+flyScroll.Visible = false
+flyScroll.Parent = mainFrame
+Instance.new("UICorner", flyScroll).CornerRadius = UDim.new(0,8)
+
+local espScroll = Instance.new("ScrollingFrame")
+espScroll.Size = UDim2.new(0,240,1,-30)
+espScroll.Position = UDim2.new(1,0,0,30)
+espScroll.BackgroundColor3 = primaryMedium
+espScroll.ScrollBarThickness = 6
+espScroll.Visible = false
+espScroll.CanvasSize = UDim2.new(0,0,0,800)
+espScroll.Parent = mainFrame
+Instance.new("UICorner", espScroll).CornerRadius = UDim.new(0,8)
+
+local playerScroll = Instance.new("ScrollingFrame")
+playerScroll.Size = UDim2.new(0,240,1,-30)
+playerScroll.Position = UDim2.new(1,0,0,30)
+playerScroll.BackgroundColor3 = primaryMedium
+playerScroll.ScrollBarThickness = 6
+playerScroll.Visible = false
+playerScroll.CanvasSize = UDim2.new(0,0,0,400)
+playerScroll.Parent = mainFrame
+Instance.new("UICorner", playerScroll).CornerRadius = UDim.new(0,8)
+
+local guiScroll = Instance.new("ScrollingFrame")
+guiScroll.Size = UDim2.new(0,240,1,-30)
+guiScroll.Position = UDim2.new(1,0,0,30)
+guiScroll.BackgroundColor3 = primaryMedium
+guiScroll.ScrollBarThickness = 6
+guiScroll.Visible = false
+guiScroll.Parent = mainFrame
+Instance.new("UICorner", guiScroll).CornerRadius = UDim.new(0,8)
+
+-- ====== ESP PLAYER BUTTON ======
+local espPlayerButton = Instance.new("TextButton")
+espPlayerButton.Text = "ESP Player: Off"
+espPlayerButton.Size = UDim2.new(0,220,0,30)
+espPlayerButton.Position = UDim2.new(0,10,0,10)
+espPlayerButton.BackgroundColor3 = primaryMedium
+espPlayerButton.TextColor3 = textColor
+espPlayerButton.Font = Enum.Font.Gotham
+espPlayerButton.TextSize = 14
+espPlayerButton.Parent = espScroll
+Instance.new("UICorner", espPlayerButton).CornerRadius = UDim.new(0,6)
+
+-- ====== ESP COLOR PICKER ======
+local espColorLabel = Instance.new("TextLabel")
+espColorLabel.Size = UDim2.new(0,200,0,20)
+espColorLabel.Position = UDim2.new(0,10,0,60)
+espColorLabel.BackgroundTransparency = 1
+espColorLabel.TextColor3 = textColor
+espColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+espColorLabel.Text = "ESP Color:"
+espColorLabel.Font = Enum.Font.Gotham
+espColorLabel.TextSize = 12
+espColorLabel.Parent = espScroll
+
+local espColorBox = Instance.new("TextButton")
+espColorBox.Size = UDim2.new(0,200,0,30)
+espColorBox.Position = UDim2.new(0,10,0,80)
+espColorBox.BackgroundColor3 = espColor
+espColorBox.Text = ""
+espColorBox.BorderSizePixel = 2
+espColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
+espColorBox.Parent = espScroll
+Instance.new("UICorner", espColorBox).CornerRadius = UDim.new(0,6)
+
+-- ====== ESP BUTTON FUNKTIONALITÄT - KOMPLETT NEU ======
+espPlayerButton.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	
+	if espEnabled then
+		espPlayerButton.Text = "ESP Player: On"
+		espPlayerButton.BackgroundColor3 = secondary
+		print("ESP Debug: ESP enabled - starting systems")
+		
+		-- Starte alle ESP-Systeme
+		enableESPForAllPlayers()
+		startESPUpdateLoop()
+		
+	else
+		espPlayerButton.Text = "ESP Player: Off"
+		espPlayerButton.BackgroundColor3 = primaryMedium
+		print("ESP Debug: ESP disabled - stopping systems")
+		
+		-- Stoppe alle ESP-Systeme
+		stopESPUpdateLoop()
+		disableESPForAllPlayers()
+	end
+end)
+
+-- ====== ESP COLOR PICKER FUNKTIONALITÄT ======
+local espPickerOpen = false
+local espPickerFrame
+
+local espColors = {
+	Color3.fromRGB(255,255,255), Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0),
+	Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,0), Color3.fromRGB(255,0,255),
+	Color3.fromRGB(0,255,255), Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,255),
+	Color3.fromRGB(255,192,203), Color3.fromRGB(128,128,128), Color3.fromRGB(64,64,64),
+	Color3.fromRGB(255,69,0), Color3.fromRGB(50,205,50), Color3.fromRGB(30,144,255)
+}
+
+espColorBox.MouseButton1Click:Connect(function()
+	if espPickerOpen then
+		if espPickerFrame then espPickerFrame:Destroy() end
+		espPickerOpen = false
+		return
+	end
+
+	espPickerOpen = true
+	espPickerFrame = Instance.new("Frame")
+	espPickerFrame.Size = UDim2.new(0,200,0,160)
+	espPickerFrame.Position = UDim2.new(0,10,0,120)
+	espPickerFrame.BackgroundColor3 = primaryDark
+	espPickerFrame.BorderSizePixel = 1
+	espPickerFrame.BorderColor3 = Color3.fromRGB(100,100,100)
+	espPickerFrame.Parent = espScroll
+	Instance.new("UICorner", espPickerFrame).CornerRadius = UDim.new(0,8)
+
+	-- Close Button
+	local espCloseBtn = Instance.new("TextButton")
+	espCloseBtn.Size = UDim2.new(0,20,0,20)
+	espCloseBtn.Position = UDim2.new(1,-25,0,5)
+	espCloseBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	espCloseBtn.Text = "X"
+	espCloseBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	espCloseBtn.Font = Enum.Font.GothamBold
+	espCloseBtn.TextSize = 12
+	espCloseBtn.Parent = espPickerFrame
+	Instance.new("UICorner", espCloseBtn).CornerRadius = UDim.new(0,4)
+
+	espCloseBtn.MouseButton1Click:Connect(function()
+		espPickerFrame:Destroy()
+		espPickerOpen = false
+	end)
+
+	-- Color Buttons
+	for i, c in ipairs(espColors) do
+		local colorBtn = Instance.new("TextButton")
+		colorBtn.Size = UDim2.new(0,30,0,30)
+		colorBtn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
+		colorBtn.BackgroundColor3 = c
+		colorBtn.Text = ""
+		colorBtn.BorderSizePixel = 1
+		colorBtn.BorderColor3 = Color3.fromRGB(200,200,200)
+		colorBtn.Parent = espPickerFrame
+		Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0,4)
+
+		colorBtn.MouseButton1Click:Connect(function()
+			espColor = c
+			espColorBox.BackgroundColor3 = c
+			if espEnabled then
+				updateESPColors()
+			end
+			espPickerFrame:Destroy()
+			espPickerOpen = false
+		end)
+	end
+
+	espScroll.CanvasSize = UDim2.new(0,0,0,300)
+end)
+
+-- ====== PLAYER SETTINGS VARIABLEN ======
+local selectedPlayer = nil
+local viewingPlayer = false
+local originalCamera = nil
+local cameraConnection = nil
+
+-- ====== Toggle Function ======
+local function toggleScrollingFrame(frame)
+	for _, other in ipairs({flyScroll, espScroll, playerScroll, guiScroll}) do
+		if other ~= frame then
+			other.Visible = false
+			other.Position = UDim2.new(1,0,0,30)
+		end
+	end
+	frame.Visible = not frame.Visible
+	frame.Position = frame.Visible and UDim2.new(0.38,0,0,30) or UDim2.new(1,0,0,30)
+end
+
+-- ====== Button Connections ======
+flyButton.MouseButton1Click:Connect(function() toggleScrollingFrame(flyScroll) end)
+espButton.MouseButton1Click:Connect(function() toggleScrollingFrame(espScroll) end)
+playerButton.MouseButton1Click:Connect(function() toggleScrollingFrame(playerScroll) end)
+guiButton.MouseButton1Click:Connect(function() toggleScrollingFrame(guiScroll) end)
+
+-- ====== PLAYER AUSWAHL DROPDOWN ======
+local playerSelectFrame = Instance.new("Frame")
+playerSelectFrame.Size = UDim2.new(0,220,0,30)
+playerSelectFrame.Position = UDim2.new(0,10,0,10)
+playerSelectFrame.BackgroundColor3 = primaryDark
+playerSelectFrame.Parent = playerScroll
+Instance.new("UICorner", playerSelectFrame).CornerRadius = UDim.new(0,6)
+
+local playerSelectButton = Instance.new("TextButton")
+playerSelectButton.Size = UDim2.new(1,0,1,0)
+playerSelectButton.BackgroundTransparency = 1
+playerSelectButton.Text = "Select Player"
+playerSelectButton.TextColor3 = textColor
+playerSelectButton.Font = Enum.Font.Gotham
+playerSelectButton.TextSize = 14
+playerSelectButton.Parent = playerSelectFrame
+
+-- Dropdown Liste
+local playerListFrame = Instance.new("ScrollingFrame")
+playerListFrame.Size = UDim2.new(0,220,0,150)
+playerListFrame.Position = UDim2.new(0,10,0,50)
+playerListFrame.BackgroundColor3 = primaryDark
+playerListFrame.ScrollBarThickness = 4
+playerListFrame.Visible = false
+playerListFrame.CanvasSize = UDim2.new(0,0,0,0)
+playerListFrame.Parent = playerScroll
+Instance.new("UICorner", playerListFrame).CornerRadius = UDim.new(0,6)
+
+-- ====== SUCHLEISTE ======
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1,-10,0,25)
+searchBox.Position = UDim2.new(0,5,0,5)
+searchBox.BackgroundColor3 = primaryMedium
+searchBox.TextColor3 = textColor
+searchBox.PlaceholderText = "Search players..."
+searchBox.PlaceholderColor3 = Color3.fromRGB(150,150,150)
+searchBox.Text = ""
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 12
+searchBox.Parent = playerListFrame
+Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0,4)
+
+-- Dropdown Toggle
+local dropdownOpen = false
+
+-- ====== VIEW BUTTON ======
+local viewButton = Instance.new("TextButton")
+viewButton.Text = "View: Off"
+viewButton.Size = UDim2.new(0,220,0,30)
+viewButton.Position = UDim2.new(0,10,0,50)
+viewButton.BackgroundColor3 = primaryMedium
+viewButton.TextColor3 = textColor
+viewButton.Font = Enum.Font.Gotham
+viewButton.TextSize = 14
+viewButton.Parent = playerScroll
+Instance.new("UICorner", viewButton).CornerRadius = UDim.new(0,6)
+
+-- ====== GOTO BUTTON ======
+local gotoButton = Instance.new("TextButton")
+gotoButton.Text = "Goto Player"
+gotoButton.Size = UDim2.new(0,220,0,30)
+gotoButton.Position = UDim2.new(0,10,0,90)
+gotoButton.BackgroundColor3 = primaryMedium
+gotoButton.TextColor3 = textColor
+gotoButton.Font = Enum.Font.Gotham
+gotoButton.TextSize = 14
+gotoButton.Parent = playerScroll
+Instance.new("UICorner", gotoButton).CornerRadius = UDim.new(0,6)
+
+-- ====== DYNAMISCHE BUTTON POSITIONIERUNG ======
+local function updateButtonPositions()
+	local baseY = 50
+
+	if dropdownOpen then
+		local dropdownHeight = 150
+		baseY = 50 + dropdownHeight + 10
+	end
+
+	local tweenService = game:GetService("TweenService")
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+	local viewTween = tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)})
+	local gotoTween = tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)})
+
+	viewTween:Play()
+	gotoTween:Play()
+
+	local totalContentHeight = baseY + 80
+	playerScroll.CanvasSize = UDim2.new(0,0,0,math.max(totalContentHeight, 400))
+end
+
+-- ====== PLAYER LIST UPDATE FUNKTION ======
+function updatePlayerList(searchQuery)
+	searchQuery = searchQuery or ""
+	searchQuery = searchQuery:lower()
+
+	-- Alle alten Buttons löschen (außer Suchbox)
+	for _, child in pairs(playerListFrame:GetChildren()) do
+		if child:IsA("TextButton") and child ~= searchBox then
+			child:Destroy()
+		end
+	end
+
+	local yPos = 35 -- Start nach der Suchbox
+	local players = game.Players:GetPlayers()
+	local matchingPlayers = {}
+
+	-- Filter Spieler basierend auf Suche
+	for _, targetPlayer in pairs(players) do
+		if targetPlayer ~= player then -- Eigenen Spieler ausschließen
+			local playerName = targetPlayer.Name:lower()
+			if searchQuery == "" or playerName:find(searchQuery, 1, true) then
+				table.insert(matchingPlayers, targetPlayer)
+			end
+		end
+	end
+
+	-- Erstelle Buttons für gefilterte Spieler
+	for _, targetPlayer in pairs(matchingPlayers) do
+		local playerBtn = Instance.new("TextButton")
+		playerBtn.Size = UDim2.new(1,-10,0,30)
+		playerBtn.Position = UDim2.new(0,5,0,yPos)
+		playerBtn.BackgroundColor3 = primaryMedium
+		playerBtn.TextColor3 = textColor
+		playerBtn.Text = targetPlayer.Name
+		playerBtn.Font = Enum.Font.Gotham
+		playerBtn.TextSize = 12
+		playerBtn.Parent = playerListFrame
+		Instance.new("UICorner", playerBtn).CornerRadius = UDim.new(0,4)
+
+		playerBtn.MouseButton1Click:Connect(function()
+			selectedPlayer = targetPlayer
+			playerSelectButton.Text = targetPlayer.Name
+			playerListFrame.Visible = false
+			dropdownOpen = false
+			updateButtonPositions()
+		end)
+
+		yPos = yPos + 35
+	end
+
+	playerListFrame.CanvasSize = UDim2.new(0,0,0,yPos + 5)
+	updateButtonPositions()
+end
+
+-- ====== DROPDOWN TOGGLE FUNKTION ======
+playerSelectButton.MouseButton1Click:Connect(function()
+	dropdownOpen = not dropdownOpen
+	playerListFrame.Visible = dropdownOpen
+	if dropdownOpen then
+		searchBox.Text = ""
+		updatePlayerList("")
+	else
+		updateButtonPositions()
+	end
+end)
+
+-- ====== SUCHBOX EVENT FUNKTION ======
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	updatePlayerList(searchBox.Text)
+end)
+
+-- ====== VIEW FUNKTIONALITÄT ======
+local function stopViewing()
+	if cameraConnection then
+		cameraConnection:Disconnect()
+		cameraConnection = nil
+	end
+	if originalCamera then
+		workspace.CurrentCamera.CameraSubject = player.Character and player.Character:FindFirstChild("Humanoid")
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+	end
+	viewingPlayer = false
+	viewButton.Text = "View: Off"
+	viewButton.BackgroundColor3 = primaryMedium
+end
+
+local function startViewing(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+
+	if not originalCamera then
+		originalCamera = workspace.CurrentCamera
+	end
+
+	local targetHumanoid = targetPlayer.Character:FindFirstChild("Humanoid")
+	if targetHumanoid then
+		workspace.CurrentCamera.CameraSubject = targetHumanoid
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+
+		cameraConnection = targetPlayer.CharacterRemoving:Connect(function()
+			stopViewing()
+		end)
+
+		viewingPlayer = true
+		viewButton.Text = "View: On"
+		viewButton.BackgroundColor3 = secondary
+	end
+end
+
+viewButton.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
+		return
+	end
+
+	if viewingPlayer then
+		stopViewing()
+	else
+		startViewing(selectedPlayer)
+	end
+end)
+
+-- ====== GOTO FUNKTIONALITÄT ======
+gotoButton.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
+		return
+	end
+
+	if not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		playerSelectButton.Text = "Player not found!"
+		wait(2)
+		playerSelectButton.Text = selectedPlayer.Name
+		return
+	end
+
+	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+		return
+	end
+
+	local targetPosition = selectedPlayer.Character.HumanoidRootPart.Position
+	player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 0, 3))
+end)
+
+-- ====== PLAYER EVENTS - Dropdown automatisch aktualisieren ======
+game.Players.PlayerAdded:Connect(function()
+	if dropdownOpen then
+		updatePlayerList(searchBox.Text)
+	end
+end)
+
+game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	if selectedPlayer == leavingPlayer then
+		if viewingPlayer then
+			stopViewing()
+		end
+		selectedPlayer = nil
+		playerSelectButton.Text = "Select Player"
+	end
+
+	if dropdownOpen then
+		updatePlayerList(searchBox.Text)
+	end
+end)
+
+-- Stoppe View wenn der eigene Character respawnt
+player.CharacterAdded:Connect(function()
+	if viewingPlayer then
+		stopViewing()
+	end
+	character = player.Character
+	hrp = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+end)
+
+-- ====== GUI SETTINGS ======
+local closeKeyLabel = Instance.new("TextLabel")
+closeKeyLabel.Size = UDim2.new(0,200,0,20)
+closeKeyLabel.Position = UDim2.new(0,10,0,20)
+closeKeyLabel.BackgroundTransparency = 1
+closeKeyLabel.TextColor3 = textColor
+closeKeyLabel.TextXAlignment = Enum.TextXAlignment.Left
+closeKeyLabel.Text = "GUI Toggle Key"
+closeKeyLabel.Parent = guiScroll
+
+-- ====== GUI Close Key ======
+local closeKey = Enum.KeyCode.Q
+local closeKeyBox = Instance.new("TextBox")
+closeKeyBox.Size = UDim2.new(0,200,0,30)
+closeKeyBox.Position = UDim2.new(0,10,0,40)
+closeKeyBox.Text = "Q"
+closeKeyBox.Parent = guiScroll
+closeKeyBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = closeKeyBox.Text
+	if #text > 1 then text = text:sub(1,1) end
+	text = text:upper()
+	closeKeyBox.Text = text
+	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
+	if success and keyEnum then closeKey = keyEnum end
+end)
+
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == closeKey then
+		mainFrame.Visible = not mainFrame.Visible
+	end
+end)
+
+-- ====== Fly/Noclip Buttons ======
+local flyOnOff = Instance.new("TextButton")
+flyOnOff.Text = "Fly: Off"
+flyOnOff.Size = UDim2.new(0,200,0,30)
+flyOnOff.Position = UDim2.new(0,10,0,10)
+flyOnOff.BackgroundColor3 = primaryMedium
+flyOnOff.TextColor3 = textColor
+flyOnOff.Parent = flyScroll
+Instance.new("UICorner", flyOnOff).CornerRadius = UDim.new(0,6)
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0,200,0,20)
+speedLabel.Position = UDim2.new(0,10,0,60)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = textColor
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Text = "Fly Speed:"
+speedLabel.Parent = flyScroll
+
+local speedBox = Instance.new("TextBox")
+speedBox.Size = UDim2.new(0,200,0,30)
+speedBox.Position = UDim2.new(0,10,0,80)
+speedBox.Text = tostring(flySpeed)
+speedBox.Parent = flyScroll
+
+local keyLabel = Instance.new("TextLabel")
+keyLabel.Size = UDim2.new(0,200,0,20)
+keyLabel.Position = UDim2.new(0,10,0,130)
+keyLabel.BackgroundTransparency = 1
+keyLabel.TextColor3 = textColor
+keyLabel.TextXAlignment = Enum.TextXAlignment.Left
+keyLabel.Text = "Fly Key:"
+keyLabel.Parent = flyScroll
+
+local keyBox = Instance.new("TextBox")
+keyBox.Size = UDim2.new(0,200,0,30)
+keyBox.Position = UDim2.new(0,10,0,150)
+keyBox.Text = flyKey.Name
+keyBox.Parent = flyScroll
+
+local noclipButton = Instance.new("TextButton")
+noclipButton.Text = "Fly Noclip: Off"
+noclipButton.Size = UDim2.new(0,200,0,30)
+noclipButton.Position = UDim2.new(0,10,0,190)
+noclipButton.BackgroundColor3 = primaryMedium
+noclipButton.TextColor3 = textColor
+noclipButton.Parent = flyScroll
+Instance.new("UICorner", noclipButton).CornerRadius = UDim.new(0,6)
+
+-- ====== Farbauswahl ======
+local function createColorPicker(labelText, defaultColor, yPos, onChange)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0,200,0,20)
+	label.Position = UDim2.new(0,10,0,yPos)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = textColor
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Text = labelText
+	label.Parent = guiScroll
+
+	local colorBox = Instance.new("TextButton")
+	colorBox.Size = UDim2.new(0,200,0,30)
+	colorBox.Position = UDim2.new(0,10,0,yPos+20)
+	colorBox.BackgroundColor3 = defaultColor
+	colorBox.Text = ""
+	colorBox.BorderSizePixel = 2
+	colorBox.Parent = guiScroll
+
+	local pickerOpen = false
+	local pickerFrame
+
+	local colors = {
+		Color3.fromRGB(30,30,30), Color3.fromRGB(50,50,50), Color3.fromRGB(70,70,70),
+		Color3.fromRGB(100,0,255), Color3.fromRGB(128,0,255), Color3.fromRGB(200,50,255),
+		Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255),
+		Color3.fromRGB(255,255,0), Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,128),
+		Color3.fromRGB(0,255,255), Color3.fromRGB(255,192,203), Color3.fromRGB(192,192,192)
+	}
+
+	colorBox.MouseButton1Click:Connect(function()
+		if pickerOpen then
+			if pickerFrame then pickerFrame:Destroy() end
+			pickerOpen = false
+			return
+		end
+		pickerOpen = true
+		pickerFrame = Instance.new("Frame")
+		pickerFrame.Size = UDim2.new(0,200,0,160)
+		pickerFrame.Position = colorBox.Position + UDim2.new(0,0,0,35)
+		pickerFrame.BackgroundColor3 = primaryMedium
+		pickerFrame.Parent = guiScroll
+		Instance.new("UICorner", pickerFrame).CornerRadius = UDim.new(0,8)
+
+		local closeBtn = Instance.new("TextButton")
+		closeBtn.Size = UDim2.new(0,20,0,20)
+		closeBtn.Position = UDim2.new(1,-25,0,5)
+		closeBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+		closeBtn.Text = "X"
+		closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+		closeBtn.Parent = pickerFrame
+		closeBtn.MouseButton1Click:Connect(function()
+			pickerFrame:Destroy()
+			pickerOpen = false
+		end)
+
+		for i, c in ipairs(colors) do
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(0,30,0,30)
+			btn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
+			btn.BackgroundColor3 = c
+			btn.Text = ""
+			btn.Parent = pickerFrame
+			btn.MouseButton1Click:Connect(function()
+				colorBox.BackgroundColor3 = c
+				onChange(c)
+				pickerFrame:Destroy()
+				pickerOpen = false
+			end)
+		end
+	end)
+end
+
+createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
+	primaryDark = c
+	primaryMedium = c:Lerp(Color3.fromRGB(50,50,50),0.5)
+	primaryLight = c:Lerp(Color3.fromRGB(70,70,70),0.7)
+	mainFrame.BackgroundColor3 = primaryMedium
+	topBar.BackgroundColor3 = primaryLight
+	leftScroll.BackgroundColor3 = primaryDark
+	flyScroll.BackgroundColor3 = primaryMedium
+	guiScroll.BackgroundColor3 = primaryMedium
+	espScroll.BackgroundColor3 = primaryMedium
+	playerScroll.BackgroundColor3 = primaryMedium
+	playerSelectFrame.BackgroundColor3 = primaryDark
+	playerListFrame.BackgroundColor3 = primaryDark
+	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
+	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
+	flyButton.BackgroundColor3 = primaryMedium
+	guiButton.BackgroundColor3 = primaryMedium
+	espButton.BackgroundColor3 = primaryMedium
+	playerButton.BackgroundColor3 = primaryMedium
+	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+	gotoButton.BackgroundColor3 = primaryMedium
+	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
+end)
+
+createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
+	secondary = c
+	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
+	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
+	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
+end)
+
+-- ====== Animation Control ======
+local function setFlyingAnimations(enabled)
+	if enabled then
+		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	else
+		humanoid.WalkSpeed = 16
+		humanoid.JumpPower = 50
+	end
+end
+
+-- ====== Fly/Noclip Logic ======
+local function stopFly()
+	if bv then bv:Destroy() bv = nil end
+	if bg then bg:Destroy() bg = nil end
+	humanoid.PlatformStand = false
+	setFlyingAnimations(false)
+	humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+	local velocity = hrp.Velocity
+	hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
+		end
+	end
+end
+
+flyOnOff.MouseButton1Click:Connect(function()
+	flying = not flying
+	if flying then
+		flyOnOff.Text = "Fly: On"
+		flyOnOff.BackgroundColor3 = secondary
+		if not bv then
+			bv = Instance.new("BodyVelocity")
+			bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+			bv.Velocity = Vector3.new(0,0,0)
+			bv.Parent = hrp
+		end
+		if not bg then
+			bg = Instance.new("BodyGyro")
+			bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
+			bg.CFrame = hrp.CFrame
+			bg.Parent = hrp
+		end
+		humanoid.PlatformStand = true
+		setFlyingAnimations(true)
+	else
+		flyOnOff.Text = "Fly: Off"
+		flyOnOff.BackgroundColor3 = primaryMedium
+		stopFly()
+	end
+end)
+
+-- ====== Fly Key ======
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == flyKey then
+		flying = not flying
+		if flying then
+			flyOnOff.Text = "Fly: On"
+			flyOnOff.BackgroundColor3 = secondary
+			if not bv then
+				bv = Instance.new("BodyVelocity")
+				bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+				bv.Velocity = Vector3.new(0,0,0)
+				bv.Parent = hrp
+			end
+			if not bg then
+				bg = Instance.new("BodyGyro")
+				bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
+				bg.CFrame = hrp.CFrame
+				bg.Parent = hrp
+			end
+			humanoid.PlatformStand = true
+			setFlyingAnimations(true)
+		else
+			flyOnOff.Text = "Fly: Off"
+			flyOnOff.BackgroundColor3 = primaryMedium
+			stopFly()
+		end
+	end
+end)
+
+speedBox.FocusLost:Connect(function()
+	local val = tonumber(speedBox.Text)
+	if val then flySpeed = val end
+end)
+
+keyBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = keyBox.Text
+	if #text > 1 then text = text:sub(1,1) end
+	text = text:upper()
+	keyBox.Text = text
+	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
+	if success and keyEnum then flyKey = keyEnum end
+end)
+
+noclipButton.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	if noclip then
+		noclipButton.Text = "Fly Noclip: On"
+		noclipButton.BackgroundColor3 = secondary
+	else
+		noclipButton.Text = "Fly Noclip: Off"
+		noclipButton.BackgroundColor3 = primaryMedium
+	end
+end)
+
+-- ====== RunService Loop ======
+runService.RenderStepped:Connect(function()
+	if flying and bv and bg then
+		local cam = workspace.CurrentCamera
+		local moveDir = Vector3.new(0,0,0)
+		if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
+		if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0,1,0) end
+
+		if moveDir.Magnitude > 0 then
+			moveDir = moveDir.Unit * flySpeed
+		end
+
+		bv.Velocity = moveDir
+		bg.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
+
+		for _, part in pairs(character:GetChildren()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = not noclip
+			end
+		end
+	end
+end)
+
+-- ====== CLEANUP BEI SCRIPT BEENDIGUNG ======
+game:GetService("Players").LocalPlayer.PlayerGui.ChildRemoved:Connect(function(child)
+	if child == screenGui then
+		-- Cleanup alle Connections
+		if newPlayerConnection then newPlayerConnection:Disconnect() end
+		if playerLeavingConnection then playerLeavingConnection:Disconnect() end
+		stopESPUpdateLoop()
+		disableESPForAllPlayers()
+		
+		for playerName, connections in pairs(playerConnections) do
+			for _, connection in pairs(connections) do
+				if connection then connection:Disconnect() end
+			end
+		end
+	end
+end)
