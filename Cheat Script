@@ -1209,10 +1209,10 @@ local function setupPlayerConnection(targetPlayer)
 	playerConnections[targetPlayer.UserId] = connections
 end
 
--- NEUE: Verbessertes Überwachungssystem
+-- NEUE: Super aggressive Überwachung - Alle 1 Sekunde prüfen
 spawn(function()
 	while true do
-		wait(2) -- Alle 2 Sekunden prüfen
+		wait(1) -- JEDEN Sekunde prüfen für maximale Abdeckung
 		
 		if espEnabled then
 			local playersChecked = 0
@@ -1228,9 +1228,26 @@ spawn(function()
 					
 					if hasESP then
 						playersWithESP = playersWithESP + 1
+						
+						-- EXTRA: Prüfe ob ESP noch funktioniert
+						local espFolder = espObjects[targetPlayer.UserId]
+						local highlightCount = 0
+						for _, child in pairs(espFolder:GetChildren()) do
+							if child:IsA("Highlight") then
+								highlightCount = highlightCount + 1
+							end
+						end
+						
+						-- Wenn zu wenige Highlights, recreate ESP
+						if highlightCount < 5 and espPlayers then -- Mindestens 5 Körperteile erwartet
+							print("ESP: Zu wenige Highlights für " .. targetPlayer.Name .. " (" .. highlightCount .. "), erstelle neu...")
+							spawn(function()
+								createAdvancedESP(targetPlayer)
+							end)
+						end
 					end
 					
-					-- Erstelle ESP wenn fehlend aber Character vorhanden
+					-- Erstelle ESP wenn fehlend aber Character vorhanden  
 					if hasCharacter and not hasESP then
 						print("ESP: Fehlender ESP für " .. targetPlayer.Name .. " wird erstellt...")
 						spawn(function()
@@ -1240,8 +1257,8 @@ spawn(function()
 				end
 			end
 			
-			-- Debug Information
-			if playersChecked > 0 then
+			-- Debug Information alle 10 Sekunden
+			if math.fmod(tick(), 10) < 1 then
 				print("ESP: " .. playersWithESP .. "/" .. playersChecked .. " Spieler haben ESP")
 			end
 		end
@@ -1326,13 +1343,3 @@ player.CharacterAdded:Connect(function()
 	character = player.Character
 	hrp = character:WaitForChild("HumanoidRootPart")
 	humanoid = character:WaitForChild("Humanoid")
-	
-	-- ESP für lokalen Spieler ist normalerweise nicht nötig
-	-- aber updateAllESP() wird aufgerufen für andere Spieler
-	spawn(function()
-		wait(1)
-		if espEnabled then
-			updateAllESP()
-		end
-	end)
-end)
