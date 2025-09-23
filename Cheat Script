@@ -1209,10 +1209,10 @@ local function setupPlayerConnection(targetPlayer)
 	playerConnections[targetPlayer.UserId] = connections
 end
 
--- NEUE: Super aggressive Überwachung - Alle 1 Sekunde prüfen
+-- NEUE: Verbessertes Überwachungssystem
 spawn(function()
 	while true do
-		wait(1) -- JEDEN Sekunde prüfen für maximale Abdeckung
+		wait(2) -- Alle 2 Sekunden prüfen
 		
 		if espEnabled then
 			local playersChecked = 0
@@ -1228,26 +1228,9 @@ spawn(function()
 					
 					if hasESP then
 						playersWithESP = playersWithESP + 1
-						
-						-- EXTRA: Prüfe ob ESP noch funktioniert
-						local espFolder = espObjects[targetPlayer.UserId]
-						local highlightCount = 0
-						for _, child in pairs(espFolder:GetChildren()) do
-							if child:IsA("Highlight") then
-								highlightCount = highlightCount + 1
-							end
-						end
-						
-						-- Wenn zu wenige Highlights, recreate ESP
-						if highlightCount < 5 and espPlayers then -- Mindestens 5 Körperteile erwartet
-							print("ESP: Zu wenige Highlights für " .. targetPlayer.Name .. " (" .. highlightCount .. "), erstelle neu...")
-							spawn(function()
-								createAdvancedESP(targetPlayer)
-							end)
-						end
 					end
 					
-					-- Erstelle ESP wenn fehlend aber Character vorhanden  
+					-- Erstelle ESP wenn fehlend aber Character vorhanden
 					if hasCharacter and not hasESP then
 						print("ESP: Fehlender ESP für " .. targetPlayer.Name .. " wird erstellt...")
 						spawn(function()
@@ -1257,8 +1240,8 @@ spawn(function()
 				end
 			end
 			
-			-- Debug Information alle 10 Sekunden
-			if math.fmod(tick(), 10) < 1 then
+			-- Debug Information
+			if playersChecked > 0 then
 				print("ESP: " .. playersWithESP .. "/" .. playersChecked .. " Spieler haben ESP")
 			end
 		end
