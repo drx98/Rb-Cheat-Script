@@ -11,6 +11,11 @@ local flyKey = Enum.KeyCode.E
 local noclip = false
 local bv, bg
 
+-- ====== ESP VARIABLEN ======
+local espEnabled = false
+local espColor = Color3.fromRGB(255, 255, 255)
+local espObjects = {}
+
 -- ====== Farben ======
 local primaryDark = Color3.fromRGB(30,30,30)
 local primaryMedium = Color3.fromRGB(50,50,50)
@@ -164,6 +169,239 @@ guiScroll.ScrollBarThickness = 6
 guiScroll.Visible = false
 guiScroll.Parent = mainFrame
 Instance.new("UICorner", guiScroll).CornerRadius = UDim.new(0,8)
+
+-- ====== ESP PLAYER BUTTON ======
+local espPlayerButton = Instance.new("TextButton")
+espPlayerButton.Text = "ESP Player: Off"
+espPlayerButton.Size = UDim2.new(0,220,0,30)
+espPlayerButton.Position = UDim2.new(0,10,0,10)
+espPlayerButton.BackgroundColor3 = primaryMedium
+espPlayerButton.TextColor3 = textColor
+espPlayerButton.Font = Enum.Font.Gotham
+espPlayerButton.TextSize = 14
+espPlayerButton.Parent = espScroll
+Instance.new("UICorner", espPlayerButton).CornerRadius = UDim.new(0,6)
+
+-- ====== ESP COLOR PICKER ======
+local espColorLabel = Instance.new("TextLabel")
+espColorLabel.Size = UDim2.new(0,200,0,20)
+espColorLabel.Position = UDim2.new(0,10,0,60)
+espColorLabel.BackgroundTransparency = 1
+espColorLabel.TextColor3 = textColor
+espColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+espColorLabel.Text = "ESP Color:"
+espColorLabel.Font = Enum.Font.Gotham
+espColorLabel.TextSize = 12
+espColorLabel.Parent = espScroll
+
+local espColorBox = Instance.new("TextButton")
+espColorBox.Size = UDim2.new(0,200,0,30)
+espColorBox.Position = UDim2.new(0,10,0,80)
+espColorBox.BackgroundColor3 = espColor
+espColorBox.Text = ""
+espColorBox.BorderSizePixel = 2
+espColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
+espColorBox.Parent = espScroll
+Instance.new("UICorner", espColorBox).CornerRadius = UDim.new(0,6)
+
+-- ====== ESP FUNKTIONEN ======
+local function createESPForPlayer(targetPlayer)
+	if not targetPlayer.Character then return end
+	if targetPlayer == player then return end -- Eigenen Spieler ausschließen
+	if espObjects[targetPlayer.Name] then return end -- Bereits vorhanden
+	
+	local character = targetPlayer.Character
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then return end
+	
+	-- ESP Box erstellen
+	local espBox = Instance.new("BoxHandleAdornment")
+	espBox.Name = "ESPBox_" .. targetPlayer.Name
+	espBox.Adornee = humanoidRootPart
+	espBox.Size = Vector3.new(4, 6, 1)
+	espBox.Color3 = espColor
+	espBox.Transparency = 0.7
+	espBox.AlwaysOnTop = true
+	espBox.ZIndex = 5
+	espBox.Parent = humanoidRootPart
+	
+	-- ESP Outline erstellen
+	local espOutline = Instance.new("SelectionBox")
+	espOutline.Name = "ESPOutline_" .. targetPlayer.Name
+	espOutline.Adornee = character
+	espOutline.Color3 = espColor
+	espOutline.LineThickness = 0.1
+	espOutline.Transparency = 0.3
+	espOutline.Parent = character
+	
+	-- ESP Objekte speichern
+	espObjects[targetPlayer.Name] = {
+		box = espBox,
+		outline = espOutline,
+		player = targetPlayer
+	}
+end
+
+local function removeESPForPlayer(targetPlayer)
+	local playerName = targetPlayer.Name
+	if espObjects[playerName] then
+		if espObjects[playerName].box then
+			espObjects[playerName].box:Destroy()
+		end
+		if espObjects[playerName].outline then
+			espObjects[playerName].outline:Destroy()
+		end
+		espObjects[playerName] = nil
+	end
+end
+
+local function updateESPColors()
+	for playerName, espData in pairs(espObjects) do
+		if espData.box and espData.box.Parent then
+			espData.box.Color3 = espColor
+		end
+		if espData.outline and espData.outline.Parent then
+			espData.outline.Color3 = espColor
+		end
+	end
+end
+
+local function enableESP()
+	-- ESP für alle existierenden Spieler erstellen
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer ~= player and targetPlayer.Character then
+			createESPForPlayer(targetPlayer)
+		end
+	end
+end
+
+local function disableESP()
+	-- Alle ESP Objekte entfernen
+	for playerName, espData in pairs(espObjects) do
+		if espData.box then espData.box:Destroy() end
+		if espData.outline then espData.outline:Destroy() end
+	end
+	espObjects = {}
+end
+
+-- ====== ESP BUTTON FUNKTIONALITÄT ======
+espPlayerButton.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	if espEnabled then
+		espPlayerButton.Text = "ESP Player: On"
+		espPlayerButton.BackgroundColor3 = secondary
+		enableESP()
+	else
+		espPlayerButton.Text = "ESP Player: Off"
+		espPlayerButton.BackgroundColor3 = primaryMedium
+		disableESP()
+	end
+end)
+
+-- ====== ESP COLOR PICKER FUNKTIONALITÄT ======
+local espPickerOpen = false
+local espPickerFrame
+
+local espColors = {
+	Color3.fromRGB(255,255,255), Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0),
+	Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,0), Color3.fromRGB(255,0,255),
+	Color3.fromRGB(0,255,255), Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,255),
+	Color3.fromRGB(255,192,203), Color3.fromRGB(128,128,128), Color3.fromRGB(64,64,64),
+	Color3.fromRGB(255,69,0), Color3.fromRGB(50,205,50), Color3.fromRGB(30,144,255)
+}
+
+espColorBox.MouseButton1Click:Connect(function()
+	if espPickerOpen then
+		if espPickerFrame then espPickerFrame:Destroy() end
+		espPickerOpen = false
+		return
+	end
+	
+	espPickerOpen = true
+	espPickerFrame = Instance.new("Frame")
+	espPickerFrame.Size = UDim2.new(0,200,0,160)
+	espPickerFrame.Position = UDim2.new(0,10,0,120)
+	espPickerFrame.BackgroundColor3 = primaryDark
+	espPickerFrame.BorderSizePixel = 1
+	espPickerFrame.BorderColor3 = Color3.fromRGB(100,100,100)
+	espPickerFrame.Parent = espScroll
+	Instance.new("UICorner", espPickerFrame).CornerRadius = UDim.new(0,8)
+	
+	-- Close Button
+	local espCloseBtn = Instance.new("TextButton")
+	espCloseBtn.Size = UDim2.new(0,20,0,20)
+	espCloseBtn.Position = UDim2.new(1,-25,0,5)
+	espCloseBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	espCloseBtn.Text = "X"
+	espCloseBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	espCloseBtn.Font = Enum.Font.GothamBold
+	espCloseBtn.TextSize = 12
+	espCloseBtn.Parent = espPickerFrame
+	Instance.new("UICorner", espCloseBtn).CornerRadius = UDim.new(0,4)
+	
+	espCloseBtn.MouseButton1Click:Connect(function()
+		espPickerFrame:Destroy()
+		espPickerOpen = false
+	end)
+	
+	-- Color Buttons
+	for i, c in ipairs(espColors) do
+		local colorBtn = Instance.new("TextButton")
+		colorBtn.Size = UDim2.new(0,30,0,30)
+		colorBtn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
+		colorBtn.BackgroundColor3 = c
+		colorBtn.Text = ""
+		colorBtn.BorderSizePixel = 1
+		colorBtn.BorderColor3 = Color3.fromRGB(200,200,200)
+		colorBtn.Parent = espPickerFrame
+		Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0,4)
+		
+		colorBtn.MouseButton1Click:Connect(function()
+			espColor = c
+			espColorBox.BackgroundColor3 = c
+			if espEnabled then
+				updateESPColors()
+			end
+			espPickerFrame:Destroy()
+			espPickerOpen = false
+		end)
+	end
+	
+	-- Canvas Size für ESP Scroll anpassen damit Picker sichtbar ist
+	espScroll.CanvasSize = UDim2.new(0,0,0,300)
+end)
+
+-- ====== ESP PLAYER EVENTS ======
+-- Neuen Spieler ESP hinzufügen wenn er beitritt
+game.Players.PlayerAdded:Connect(function(newPlayer)
+	newPlayer.CharacterAdded:Connect(function()
+		if espEnabled then
+			wait(0.5) -- Kurz warten damit Character vollständig geladen ist
+			createESPForPlayer(newPlayer)
+		end
+	end)
+end)
+
+-- ESP entfernen wenn Spieler das Spiel verlässt
+game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	removeESPForPlayer(leavingPlayer)
+end)
+
+-- ESP für bereits existierende Spieler wenn sie respawnen
+for _, existingPlayer in pairs(game.Players:GetPlayers()) do
+	if existingPlayer ~= player then
+		existingPlayer.CharacterAdded:Connect(function()
+			if espEnabled then
+				wait(0.5)
+				createESPForPlayer(existingPlayer)
+			end
+		end)
+		
+		existingPlayer.CharacterRemoving:Connect(function()
+			removeESPForPlayer(existingPlayer)
+		end)
+	end
+end
 
 -- ====== PLAYER SETTINGS VARIABLEN ======
 local selectedPlayer = nil
@@ -645,6 +883,7 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	playerButton.BackgroundColor3 = primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	gotoButton.BackgroundColor3 = primaryMedium
+	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
 end)
 
 createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
@@ -652,6 +891,7 @@ createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
 	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
 	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
 end)
 
 -- ====== Animation Control ======
