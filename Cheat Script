@@ -964,21 +964,26 @@ createESPColorPicker("Skeleton Farbe:", skeletonColor, 390, function(newColor)
 	updateAllESP()
 end)
 
--- VERBESSERTE ESP-Erstellung mit garantierter Abdeckung aller Spieler
+-- SUPER AGGRESSIVE ESP-Erstellung - Garantiert für ALLE Spieler
 local function createAdvancedESP(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
 
-	-- Warte auf Character mit mehreren Versuchen
+	-- Warte auf Character mit vielen Versuchen
 	local character = targetPlayer.Character
 	local attempts = 0
-	while not character and attempts < 50 do -- 5 Sekunden warten
+	while not character and attempts < 100 do -- 10 Sekunden warten
 		wait(0.1)
 		character = targetPlayer.Character
 		attempts = attempts + 1
 	end
 
 	if not character then 
-		print("ESP: Character nicht gefunden für " .. targetPlayer.Name)
+		print("ESP: Character nicht gefunden für " .. targetPlayer.Name .. " - Versuche es später erneut")
+		-- Versuche es in 2 Sekunden nochmal
+		spawn(function()
+			wait(2)
+			createAdvancedESP(targetPlayer)
+		end)
 		return 
 	end
 
@@ -992,113 +997,66 @@ local function createAdvancedESP(targetPlayer)
 	espFolder.Name = "ESP_" .. targetPlayer.Name
 	espFolder.Parent = workspace.CurrentCamera
 
-	-- Warte auf HumanoidRootPart
-	local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-	if not humanoidRootPart then
-		espFolder:Destroy()
-		return
-	end
-
 	-- Nametags ESP
 	if espEnabled and espNametags then
-		local success = pcall(function()
-			local billboardGui = Instance.new("BillboardGui")
-			billboardGui.Size = UDim2.new(0, 200, 0, 50)
-			billboardGui.Adornee = humanoidRootPart
-			billboardGui.AlwaysOnTop = true
-			billboardGui.StudsOffset = Vector3.new(0, -3, 0)
-			billboardGui.Parent = espFolder
+		pcall(function()
+			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+			if humanoidRootPart then
+				local billboardGui = Instance.new("BillboardGui")
+				billboardGui.Size = UDim2.new(0, 200, 0, 50)
+				billboardGui.Adornee = humanoidRootPart
+				billboardGui.AlwaysOnTop = true
+				billboardGui.StudsOffset = Vector3.new(0, -3, 0)
+				billboardGui.Parent = espFolder
 
-			local nameLabel = Instance.new("TextLabel")
-			nameLabel.Size = UDim2.new(1, 0, 1, 0)
-			nameLabel.BackgroundTransparency = 1
-			nameLabel.Text = targetPlayer.Name
-			nameLabel.TextColor3 = nametagColor
-			nameLabel.TextStrokeTransparency = 0
-			nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-			nameLabel.Font = Enum.Font.GothamBold
-			nameLabel.TextSize = 14
-			nameLabel.Parent = billboardGui
+				local nameLabel = Instance.new("TextLabel")
+				nameLabel.Size = UDim2.new(1, 0, 1, 0)
+				nameLabel.BackgroundTransparency = 1
+				nameLabel.Text = targetPlayer.Name
+				nameLabel.TextColor3 = nametagColor
+				nameLabel.TextStrokeTransparency = 0
+				nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+				nameLabel.Font = Enum.Font.GothamBold
+				nameLabel.TextSize = 14
+				nameLabel.Parent = billboardGui
+			end
 		end)
-		if not success then
-			print("ESP: Nametag Erstellung fehlgeschlagen für " .. targetPlayer.Name)
-		end
 	end
 
-	-- VERBESSERTE Player Outline ESP mit Füllung - Mehrere Fallback-Methoden
+	-- EINFACHSTE UND ZUVERLÄSSIGSTE Player ESP - Funktioniert IMMER
 	if espEnabled and espPlayers then
-		local success = pcall(function()
-			-- Methode 1: Versuche Highlight auf ganzen Character
-			local highlight = Instance.new("Highlight")
-			highlight.FillColor = playerColor
-			highlight.OutlineColor = playerColor
-			highlight.FillTransparency = 0.5  -- 50% transparent Füllung
-			highlight.OutlineTransparency = 0  -- Vollständig sichtbare Umrandung
-			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-			highlight.Adornee = character
-			highlight.Parent = espFolder
-			
-			print("ESP: Character Highlight erstellt für " .. targetPlayer.Name)
-			
-			-- Zusätzlicher Fallback: Highlight für alle BaseParts einzeln
-			spawn(function()
-				wait(0.5) -- Warte kurz und prüfe ob das Character-Highlight funktioniert
-				
-				-- Wenn das Character-Highlight nicht sichtbar ist, erstelle individuelle Highlights
-				local allParts = {}
-				for _, descendant in pairs(character:GetDescendants()) do
-					if descendant:IsA("BasePart") and descendant.Name ~= "HumanoidRootPart" then
-						table.insert(allParts, descendant)
-					end
-				end
-				
-				-- Erstelle Highlights für alle sichtbaren Teile
-				if #allParts > 0 then
-					for _, part in pairs(allParts) do
-						pcall(function()
-							local partHighlight = Instance.new("Highlight")
-							partHighlight.FillColor = playerColor
-							partHighlight.OutlineColor = playerColor
-							partHighlight.FillTransparency = 0.5
-							partHighlight.OutlineTransparency = 0
-							partHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-							partHighlight.Adornee = part
-							partHighlight.Parent = espFolder
-						end)
-					end
-					print("ESP: Fallback Teil-Highlights erstellt für " .. targetPlayer.Name .. " (" .. #allParts .. " Teile)")
-				end
-			end)
-			
-		end)
+		-- Sammle ALLE BaseParts
+		local allParts = {}
+		for _, descendant in pairs(character:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				table.insert(allParts, descendant)
+			end
+		end
 		
-		-- Wenn auch das fehlschlägt, verwende eine andere Methode
-		if not success then
-			print("ESP: Character Highlight fehlgeschlagen für " .. targetPlayer.Name .. ", versuche Alternative...")
-			pcall(function()
-				-- Alternative: BoxHandleAdornment für jedes BasePart
-				for _, descendant in pairs(character:GetDescendants()) do
-					if descendant:IsA("BasePart") then
-						local box = Instance.new("BoxHandleAdornment")
-						box.Size = descendant.Size + Vector3.new(0.1, 0.1, 0.1)
-						box.Color3 = playerColor
-						box.Transparency = 0.5
-						box.AlwaysOnTop = true
-						box.ZIndex = 10
-						box.Adornee = descendant
-						box.Parent = espFolder
-					end
-				end
-				print("ESP: BoxHandleAdornment Fallback erstellt für " .. targetPlayer.Name)
-			end)
+		if #allParts > 0 then
+			-- Erstelle ein Highlight für jedes einzelne Teil
+			for _, part in pairs(allParts) do
+				pcall(function()
+					local highlight = Instance.new("Highlight")
+					highlight.FillColor = playerColor
+					highlight.OutlineColor = playerColor
+					highlight.FillTransparency = 0.5  -- 50% transparent Füllung
+					highlight.OutlineTransparency = 0  -- Vollständig sichtbare Umrandung
+					highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+					highlight.Adornee = part
+					highlight.Parent = espFolder
+				end)
+			end
+			print("ESP: " .. #allParts .. " Teil-Highlights erstellt für " .. targetPlayer.Name)
+		else
+			print("ESP: Keine BaseParts gefunden für " .. targetPlayer.Name)
 		end
 	end
 
-	-- Skeleton ESP mit verbesserter Sichtbarkeit
+	-- Skeleton ESP
 	if espEnabled and espSkeleton then
 		local function createEnhancedLine(part1, part2)
 			if not part1 or not part2 then return end
-
 			pcall(function()
 				local startPart = Instance.new("Part")
 				startPart.Name = "SkeletonStart"
@@ -1137,28 +1095,18 @@ local function createAdvancedESP(targetPlayer)
 				beam.LightEmission = 1
 				beam.Parent = espFolder
 
-				-- Position Update Funktion
-				local function updatePositions()
-					if part1.Parent and part2.Parent then
-						startPart.CFrame = part1.CFrame
-						endPart.CFrame = part2.CFrame
-					end
-				end
-
 				local connection
 				connection = game:GetService("RunService").Heartbeat:Connect(function()
 					if startPart and startPart.Parent and endPart and endPart.Parent and part1.Parent and part2.Parent then
-						updatePositions()
+						startPart.CFrame = part1.CFrame
+						endPart.CFrame = part2.CFrame
 					else
 						if connection then connection:Disconnect() end
 					end
 				end)
-
-				updatePositions()
 			end)
 		end
 
-		-- Skeleton Verbindungen für R6 und R15
 		pcall(function()
 			local head = character:FindFirstChild("Head")
 			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
@@ -1166,7 +1114,6 @@ local function createAdvancedESP(targetPlayer)
 			local rightArm = character:FindFirstChild("Right Arm") or character:FindFirstChild("RightUpperArm")
 			local leftLeg = character:FindFirstChild("Left Leg") or character:FindFirstChild("LeftUpperLeg")
 			local rightLeg = character:FindFirstChild("Right Leg") or character:FindFirstChild("RightUpperLeg")
-
 			local lowerTorso = character:FindFirstChild("LowerTorso")
 
 			if torso then
@@ -1262,10 +1209,10 @@ local function setupPlayerConnection(targetPlayer)
 	playerConnections[targetPlayer.UserId] = connections
 end
 
--- NEUE: Verbessertes Überwachungssystem
+-- NEUE: Super aggressive Überwachung - Alle 1 Sekunde prüfen
 spawn(function()
 	while true do
-		wait(2) -- Alle 2 Sekunden prüfen
+		wait(1) -- JEDEN Sekunde prüfen für maximale Abdeckung
 		
 		if espEnabled then
 			local playersChecked = 0
@@ -1281,9 +1228,26 @@ spawn(function()
 					
 					if hasESP then
 						playersWithESP = playersWithESP + 1
+						
+						-- EXTRA: Prüfe ob ESP noch funktioniert
+						local espFolder = espObjects[targetPlayer.UserId]
+						local highlightCount = 0
+						for _, child in pairs(espFolder:GetChildren()) do
+							if child:IsA("Highlight") then
+								highlightCount = highlightCount + 1
+							end
+						end
+						
+						-- Wenn zu wenige Highlights, recreate ESP
+						if highlightCount < 5 and espPlayers then -- Mindestens 5 Körperteile erwartet
+							print("ESP: Zu wenige Highlights für " .. targetPlayer.Name .. " (" .. highlightCount .. "), erstelle neu...")
+							spawn(function()
+								createAdvancedESP(targetPlayer)
+							end)
+						end
 					end
 					
-					-- Erstelle ESP wenn fehlend aber Character vorhanden
+					-- Erstelle ESP wenn fehlend aber Character vorhanden  
 					if hasCharacter and not hasESP then
 						print("ESP: Fehlender ESP für " .. targetPlayer.Name .. " wird erstellt...")
 						spawn(function()
@@ -1293,8 +1257,8 @@ spawn(function()
 				end
 			end
 			
-			-- Debug Information
-			if playersChecked > 0 then
+			-- Debug Information alle 10 Sekunden
+			if math.fmod(tick(), 10) < 1 then
 				print("ESP: " .. playersWithESP .. "/" .. playersChecked .. " Spieler haben ESP")
 			end
 		end
