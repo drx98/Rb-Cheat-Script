@@ -1,13 +1,7 @@
 local player = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
-
--- Warte auf Character falls es nicht existiert
-local character = player.Character
-if not character then
-	character = player.CharacterAdded:Wait()
-end
-
+local character = player.Character or player.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
@@ -21,8 +15,6 @@ local bv, bg
 local espEnabled = false
 local espColor = Color3.fromRGB(255, 255, 255)
 local espObjects = {}
-local nametagsEnabled = false
-local nametagColor = Color3.fromRGB(255, 255, 255)
 
 -- ====== Farben ======
 local primaryDark = Color3.fromRGB(30,30,30)
@@ -223,28 +215,28 @@ local function createESPForPlayer(targetPlayer)
 		print("ESP Debug: " .. targetPlayer.Name .. " has no character")
 		return 
 	end
-	
+
 	-- Entferne altes ESP falls vorhanden
 	if espObjects[targetPlayer.Name] then
 		removeESPForPlayer(targetPlayer)
 	end
-	
+
 	local character = targetPlayer.Character
-	
+
 	-- Warte bis Character vollständig geladen ist
 	local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
 	if not humanoidRootPart then
 		print("ESP Debug: " .. targetPlayer.Name .. " - HumanoidRootPart not found")
 		return
 	end
-	
+
 	-- Entferne alle existierenden ESP Highlights vom Character
 	for _, child in pairs(character:GetChildren()) do
 		if child:IsA("Highlight") and child.Name:find("ESPHighlight") then
 			child:Destroy()
 		end
 	end
-	
+
 	-- ESP Highlight erstellen
 	local espHighlight = Instance.new("Highlight")
 	espHighlight.Name = "ESPHighlight_" .. targetPlayer.Name
@@ -255,15 +247,14 @@ local function createESPForPlayer(targetPlayer)
 	espHighlight.OutlineTransparency = 0
 	espHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	espHighlight.Parent = character
-	
+
 	-- ESP Objekte speichern
-	if not espObjects[targetPlayer.Name] then
-		espObjects[targetPlayer.Name] = {}
-	end
-	espObjects[targetPlayer.Name].highlight = espHighlight
-	espObjects[targetPlayer.Name].player = targetPlayer
-	espObjects[targetPlayer.Name].character = character
-	
+	espObjects[targetPlayer.Name] = {
+		highlight = espHighlight,
+		player = targetPlayer,
+		character = character
+	}
+
 	print("ESP Debug: Successfully created ESP for " .. targetPlayer.Name)
 end
 
@@ -272,9 +263,6 @@ local function removeESPForPlayer(targetPlayer)
 	if espObjects[playerName] then
 		if espObjects[playerName].highlight then
 			espObjects[playerName].highlight:Destroy()
-		end
-		if espObjects[playerName].nametag then
-			espObjects[playerName].nametag:Destroy()
 		end
 		espObjects[playerName] = nil
 	end
@@ -293,7 +281,7 @@ local function enableESP()
 	print("ESP Debug: Enabling ESP for all players")
 	-- Warte kurz und erstelle dann ESP für alle Spieler
 	wait(0.1)
-	
+
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 		if targetPlayer ~= player then
 			print("ESP Debug: Attempting to create ESP for " .. targetPlayer.Name)
@@ -313,24 +301,18 @@ local function disableESP()
 	print("ESP Debug: Disabling ESP for all players")
 	-- Alle ESP Objekte entfernen
 	for playerName, espData in pairs(espObjects) do
-		pcall(function()
-			if espData and espData.highlight then 
-				espData.highlight:Destroy() 
-			end
-		end)
+		if espData.highlight then espData.highlight:Destroy() end
 	end
 	espObjects = {}
-	
+
 	-- Zusätzlich: Alle Highlights im Spiel entfernen die ESP sein könnten
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-		if targetPlayer and targetPlayer.Character then
-			pcall(function()
-				for _, child in pairs(targetPlayer.Character:GetChildren()) do
-					if child:IsA("Highlight") and child.Name:find("ESPHighlight") then
-						child:Destroy()
-					end
+		if targetPlayer.Character then
+			for _, child in pairs(targetPlayer.Character:GetChildren()) do
+				if child:IsA("Highlight") and child.Name:find("ESPHighlight") then
+					child:Destroy()
 				end
-			end)
+			end
 		end
 	end
 end
@@ -369,7 +351,7 @@ espColorBox.MouseButton1Click:Connect(function()
 		espPickerOpen = false
 		return
 	end
-	
+
 	espPickerOpen = true
 	espPickerFrame = Instance.new("Frame")
 	espPickerFrame.Size = UDim2.new(0,200,0,160)
@@ -379,7 +361,7 @@ espColorBox.MouseButton1Click:Connect(function()
 	espPickerFrame.BorderColor3 = Color3.fromRGB(100,100,100)
 	espPickerFrame.Parent = espScroll
 	Instance.new("UICorner", espPickerFrame).CornerRadius = UDim.new(0,8)
-	
+
 	-- Close Button
 	local espCloseBtn = Instance.new("TextButton")
 	espCloseBtn.Size = UDim2.new(0,20,0,20)
@@ -391,12 +373,12 @@ espColorBox.MouseButton1Click:Connect(function()
 	espCloseBtn.TextSize = 12
 	espCloseBtn.Parent = espPickerFrame
 	Instance.new("UICorner", espCloseBtn).CornerRadius = UDim.new(0,4)
-	
+
 	espCloseBtn.MouseButton1Click:Connect(function()
 		espPickerFrame:Destroy()
 		espPickerOpen = false
 	end)
-	
+
 	-- Color Buttons
 	for i, c in ipairs(espColors) do
 		local colorBtn = Instance.new("TextButton")
@@ -408,7 +390,7 @@ espColorBox.MouseButton1Click:Connect(function()
 		colorBtn.BorderColor3 = Color3.fromRGB(200,200,200)
 		colorBtn.Parent = espPickerFrame
 		Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0,4)
-		
+
 		colorBtn.MouseButton1Click:Connect(function()
 			espColor = c
 			espColorBox.BackgroundColor3 = c
@@ -419,40 +401,10 @@ espColorBox.MouseButton1Click:Connect(function()
 			espPickerOpen = false
 		end)
 	end
-	
--- ====== ESP NAMETAGS BUTTON ======
-local espNametagButton = Instance.new("TextButton")
-espNametagButton.Text = "ESP Nametags: Off"
-espNametagButton.Size = UDim2.new(0,220,0,30)
-espNametagButton.Position = UDim2.new(0,10,0,300)
-espNametagButton.BackgroundColor3 = primaryMedium
-espNametagButton.TextColor3 = textColor
-espNametagButton.Font = Enum.Font.Gotham
-espNametagButton.TextSize = 14
-espNametagButton.Parent = espScroll
-Instance.new("UICorner", espNametagButton).CornerRadius = UDim.new(0,6)
 
--- ====== ESP NAMETAG COLOR PICKER ======
-local nametagColorLabel = Instance.new("TextLabel")
-nametagColorLabel.Size = UDim2.new(0,200,0,20)
-nametagColorLabel.Position = UDim2.new(0,10,0,350)
-nametagColorLabel.BackgroundTransparency = 1
-nametagColorLabel.TextColor3 = textColor
-nametagColorLabel.TextXAlignment = Enum.TextXAlignment.Left
-nametagColorLabel.Text = "Nametag Color:"
-nametagColorLabel.Font = Enum.Font.Gotham
-nametagColorLabel.TextSize = 12
-nametagColorLabel.Parent = espScroll
-
-local nametagColorBox = Instance.new("TextButton")
-nametagColorBox.Size = UDim2.new(0,200,0,30)
-nametagColorBox.Position = UDim2.new(0,10,0,370)
-nametagColorBox.BackgroundColor3 = nametagColor
-nametagColorBox.Text = ""
-nametagColorBox.BorderSizePixel = 2
-nametagColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
-nametagColorBox.Parent = espScroll
-Instance.new("UICorner", nametagColorBox).CornerRadius = UDim.new(0,6)
+	-- Canvas Size für ESP Scroll anpassen damit Picker sichtbar ist
+	espScroll.CanvasSize = UDim2.new(0,0,0,300)
+end)
 
 -- ====== ESP PLAYER EVENTS ======
 -- ESP Update Loop - prüft kontinuierlich alle Spieler
@@ -461,68 +413,42 @@ local function startESPUpdateLoop()
 	if espUpdateConnection then
 		espUpdateConnection:Disconnect()
 	end
-	
+
 	espUpdateConnection = runService.Heartbeat:Connect(function()
 		if espEnabled then
 			-- Prüfe alle Spieler alle 60 Frames (ca. 1x pro Sekunde)
-			if math.floor(tick() * 60) % 60 == 0 then
+			if tick() % 1 < 0.016 then
 				for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-					if targetPlayer and targetPlayer ~= player and targetPlayer.Character then
+					if targetPlayer ~= player and targetPlayer.Character then
 						local hasValidESP = false
-						
+
 						-- Prüfe ob Spieler bereits gültiges ESP hat
 						if espObjects[targetPlayer.Name] then
 							local espData = espObjects[targetPlayer.Name]
-							if espData and espData.highlight and espData.highlight.Parent and espData.character == targetPlayer.Character then
+							if espData.highlight and espData.highlight.Parent and espData.character == targetPlayer.Character then
 								hasValidESP = true
 							end
 						end
-						
+
 						-- Erstelle ESP wenn es fehlt oder ungültig ist
 						if not hasValidESP then
 							print("ESP Debug: Creating missing ESP for " .. targetPlayer.Name)
 							spawn(function()
-								pcall(function()
-									createESPForPlayer(targetPlayer)
-								end)
+								createESPForPlayer(targetPlayer)
 							end)
-						end
-						
-						-- Prüfe Nametags separat
-						if nametagsEnabled then
-							local hasValidNametag = false
-							if espObjects[targetPlayer.Name] and espObjects[targetPlayer.Name].nametag and espObjects[targetPlayer.Name].nametag.Parent then
-								hasValidNametag = true
-							end
-							
-							if not hasValidNametag then
-								print("ESP Debug: Creating missing nametag for " .. targetPlayer.Name)
-								spawn(function()
-									pcall(function()
-										createNametagForPlayer(targetPlayer)
-									end)
-								end)
-							end
 						end
 					end
 				end
-				
+
 				-- Entferne ESP für nicht mehr existierende Spieler
 				for playerName, espData in pairs(espObjects) do
-					if espData then
-						local targetPlayer = game.Players:FindFirstChild(playerName)
-						if not targetPlayer or not targetPlayer.Character or (espData.character and espData.character ~= targetPlayer.Character) then
-							print("ESP Debug: Removing invalid ESP for " .. playerName)
-							pcall(function()
-								if espData.highlight then
-									espData.highlight:Destroy()
-								end
-								if espData.nametag then
-									espData.nametag:Destroy()
-								end
-							end)
-							espObjects[playerName] = nil
+					local targetPlayer = game.Players:FindFirstChild(playerName)
+					if not targetPlayer or not targetPlayer.Character or espData.character ~= targetPlayer.Character then
+						print("ESP Debug: Removing invalid ESP for " .. playerName)
+						if espData.highlight then
+							espData.highlight:Destroy()
 						end
+						espObjects[playerName] = nil
 					end
 				end
 			end
@@ -561,7 +487,7 @@ for _, existingPlayer in pairs(game.Players:GetPlayers()) do
 				createESPForPlayer(existingPlayer)
 			end
 		end)
-		
+
 		existingPlayer.CharacterRemoving:Connect(function()
 			removeESPForPlayer(existingPlayer)
 		end)
@@ -864,11 +790,11 @@ game.Players.PlayerRemoving:Connect(function(leavingPlayer)
 end)
 
 -- Stoppe View wenn der eigene Character respawnt
-player.CharacterAdded:Connect(function(newCharacter)
+player.CharacterAdded:Connect(function()
 	if viewingPlayer then
 		stopViewing()
 	end
-	character = newCharacter
+	character = player.Character
 	hrp = character:WaitForChild("HumanoidRootPart")
 	humanoid = character:WaitForChild("Humanoid")
 end)
@@ -1049,7 +975,6 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	gotoButton.BackgroundColor3 = primaryMedium
 	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
-	espNametagButton.BackgroundColor3 = nametagsEnabled and secondary or primaryMedium
 end)
 
 createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
@@ -1058,7 +983,6 @@ createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
 	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
-	espNametagButton.BackgroundColor3 = nametagsEnabled and secondary or primaryMedium
 end)
 
 -- ====== Animation Control ======
@@ -1080,29 +1004,21 @@ end
 local function stopFly()
 	if bv then bv:Destroy() bv = nil end
 	if bg then bg:Destroy() bg = nil end
-	if humanoid then
-		humanoid.PlatformStand = false
-		setFlyingAnimations(false)
-		humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
-		humanoid.WalkSpeed = 16
-		humanoid.JumpPower = 50
-	end
-	if hrp then
-		local velocity = hrp.Velocity
-		hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
-	end
-	if character then
-		for _, part in pairs(character:GetChildren()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = true
-			end
+	humanoid.PlatformStand = false
+	setFlyingAnimations(false)
+	humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+	local velocity = hrp.Velocity
+	hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
 		end
 	end
 end
 
 flyOnOff.MouseButton1Click:Connect(function()
-	if not character or not hrp or not humanoid then return end
-	
 	flying = not flying
 	if flying then
 		flyOnOff.Text = "Fly: On"
@@ -1132,8 +1048,6 @@ end)
 uis.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
 	if input.KeyCode == flyKey then
-		if not character or not hrp or not humanoid then return end
-		
 		-- Toggle Fly
 		flying = not flying
 		if flying then
@@ -1188,7 +1102,7 @@ end)
 
 -- ====== RunService Loop ======
 runService.RenderStepped:Connect(function()
-	if flying and bv and bg and character and hrp then
+	if flying and bv and bg then
 		local cam = workspace.CurrentCamera
 		local moveDir = Vector3.new(0,0,0)
 		if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
