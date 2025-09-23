@@ -1025,30 +1025,72 @@ local function createAdvancedESP(targetPlayer)
 		end
 	end
 
-	-- VERBESSERTE Player Outline ESP mit Füllung
+	-- VERBESSERTE Player Outline ESP mit Füllung - Mehrere Fallback-Methoden
 	if espEnabled and espPlayers then
 		local success = pcall(function()
-			-- Warte bis alle wichtigen Teile geladen sind
-			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso") or character:WaitForChild("UpperTorso", 3)
+			-- Methode 1: Versuche Highlight auf ganzen Character
+			local highlight = Instance.new("Highlight")
+			highlight.FillColor = playerColor
+			highlight.OutlineColor = playerColor
+			highlight.FillTransparency = 0.5  -- 50% transparent Füllung
+			highlight.OutlineTransparency = 0  -- Vollständig sichtbare Umrandung
+			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			highlight.Adornee = character
+			highlight.Parent = espFolder
 			
-			if torso then
-				local highlight = Instance.new("Highlight")
-				highlight.FillColor = playerColor
-				highlight.OutlineColor = playerColor
-				highlight.FillTransparency = 0.5  -- 50% transparent Füllung
-				highlight.OutlineTransparency = 0  -- Vollständig sichtbare Umrandung
-				highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				highlight.Adornee = character
-				highlight.Parent = espFolder
+			print("ESP: Character Highlight erstellt für " .. targetPlayer.Name)
+			
+			-- Zusätzlicher Fallback: Highlight für alle BaseParts einzeln
+			spawn(function()
+				wait(0.5) -- Warte kurz und prüfe ob das Character-Highlight funktioniert
 				
-				print("ESP: Highlight erstellt für " .. targetPlayer.Name)
-			else
-				print("ESP: Kein Torso gefunden für " .. targetPlayer.Name)
-			end
+				-- Wenn das Character-Highlight nicht sichtbar ist, erstelle individuelle Highlights
+				local allParts = {}
+				for _, descendant in pairs(character:GetDescendants()) do
+					if descendant:IsA("BasePart") and descendant.Name ~= "HumanoidRootPart" then
+						table.insert(allParts, descendant)
+					end
+				end
+				
+				-- Erstelle Highlights für alle sichtbaren Teile
+				if #allParts > 0 then
+					for _, part in pairs(allParts) do
+						pcall(function()
+							local partHighlight = Instance.new("Highlight")
+							partHighlight.FillColor = playerColor
+							partHighlight.OutlineColor = playerColor
+							partHighlight.FillTransparency = 0.5
+							partHighlight.OutlineTransparency = 0
+							partHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+							partHighlight.Adornee = part
+							partHighlight.Parent = espFolder
+						end)
+					end
+					print("ESP: Fallback Teil-Highlights erstellt für " .. targetPlayer.Name .. " (" .. #allParts .. " Teile)")
+				end
+			end)
+			
 		end)
 		
+		-- Wenn auch das fehlschlägt, verwende eine andere Methode
 		if not success then
-			print("ESP: Player Highlight Erstellung fehlgeschlagen für " .. targetPlayer.Name)
+			print("ESP: Character Highlight fehlgeschlagen für " .. targetPlayer.Name .. ", versuche Alternative...")
+			pcall(function()
+				-- Alternative: BoxHandleAdornment für jedes BasePart
+				for _, descendant in pairs(character:GetDescendants()) do
+					if descendant:IsA("BasePart") then
+						local box = Instance.new("BoxHandleAdornment")
+						box.Size = descendant.Size + Vector3.new(0.1, 0.1, 0.1)
+						box.Color3 = playerColor
+						box.Transparency = 0.5
+						box.AlwaysOnTop = true
+						box.ZIndex = 10
+						box.Adornee = descendant
+						box.Parent = espFolder
+					end
+				end
+				print("ESP: BoxHandleAdornment Fallback erstellt für " .. targetPlayer.Name)
+			end)
 		end
 	end
 
