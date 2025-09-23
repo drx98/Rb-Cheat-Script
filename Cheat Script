@@ -796,7 +796,7 @@ runService.RenderStepped:Connect(function()
 	end
 end)
 
--- ====== IMPROVED ESP SYSTEM ======
+-- ====== VERBESSERTE ESP SYSTEM ======
 local espEnabled = false
 local espNametags = false
 local espPlayers = false
@@ -964,24 +964,25 @@ createESPColorPicker("Skeleton Farbe:", skeletonColor, 390, function(newColor)
 	updateAllESP()
 end)
 
--- ====== COMPLETELY NEW ESP SYSTEM - GUARANTEED TO WORK FOR ALL PLAYERS ======
-
--- Enhanced ESP creation function with multiple fallback methods
+-- VERBESSERTE ESP-Erstellung mit garantierter Abdeckung aller Spieler
 local function createAdvancedESP(targetPlayer)
-	if not targetPlayer then return end
+	if not targetPlayer or targetPlayer == player then return end
 
-	-- Wait for character with extended timeout
+	-- Warte auf Character mit mehreren Versuchen
 	local character = targetPlayer.Character
-	local waitTime = 0
-	while not character and waitTime < 10 do
+	local attempts = 0
+	while not character and attempts < 50 do -- 5 Sekunden warten
 		wait(0.1)
 		character = targetPlayer.Character
-		waitTime = waitTime + 0.1
+		attempts = attempts + 1
 	end
 
-	if not character then return end
+	if not character then 
+		print("ESP: Character nicht gefunden für " .. targetPlayer.Name)
+		return 
+	end
 
-	-- Remove existing ESP
+	-- Entferne existierendes ESP
 	if espObjects[targetPlayer.UserId] then
 		pcall(function() espObjects[targetPlayer.UserId]:Destroy() end)
 		espObjects[targetPlayer.UserId] = nil
@@ -991,11 +992,16 @@ local function createAdvancedESP(targetPlayer)
 	espFolder.Name = "ESP_" .. targetPlayer.Name
 	espFolder.Parent = workspace.CurrentCamera
 
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	-- Warte auf HumanoidRootPart
+	local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
+	if not humanoidRootPart then
+		espFolder:Destroy()
+		return
+	end
 
 	-- Nametags ESP
-	if espEnabled and espNametags and humanoidRootPart then
-		pcall(function()
+	if espEnabled and espNametags then
+		local success = pcall(function()
 			local billboardGui = Instance.new("BillboardGui")
 			billboardGui.Size = UDim2.new(0, 200, 0, 50)
 			billboardGui.Adornee = humanoidRootPart
@@ -1014,32 +1020,39 @@ local function createAdvancedESP(targetPlayer)
 			nameLabel.TextSize = 14
 			nameLabel.Parent = billboardGui
 		end)
+		if not success then
+			print("ESP: Nametag Erstellung fehlgeschlagen für " .. targetPlayer.Name)
+		end
 	end
 
-	-- IMPROVED Player Outline ESP - Funktioniert jetzt für ALLE Charaktere
+	-- VERBESSERTE Player Outline ESP mit Füllung
 	if espEnabled and espPlayers then
-		-- Alle BaseParts sammeln
-		local allParts = {}
-		for _, descendant in pairs(character:GetDescendants()) do
-			if descendant:IsA("BasePart") then
-				table.insert(allParts, descendant)
+		local success = pcall(function()
+			-- Warte bis alle wichtigen Teile geladen sind
+			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso") or character:WaitForChild("UpperTorso", 3)
+			
+			if torso then
+				local highlight = Instance.new("Highlight")
+				highlight.FillColor = playerColor
+				highlight.OutlineColor = playerColor
+				highlight.FillTransparency = 0.5  -- 50% transparent Füllung
+				highlight.OutlineTransparency = 0  -- Vollständig sichtbare Umrandung
+				highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				highlight.Adornee = character
+				highlight.Parent = espFolder
+				
+				print("ESP: Highlight erstellt für " .. targetPlayer.Name)
+			else
+				print("ESP: Kein Torso gefunden für " .. targetPlayer.Name)
 			end
-		end
-
-		-- Highlight erstellen, wenn BaseParts existieren
-		if #allParts > 0 then
-			local highlight = Instance.new("Highlight")
-			highlight.FillColor = playerColor
-			highlight.OutlineColor = playerColor
-			highlight.FillTransparency = 0.9 -- transparent
-			highlight.OutlineTransparency = 0 -- sichtbare Umrandung
-			highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-			highlight.Adornee = character -- funktioniert für das ganze Model
-			highlight.Parent = espFolder
+		end)
+		
+		if not success then
+			print("ESP: Player Highlight Erstellung fehlgeschlagen für " .. targetPlayer.Name)
 		end
 	end
 
-	-- Skeleton ESP with enhanced visibility
+	-- Skeleton ESP mit verbesserter Sichtbarkeit
 	if espEnabled and espSkeleton then
 		local function createEnhancedLine(part1, part2)
 			if not part1 or not part2 then return end
@@ -1070,52 +1083,19 @@ local function createAdvancedESP(targetPlayer)
 				local attachment2 = Instance.new("Attachment")
 				attachment2.Parent = endPart
 
-				-- Main bright beam
-				local beam1 = Instance.new("Beam")
-				beam1.Attachment0 = attachment1
-				beam1.Attachment1 = attachment2
-				beam1.Color = ColorSequence.new(skeletonColor)
-				beam1.FaceCamera = true
-				beam1.Width0 = 0.3
-				beam1.Width1 = 0.3
-				beam1.Transparency = NumberSequence.new(0)
-				beam1.ZOffset = 2
-				beam1.LightEmission = 1
-				beam1.Parent = espFolder
+				local beam = Instance.new("Beam")
+				beam.Attachment0 = attachment1
+				beam.Attachment1 = attachment2
+				beam.Color = ColorSequence.new(skeletonColor)
+				beam.FaceCamera = true
+				beam.Width0 = 0.3
+				beam.Width1 = 0.3
+				beam.Transparency = NumberSequence.new(0)
+				beam.ZOffset = 2
+				beam.LightEmission = 1
+				beam.Parent = espFolder
 
-				-- Outer glow beam
-				local beam2 = Instance.new("Beam")
-				beam2.Attachment0 = attachment1
-				beam2.Attachment1 = attachment2
-				beam2.Color = ColorSequence.new(skeletonColor)
-				beam2.FaceCamera = true
-				beam2.Width0 = 0.6
-				beam2.Width1 = 0.6
-				beam2.Transparency = NumberSequence.new(0.7)
-				beam2.ZOffset = 1
-				beam2.LightEmission = 0.8
-				beam2.Parent = espFolder
-
-				-- Highlights for extra visibility
-				local highlight1 = Instance.new("Highlight")
-				highlight1.Adornee = startPart
-				highlight1.FillColor = skeletonColor
-				highlight1.OutlineColor = skeletonColor
-				highlight1.FillTransparency = 0.5
-				highlight1.OutlineTransparency = 0
-				highlight1.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				highlight1.Parent = espFolder
-
-				local highlight2 = Instance.new("Highlight")
-				highlight2.Adornee = endPart
-				highlight2.FillColor = skeletonColor
-				highlight2.OutlineColor = skeletonColor
-				highlight2.FillTransparency = 0.5
-				highlight2.OutlineTransparency = 0
-				highlight2.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-				highlight2.Parent = espFolder
-
-				-- Position update function
+				-- Position Update Funktion
 				local function updatePositions()
 					if part1.Parent and part2.Parent then
 						startPart.CFrame = part1.CFrame
@@ -1123,7 +1103,6 @@ local function createAdvancedESP(targetPlayer)
 					end
 				end
 
-				-- Continuous position updating
 				local connection
 				connection = game:GetService("RunService").Heartbeat:Connect(function()
 					if startPart and startPart.Parent and endPart and endPart.Parent and part1.Parent and part2.Parent then
@@ -1137,7 +1116,7 @@ local function createAdvancedESP(targetPlayer)
 			end)
 		end
 
-		-- Create skeleton connections for both R6 and R15
+		-- Skeleton Verbindungen für R6 und R15
 		pcall(function()
 			local head = character:FindFirstChild("Head")
 			local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
@@ -1147,10 +1126,6 @@ local function createAdvancedESP(targetPlayer)
 			local rightLeg = character:FindFirstChild("Right Leg") or character:FindFirstChild("RightUpperLeg")
 
 			local lowerTorso = character:FindFirstChild("LowerTorso")
-			local leftForearm = character:FindFirstChild("LeftLowerArm")
-			local rightForearm = character:FindFirstChild("RightLowerArm")
-			local leftShin = character:FindFirstChild("LeftLowerLeg")
-			local rightShin = character:FindFirstChild("RightLowerLeg")
 
 			if torso then
 				if head then createEnhancedLine(torso, head) end
@@ -1164,30 +1139,55 @@ local function createAdvancedESP(targetPlayer)
 					if leftLeg then createEnhancedLine(torso, leftLeg) end
 					if rightLeg then createEnhancedLine(torso, rightLeg) end
 				end
-
-				if leftForearm and leftArm then createEnhancedLine(leftArm, leftForearm) end
-				if rightForearm and rightArm then createEnhancedLine(rightArm, rightForearm) end
-				if leftShin and leftLeg then createEnhancedLine(leftLeg, leftShin) end
-				if rightShin and rightLeg then createEnhancedLine(rightLeg, rightShin) end
 			end
 		end)
 	end
 
 	espObjects[targetPlayer.UserId] = espFolder
+	print("ESP: Erfolgreich erstellt für " .. targetPlayer.Name)
 end
 
--- Remove ESP for a player
+-- ESP für einen Spieler entfernen
 local function removeESPForPlayer(targetPlayer)
 	if espObjects[targetPlayer.UserId] then
 		pcall(function() espObjects[targetPlayer.UserId]:Destroy() end)
 		espObjects[targetPlayer.UserId] = nil
+		print("ESP: Entfernt für " .. targetPlayer.Name)
 	end
 end
 
--- Enhanced player connection management
+-- NEUE: Aggressive ESP Update Funktion
+function updateAllESP()
+	print("ESP: Aktualisiere alle ESP...")
+	
+	-- Alle bestehenden ESP löschen
+	for userId, espFolder in pairs(espObjects) do
+		pcall(function() espFolder:Destroy() end)
+	end
+	espObjects = {}
+
+	-- ESP für alle Spieler erstellen wenn aktiviert
+	if espEnabled then
+		local allPlayers = game.Players:GetPlayers()
+		print("ESP: Gefunden " .. #allPlayers .. " Spieler")
+		
+		for i, targetPlayer in pairs(allPlayers) do
+			if targetPlayer ~= player then
+				spawn(function()
+					-- Verzögerung zwischen Spielern um Lag zu vermeiden
+					wait(i * 0.1)
+					createAdvancedESP(targetPlayer)
+				end)
+			end
+		end
+	end
+end
+
+-- NEUE: Verbindungs-Setup mit besserer Fehlerbehandlung
 local function setupPlayerConnection(targetPlayer)
+	if targetPlayer == player then return end
+	
 	if playerConnections[targetPlayer.UserId] then
-		-- Clean up existing connections
 		for _, connection in pairs(playerConnections[targetPlayer.UserId]) do
 			if connection then connection:Disconnect() end
 		end
@@ -1195,18 +1195,24 @@ local function setupPlayerConnection(targetPlayer)
 
 	local connections = {}
 
-	-- Character added event
+	-- Character Added Event
 	connections.charAdded = targetPlayer.CharacterAdded:Connect(function()
-		wait(1) -- Wait for character to fully load
+		print("ESP: Character Added für " .. targetPlayer.Name)
+		wait(0.5) -- Warte bis Character vollständig geladen
 		if espEnabled then
 			createAdvancedESP(targetPlayer)
 		end
 	end)
 
-	-- Immediate ESP creation if character already exists
+	-- Character Removing Event
+	connections.charRemoving = targetPlayer.CharacterRemoving:Connect(function()
+		removeESPForPlayer(targetPlayer)
+	end)
+
+	-- Sofortige ESP Erstellung wenn Character bereits existiert
 	spawn(function()
-		wait(0.5)
-		if targetPlayer.Character then
+		wait(0.2)
+		if targetPlayer.Character and espEnabled then
 			createAdvancedESP(targetPlayer)
 		end
 	end)
@@ -1214,35 +1220,40 @@ local function setupPlayerConnection(targetPlayer)
 	playerConnections[targetPlayer.UserId] = connections
 end
 
--- Update all ESP function
-function updateAllESP()
-	-- Clear all existing ESP
-	for userId, espFolder in pairs(espObjects) do
-		pcall(function() espFolder:Destroy() end)
-	end
-	espObjects = {}
-
-	-- Recreate ESP for all players if enabled
-	if espEnabled then
-		for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-			if targetPlayer.Character then
-				createAdvancedESP(targetPlayer)
-			end
-		end
-	end
-end
-
--- Enhanced monitoring system - checks every 3 seconds
+-- NEUE: Verbessertes Überwachungssystem
 spawn(function()
 	while true do
-		wait(3)
-
+		wait(2) -- Alle 2 Sekunden prüfen
+		
 		if espEnabled then
+			local playersChecked = 0
+			local playersWithESP = 0
+			
 			for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-				-- Check if player needs ESP
-				if not espObjects[targetPlayer.UserId] and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-					createAdvancedESP(targetPlayer)
+				if targetPlayer ~= player then
+					playersChecked = playersChecked + 1
+					
+					-- Prüfe ob ESP existiert und Character da ist
+					local hasESP = espObjects[targetPlayer.UserId] and espObjects[targetPlayer.UserId].Parent
+					local hasCharacter = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+					
+					if hasESP then
+						playersWithESP = playersWithESP + 1
+					end
+					
+					-- Erstelle ESP wenn fehlend aber Character vorhanden
+					if hasCharacter and not hasESP then
+						print("ESP: Fehlender ESP für " .. targetPlayer.Name .. " wird erstellt...")
+						spawn(function()
+							createAdvancedESP(targetPlayer)
+						end)
+					end
 				end
+			end
+			
+			-- Debug Information
+			if playersChecked > 0 then
+				print("ESP: " .. playersWithESP .. "/" .. playersChecked .. " Spieler haben ESP")
 			end
 		end
 	end
@@ -1297,15 +1308,17 @@ skeletonButton.MouseButton1Click:Connect(function()
 	updateAllESP()
 end)
 
--- Player Events - Enhanced for better reliability
+-- Player Events mit verbesserter Behandlung
 game.Players.PlayerAdded:Connect(function(newPlayer)
+	print("ESP: Neuer Spieler: " .. newPlayer.Name)
+	wait(0.5) -- Kurz warten
 	setupPlayerConnection(newPlayer)
 end)
 
 game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	print("ESP: Spieler verlässt: " .. leavingPlayer.Name)
 	removeESPForPlayer(leavingPlayer)
 
-	-- Clean up connections
 	if playerConnections[leavingPlayer.UserId] then
 		for _, connection in pairs(playerConnections[leavingPlayer.UserId]) do
 			if connection then connection:Disconnect() end
@@ -1314,18 +1327,23 @@ game.Players.PlayerRemoving:Connect(function(leavingPlayer)
 	end
 end)
 
--- Setup connections for existing players
+-- Setup für existierende Spieler
 for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 	setupPlayerConnection(targetPlayer)
 end
 
--- Handle local player respawning
+-- Handle local player respawn
 player.CharacterAdded:Connect(function()
 	character = player.Character
 	hrp = character:WaitForChild("HumanoidRootPart")
 	humanoid = character:WaitForChild("Humanoid")
-	wait(0.5)
-	if espEnabled then
-		createAdvancedESP(player)
-	end
+	
+	-- ESP für lokalen Spieler ist normalerweise nicht nötig
+	-- aber updateAllESP() wird aufgerufen für andere Spieler
+	spawn(function()
+		wait(1)
+		if espEnabled then
+			updateAllESP()
+		end
+	end)
 end)
