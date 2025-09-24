@@ -1,7 +1,6 @@
 local player = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
-local tweenService = game:GetService("TweenService")
 local character = player.Character or player.CharacterAdded:Wait()
 local hrp = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
@@ -12,7 +11,7 @@ local flyKey = Enum.KeyCode.E
 local noclip = false
 local bv, bg
 
--- ====== ESP VARIABLEN (Highlight System) ======
+-- ====== ESP VARIABLEN (Single Dynamic BoxAdornment System) ======
 local espEnabled = false
 local espColor = Color3.fromRGB(255, 0, 0)
 local espObjects = {}
@@ -45,7 +44,7 @@ Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1,0,1,0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Character ESP - Highlight System"
+titleLabel.Text = "Character ESP - Dynamic Single Box"
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextSize = 16
 titleLabel.TextColor3 = textColor
@@ -156,7 +155,7 @@ playerScroll.Position = UDim2.new(1,0,0,30)
 playerScroll.BackgroundColor3 = primaryMedium
 playerScroll.ScrollBarThickness = 6
 playerScroll.Visible = false
-playerScroll.CanvasSize = UDim2.new(0,0,0,450)
+playerScroll.CanvasSize = UDim2.new(0,0,0,450) -- Increased for new button
 playerScroll.Parent = mainFrame
 Instance.new("UICorner", playerScroll).CornerRadius = UDim.new(0,8)
 
@@ -210,7 +209,7 @@ transparencyLabel.Position = UDim2.new(0,10,0,150)
 transparencyLabel.BackgroundTransparency = 1
 transparencyLabel.TextColor3 = textColor
 transparencyLabel.TextXAlignment = Enum.TextXAlignment.Left
-transparencyLabel.Text = "Fill Transparency: 0.7"
+transparencyLabel.Text = "Transparency: 0.3"
 transparencyLabel.Font = Enum.Font.Gotham
 transparencyLabel.TextSize = 12
 transparencyLabel.Parent = espScroll
@@ -224,13 +223,13 @@ Instance.new("UICorner", transparencySlider).CornerRadius = UDim.new(0,10)
 
 local transparencyKnob = Instance.new("TextButton")
 transparencyKnob.Size = UDim2.new(0,20,0,20)
-transparencyKnob.Position = UDim2.new(0.7,0,0,0)
+transparencyKnob.Position = UDim2.new(0.3,0,0,0)
 transparencyKnob.BackgroundColor3 = secondary
 transparencyKnob.Text = ""
 transparencyKnob.Parent = transparencySlider
 Instance.new("UICorner", transparencyKnob).CornerRadius = UDim.new(0.5,0)
 
-local espTransparency = 0.7
+local espTransparency = 0.3
 local draggingSlider = false
 
 transparencyKnob.InputBegan:Connect(function(input)
@@ -249,12 +248,12 @@ uis.InputChanged:Connect(function(input)
 
 		espTransparency = percentage
 		transparencyKnob.Position = UDim2.new(percentage, 0, 0, 0)
-		transparencyLabel.Text = "Fill Transparency: " .. string.format("%.2f", espTransparency)
+		transparencyLabel.Text = "Transparency: " .. string.format("%.2f", espTransparency)
 
 		-- Update alle ESP Objekte
 		for _, espData in pairs(espObjects) do
-			if espData.highlight and espData.highlight.Parent then
-				espData.highlight.FillTransparency = espTransparency
+			if espData.adornment and espData.adornment.Parent then
+				espData.adornment.Transparency = espTransparency
 			end
 		end
 	end
@@ -266,7 +265,22 @@ uis.InputEnded:Connect(function(input)
 	end
 end)
 
--- ====== HIGHLIGHT ESP SYSTEM WITH BILLBOARD HEALTH BAR ======
+-- ====== OPTIMIZED ESP SYSTEM ======
+
+-- Funktion um Character-Bounding-Box zu berechnen (optimiert)
+local function getCharacterBounds(character)
+	if not character or not character:FindFirstChild("HumanoidRootPart") then
+		return nil
+	end
+
+	local rootPart = character.HumanoidRootPart
+
+	-- Vereinfachte Bounding-Box Berechnung für bessere Performance
+	return {
+		size = Vector3.new(4, 6, 2), -- Standard Character Size
+		offset = Vector3.new(0, 0, 0)
+	}
+end
 
 -- Funktion um alle ESP eines Spielers zu bereinigen
 local function cleanupPlayerESP(targetPlayer)
@@ -275,15 +289,17 @@ local function cleanupPlayerESP(targetPlayer)
 	if espObjects[playerName] then
 		local espData = espObjects[playerName]
 
-		-- Bereinige alle ESP-Komponenten
-		for _, component in pairs({"highlight", "healthBillboard", "updateConnection"}) do
-			if component == "updateConnection" then
-				if espData[component] then
-					espData[component]:Disconnect()
-				end
-			elseif espData[component] and espData[component].Parent then
-				espData[component]:Destroy()
-			end
+		-- Bereinige BoxAdornment und Verbindungen
+		if espData.adornment and espData.adornment.Parent then
+			espData.adornment:Destroy()
+		end
+
+		if espData.anchorPart and espData.anchorPart.Parent then
+			espData.anchorPart:Destroy()
+		end
+
+		if espData.updateConnection then
+			espData.updateConnection:Disconnect()
 		end
 
 		espObjects[playerName] = nil
@@ -292,62 +308,8 @@ local function cleanupPlayerESP(targetPlayer)
 	print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Erstelle BillboardGui Health Bar
-local function createHealthBar(character, playerName)
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return nil end
-
-	-- BillboardGui erstellen
-	local healthBillboard = Instance.new("BillboardGui")
-	healthBillboard.Name = "ESP_HealthBar_" .. playerName
-	healthBillboard.Adornee = humanoidRootPart
-	healthBillboard.Size = UDim2.new(0, 15, 0, 100) -- Schmaler für vertikale Bar
-	healthBillboard.StudsOffset = Vector3.new(3, 0, 0) -- Rechts vom Spieler
-	healthBillboard.AlwaysOnTop = true
-	healthBillboard.LightInfluence = 0
-	healthBillboard.Parent = character
-
-	-- Background Frame
-	local backgroundFrame = Instance.new("Frame")
-	backgroundFrame.Name = "Background"
-	backgroundFrame.Size = UDim2.new(1, 0, 1, 0)
-	backgroundFrame.Position = UDim2.new(0, 0, 0, 0)
-	backgroundFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	backgroundFrame.BorderSizePixel = 1
-	backgroundFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-	backgroundFrame.Parent = healthBillboard
-	Instance.new("UICorner", backgroundFrame).CornerRadius = UDim.new(0, 3)
-
-	-- Health Frame (füllt sich von unten nach oben)
-	local healthFrame = Instance.new("Frame")
-	healthFrame.Name = "HealthBar"
-	healthFrame.Size = UDim2.new(0.8, 0, 1, -4)
-	healthFrame.Position = UDim2.new(0.1, 0, 0, 2)
-	healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-	healthFrame.BorderSizePixel = 0
-	healthFrame.AnchorPoint = Vector2.new(0, 1) -- Anchor unten
-	healthFrame.Parent = backgroundFrame
-	Instance.new("UICorner", healthFrame).CornerRadius = UDim.new(0, 2)
-
-	-- Health Text
-	local healthText = Instance.new("TextLabel")
-	healthText.Name = "HealthText"
-	healthText.Size = UDim2.new(1, 20, 0, 20)
-	healthText.Position = UDim2.new(0, -10, 1, 5)
-	healthText.BackgroundTransparency = 1
-	healthText.Text = "100"
-	healthText.TextColor3 = Color3.fromRGB(255, 255, 255)
-	healthText.TextScaled = true
-	healthText.Font = Enum.Font.GothamBold
-	healthText.TextStrokeTransparency = 0
-	healthText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	healthText.Parent = backgroundFrame
-
-	return healthBillboard
-end
-
--- Erweiterte ESP-Erstellung mit Highlight und Billboard Health Bar
-local function createHighlightCharacterESP(targetPlayer)
+-- Optimierte ESP-Erstellung
+local function createDynamicCharacterESP(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
 	if not targetPlayer.Character then return end
 
@@ -358,95 +320,75 @@ local function createHighlightCharacterESP(targetPlayer)
 
 	local character = targetPlayer.Character
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	local targetHumanoid = character:FindFirstChild("Humanoid")
-	if not humanoidRootPart or not targetHumanoid then return end
+	if not humanoidRootPart then return end
 
-	-- Erstelle Highlight für den ganzen Character
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "ESP_Highlight_" .. playerName
-	highlight.Parent = character
-	highlight.Adornee = character
-	highlight.FillColor = espColor
-	highlight.OutlineColor = espColor
-	highlight.FillTransparency = espTransparency
-	highlight.OutlineTransparency = 0
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	-- Erstelle unsichtbaren Anchor-Part
+	local anchorPart = Instance.new("Part")
+	anchorPart.Name = "ESP_Anchor_" .. playerName
+	anchorPart.Size = Vector3.new(0.1, 0.1, 0.1)
+	anchorPart.Transparency = 1
+	anchorPart.CanCollide = false
+	anchorPart.Anchored = true
+	anchorPart.Parent = workspace
 
-	-- Erstelle Health Bar Billboard
-	local healthBillboard = createHealthBar(character, playerName)
+	-- Erstelle BoxHandleAdornment
+	local boxAdornment = Instance.new("BoxHandleAdornment")
+	boxAdornment.Name = "ESP_Dynamic_" .. playerName
+	boxAdornment.Adornee = anchorPart
+	boxAdornment.Color3 = espColor
+	boxAdornment.Transparency = espTransparency
+	boxAdornment.AlwaysOnTop = true
+	boxAdornment.ZIndex = 10
+	boxAdornment.Size = Vector3.new(4, 6, 2)
+	boxAdornment.Parent = anchorPart
 
-	-- Update-Loop für Health Bar
+	-- Optimierte Update-Loop (weniger häufige Updates)
 	local lastUpdate = 0
 	local updateConnection = runService.Heartbeat:Connect(function()
 		local now = tick()
-		if now - lastUpdate < 0.1 then return end -- Update alle 0.1 Sekunden
+		if now - lastUpdate < 0.1 then return end -- Update nur alle 0.1 Sekunden statt jedes Frame
 		lastUpdate = now
 
-		if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("Humanoid") then
+		if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
 			cleanupPlayerESP(targetPlayer)
 			return
 		end
 
-		local currentHumanoid = targetPlayer.Character:FindFirstChild("Humanoid")
-		if currentHumanoid and healthBillboard then
-			local healthPercentage = math.max(0, currentHumanoid.Health / currentHumanoid.MaxHealth)
-
-			-- Update Health Bar
-			local healthFrame = healthBillboard:FindFirstChild("Background"):FindFirstChild("HealthBar")
-			local healthText = healthBillboard:FindFirstChild("Background"):FindFirstChild("HealthText")
-
-			if healthFrame then
-				healthFrame.Size = UDim2.new(0.8, 0, healthPercentage, -4)
-				healthFrame.Position = UDim2.new(0.1, 0, 1 - healthPercentage, 2)
-
-				-- Health bar color based on health percentage
-				if healthPercentage > 0.6 then
-					healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Grün
-				elseif healthPercentage > 0.3 then
-					healthFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Gelb
-				else
-					healthFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Rot
-				end
-			end
-
-			if healthText then
-				healthText.Text = math.floor(currentHumanoid.Health)
-			end
-		end
+		local currentHRP = targetPlayer.Character.HumanoidRootPart
+		anchorPart.CFrame = currentHRP.CFrame
 	end)
 
 	-- Speichere ESP-Daten
 	espObjects[playerName] = {
 		player = targetPlayer,
 		character = character,
-		highlight = highlight,
-		healthBillboard = healthBillboard,
+		adornment = boxAdornment,
+		anchorPart = anchorPart,
 		updateConnection = updateConnection
 	}
 
-	print("[ESP] Created Highlight ESP for: " .. playerName)
+	print("[ESP] Created Dynamic ESP for: " .. playerName)
 end
 
 -- Funktion um ESP-Farben zu aktualisieren
 local function updateESPColors()
 	for playerName, espData in pairs(espObjects) do
-		if espData.highlight and espData.highlight.Parent then
-			espData.highlight.FillColor = espColor
-			espData.highlight.OutlineColor = espColor
-			espData.highlight.FillTransparency = espTransparency
+		if espData.adornment and espData.adornment.Parent then
+			espData.adornment.Color3 = espColor
+			espData.adornment.Transparency = espTransparency
 		end
 	end
 end
 
 -- Funktion um ESP für alle Spieler zu aktivieren
 local function enableESP()
-	print("[ESP] Enabling Highlight Character ESP...")
+	print("[ESP] Enabling Dynamic Character ESP...")
 
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 		if targetPlayer ~= player and targetPlayer.Character then
 			spawn(function()
 				wait(0.1)
-				createHighlightCharacterESP(targetPlayer)
+				createDynamicCharacterESP(targetPlayer)
 			end)
 		end
 	end
@@ -454,14 +396,64 @@ end
 
 -- Funktion um alle ESP zu deaktivieren
 local function disableESP()
-	print("[ESP] Disabling Highlight Character ESP...")
+	print("[ESP] Disabling Dynamic Character ESP...")
 
 	for playerName, espData in pairs(espObjects) do
 		cleanupPlayerESP(espData.player)
 	end
 	espObjects = {}
 
-	print("[ESP] All Highlight ESP removed")
+	print("[ESP] All Dynamic ESP removed")
+end
+
+-- ====== OPTIMIZED ESP UPDATE LOOP ======
+local espUpdateConnection
+local lastUpdateTime = 0
+
+local function startESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+	end
+
+	espUpdateConnection = runService.Heartbeat:Connect(function()
+		if not espEnabled then return end
+
+		local currentTime = tick()
+		if currentTime - lastUpdateTime < 5 then return end -- Check nur alle 5 Sekunden
+		lastUpdateTime = currentTime
+
+		-- Prüfe nur neue Spieler
+		for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+			if targetPlayer ~= player then
+				local playerName = targetPlayer.Name
+
+				if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+					if not espObjects[playerName] or espObjects[playerName].character ~= targetPlayer.Character then
+						spawn(function()
+							createDynamicCharacterESP(targetPlayer)
+						end)
+					end
+				elseif espObjects[playerName] then
+					cleanupPlayerESP(targetPlayer)
+				end
+			end
+		end
+
+		-- Bereinige ESP für disconnected Spieler
+		for playerName, espData in pairs(espObjects) do
+			local targetPlayer = game.Players:FindFirstChild(playerName)
+			if not targetPlayer then
+				cleanupPlayerESP(espData.player)
+			end
+		end
+	end)
+end
+
+local function stopESPUpdateLoop()
+	if espUpdateConnection then
+		espUpdateConnection:Disconnect()
+		espUpdateConnection = nil
+	end
 end
 
 -- ====== ESP BUTTON FUNKTIONALITÄT ======
@@ -471,10 +463,12 @@ espPlayerButton.MouseButton1Click:Connect(function()
 		espPlayerButton.Text = "Character ESP: On"
 		espPlayerButton.BackgroundColor3 = secondary
 		enableESP()
+		startESPUpdateLoop()
 	else
 		espPlayerButton.Text = "Character ESP: Off"
 		espPlayerButton.BackgroundColor3 = primaryMedium
 		disableESP()
+		stopESPUpdateLoop()
 	end
 end)
 
@@ -553,7 +547,7 @@ game.Players.PlayerAdded:Connect(function(newPlayer)
 	newPlayer.CharacterAdded:Connect(function()
 		if espEnabled then
 			wait(1)
-			createHighlightCharacterESP(newPlayer)
+			createDynamicCharacterESP(newPlayer)
 		end
 	end)
 end)
@@ -567,7 +561,7 @@ for _, existingPlayer in pairs(game.Players:GetPlayers()) do
 		existingPlayer.CharacterAdded:Connect(function()
 			if espEnabled then
 				wait(1)
-				createHighlightCharacterESP(existingPlayer)
+				createDynamicCharacterESP(existingPlayer)
 			end
 		end)
 
@@ -653,8 +647,6 @@ viewButton.Parent = playerScroll
 Instance.new("UICorner", viewButton).CornerRadius = UDim.new(0,6)
 
 local gotoButton = Instance.new("TextButton")
--- Fortsetzung / Abschluss des Scripts
-
 gotoButton.Text = "Goto Player"
 gotoButton.Size = UDim2.new(0,220,0,30)
 gotoButton.Position = UDim2.new(0,10,0,90)
@@ -665,395 +657,679 @@ gotoButton.TextSize = 14
 gotoButton.Parent = playerScroll
 Instance.new("UICorner", gotoButton).CornerRadius = UDim.new(0,6)
 
--- ====== Fly Settings UI ======
-local flyToggleButton = Instance.new("TextButton")
-flyToggleButton.Text = "Fly: Off (E)"
-flyToggleButton.Size = UDim2.new(0,220,0,40)
-flyToggleButton.Position = UDim2.new(0,10,0,20)
-flyToggleButton.BackgroundColor3 = primaryMedium
-flyToggleButton.TextColor3 = textColor
-flyToggleButton.Font = Enum.Font.GothamBold
-flyToggleButton.TextSize = 16
-flyToggleButton.Parent = flyScroll
-Instance.new("UICorner", flyToggleButton).CornerRadius = UDim.new(0,6)
+-- ====== NEW COPY OUTFIT BUTTON ======
+local copyOutfitButton = Instance.new("TextButton")
+copyOutfitButton.Text = "Copy Outfit"
+copyOutfitButton.Size = UDim2.new(0,220,0,30)
+copyOutfitButton.Position = UDim2.new(0,10,0,130)
+copyOutfitButton.BackgroundColor3 = primaryMedium
+copyOutfitButton.TextColor3 = textColor
+copyOutfitButton.Font = Enum.Font.Gotham
+copyOutfitButton.TextSize = 14
+copyOutfitButton.Parent = playerScroll
+Instance.new("UICorner", copyOutfitButton).CornerRadius = UDim.new(0,6)
 
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Size = UDim2.new(0,200,0,20)
-speedLabel.Position = UDim2.new(0,10,0,80)
-speedLabel.BackgroundTransparency = 1
-speedLabel.TextColor3 = textColor
-speedLabel.TextXAlignment = Enum.TextXAlignment.Left
-speedLabel.Text = "Fly Speed: " .. tostring(flySpeed)
-speedLabel.Font = Enum.Font.Gotham
-speedLabel.TextSize = 12
-speedLabel.Parent = flyScroll
+local function updateButtonPositions()
+	local baseY = 50
+	if dropdownOpen then
+		baseY = 210
+	end
 
-local speedSlider = Instance.new("Frame")
-speedSlider.Size = UDim2.new(0,200,0,20)
-speedSlider.Position = UDim2.new(0,10,0,100)
-speedSlider.BackgroundColor3 = primaryDark
-speedSlider.Parent = flyScroll
-Instance.new("UICorner", speedSlider).CornerRadius = UDim.new(0,10)
+	local tweenService = game:GetService("TweenService")
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-local speedKnob = Instance.new("TextButton")
-speedKnob.Size = UDim2.new(0,20,0,20)
-speedKnob.Position = UDim2.new(math.clamp(flySpeed / 200, 0, 1), 0, 0, 0)
-speedKnob.BackgroundColor3 = secondary
-speedKnob.Text = ""
-speedKnob.Parent = speedSlider
-Instance.new("UICorner", speedKnob).CornerRadius = UDim.new(0.5,0)
+	tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)}):Play()
+	tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)}):Play()
+	tweenService:Create(copyOutfitButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 80)}):Play()
 
-local flyNoclipButton = Instance.new("TextButton")
-flyNoclipButton.Text = "Noclip: Off"
-flyNoclipButton.Size = UDim2.new(0,220,0,30)
-flyNoclipButton.Position = UDim2.new(0,10,0,140)
-flyNoclipButton.BackgroundColor3 = primaryMedium
-flyNoclipButton.TextColor3 = textColor
-flyNoclipButton.Font = Enum.Font.Gotham
-flyNoclipButton.TextSize = 14
-flyNoclipButton.Parent = flyScroll
-Instance.new("UICorner", flyNoclipButton).CornerRadius = UDim.new(0,6)
+	playerScroll.CanvasSize = UDim2.new(0,0,0,math.max(baseY + 120, 450))
+end
 
--- ====== Player List / Dropdown Funktionen ======
-local function refreshPlayerList(filter)
-	filter = filter or ""
+function updatePlayerList(searchQuery)
+	searchQuery = searchQuery or ""
+	searchQuery = searchQuery:lower()
+
 	for _, child in pairs(playerListFrame:GetChildren()) do
 		if child:IsA("TextButton") and child ~= searchBox then
 			child:Destroy()
 		end
 	end
 
-	local y = 35
-	for _, pl in ipairs(game.Players:GetPlayers()) do
-		if pl ~= player and string.find(string.lower(pl.Name), string.lower(filter)) then
-			local btn = Instance.new("TextButton")
-			btn.Size = UDim2.new(1, -10, 0, 30)
-			btn.Position = UDim2.new(0, 5, 0, y)
-			btn.BackgroundColor3 = primaryMedium
-			btn.TextColor3 = textColor
-			btn.Font = Enum.Font.Gotham
-			btn.TextSize = 14
-			btn.Text = pl.Name
-			btn.Parent = playerListFrame
-			Instance.new("UICorner", btn).CornerRadius = UDim.new(0,4)
+	local yPos = 35
+	local players = game.Players:GetPlayers()
+	local matchingPlayers = {}
 
-			btn.MouseButton1Click:Connect(function()
-				selectedPlayer = pl
-				playerSelectButton.Text = pl.Name
-				playerListFrame.Visible = false
-				dropdownOpen = false
-			end)
-
-			y = y + 35
+	for _, targetPlayer in pairs(players) do
+		if targetPlayer ~= player then
+			local playerName = targetPlayer.Name:lower()
+			if searchQuery == "" or playerName:find(searchQuery, 1, true) then
+				table.insert(matchingPlayers, targetPlayer)
+			end
 		end
 	end
 
-	playerListFrame.CanvasSize = UDim2.new(0,0,0, math.max(0, y))
+	for _, targetPlayer in pairs(matchingPlayers) do
+		local playerBtn = Instance.new("TextButton")
+		playerBtn.Size = UDim2.new(1,-10,0,30)
+		playerBtn.Position = UDim2.new(0,5,0,yPos)
+		playerBtn.BackgroundColor3 = primaryMedium
+		playerBtn.TextColor3 = textColor
+		playerBtn.Text = targetPlayer.Name
+		playerBtn.Font = Enum.Font.Gotham
+		playerBtn.TextSize = 12
+		playerBtn.Parent = playerListFrame
+		Instance.new("UICorner", playerBtn).CornerRadius = UDim.new(0,4)
+
+		playerBtn.MouseButton1Click:Connect(function()
+			selectedPlayer = targetPlayer
+			playerSelectButton.Text = targetPlayer.Name
+			playerListFrame.Visible = false
+			dropdownOpen = false
+			updateButtonPositions()
+		end)
+
+		yPos = yPos + 35
+	end
+
+	playerListFrame.CanvasSize = UDim2.new(0,0,0,yPos + 5)
+	updateButtonPositions()
 end
 
 playerSelectButton.MouseButton1Click:Connect(function()
 	dropdownOpen = not dropdownOpen
 	playerListFrame.Visible = dropdownOpen
 	if dropdownOpen then
-		refreshPlayerList()
+		searchBox.Text = ""
+		updatePlayerList("")
+	else
+		updateButtonPositions()
 	end
 end)
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	refreshPlayerList(searchBox.Text)
+	updatePlayerList(searchBox.Text)
 end)
 
--- initial fill
-refreshPlayerList()
+-- ====== COPY OUTFIT FUNCTIONALITY ======
+local function copyPlayerOutfit(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then 
+		return false, "Target player or character not found"
+	end
 
--- ====== View / Goto Button Logik ======
-local camera = workspace.CurrentCamera
-local origCameraType = camera.CameraType
-local origCameraSubject = camera.CameraSubject
+	if not player.Character then 
+		return false, "Your character not found"
+	end
+
+	local targetCharacter = targetPlayer.Character
+	local myCharacter = player.Character
+
+	-- Get target player's appearance info
+	local targetUserId = targetPlayer.UserId
+	local targetHumanoid = targetCharacter:FindFirstChild("Humanoid")
+	local myHumanoid = myCharacter:FindFirstChild("Humanoid")
+
+	if not targetHumanoid or not myHumanoid then
+		return false, "Humanoid not found"
+	end
+
+	-- Copy appearance using HumanoidDescription
+	pcall(function()
+		local targetDescription = game.Players:GetHumanoidDescriptionFromUserId(targetUserId)
+		myHumanoid:ApplyDescription(targetDescription)
+	end)
+
+	-- Additional copying of accessories and parts
+	spawn(function()
+		wait(0.5) -- Wait for description to apply
+
+		-- Remove existing accessories
+		for _, accessory in pairs(myCharacter:GetChildren()) do
+			if accessory:IsA("Accessory") then
+				accessory:Destroy()
+			end
+		end
+
+		wait(0.1)
+
+		-- Copy accessories from target
+		for _, accessory in pairs(targetCharacter:GetChildren()) do
+			if accessory:IsA("Accessory") then
+				local clonedAccessory = accessory:Clone()
+				clonedAccessory.Parent = myCharacter
+			end
+		end
+
+		-- Copy body colors
+		local targetBodyColors = targetCharacter:FindFirstChild("Body Colors")
+		local myBodyColors = myCharacter:FindFirstChild("Body Colors")
+
+		if targetBodyColors and myBodyColors then
+			myBodyColors.HeadColor = targetBodyColors.HeadColor
+			myBodyColors.LeftArmColor = targetBodyColors.LeftArmColor
+			myBodyColors.LeftLegColor = targetBodyColors.LeftLegColor
+			myBodyColors.RightArmColor = targetBodyColors.RightArmColor
+			myBodyColors.RightLegColor = targetBodyColors.RightLegColor
+			myBodyColors.TorsoColor = targetBodyColors.TorsoColor
+		end
+
+		-- Copy shirts and pants
+		local targetShirt = targetCharacter:FindFirstChild("Shirt")
+		local targetPants = targetCharacter:FindFirstChild("Pants")
+
+		-- Remove existing clothing
+		local existingShirt = myCharacter:FindFirstChild("Shirt")
+		local existingPants = myCharacter:FindFirstChild("Pants")
+
+		if existingShirt then existingShirt:Destroy() end
+		if existingPants then existingPants:Destroy() end
+
+		-- Add new clothing
+		if targetShirt then
+			local newShirt = Instance.new("Shirt")
+			newShirt.ShirtTemplate = targetShirt.ShirtTemplate
+			newShirt.Parent = myCharacter
+		end
+
+		if targetPants then
+			local newPants = Instance.new("Pants")
+			newPants.PantsTemplate = targetPants.PantsTemplate
+			newPants.Parent = myCharacter
+		end
+	end)
+
+	return true, "Outfit copied successfully"
+end
+
+-- ====== VIEW FUNCTIONALITY ======
+local function stopViewing()
+	if cameraConnection then
+		cameraConnection:Disconnect()
+		cameraConnection = nil
+	end
+	if originalCamera then
+		workspace.CurrentCamera.CameraSubject = player.Character and player.Character:FindFirstChild("Humanoid")
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+	end
+	viewingPlayer = false
+	viewButton.Text = "View: Off"
+	viewButton.BackgroundColor3 = primaryMedium
+end
+
+local function startViewing(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then return end
+
+	if not originalCamera then
+		originalCamera = workspace.CurrentCamera
+	end
+
+	local targetHumanoid = targetPlayer.Character:FindFirstChild("Humanoid")
+	if targetHumanoid then
+		workspace.CurrentCamera.CameraSubject = targetHumanoid
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+
+		cameraConnection = targetPlayer.CharacterRemoving:Connect(function()
+			stopViewing()
+		end)
+
+		viewingPlayer = true
+		viewButton.Text = "View: On"
+		viewButton.BackgroundColor3 = secondary
+	end
+end
 
 viewButton.MouseButton1Click:Connect(function()
 	if not selectedPlayer then
-		viewButton.Text = "View: No Player"
-		wait(1)
-		viewButton.Text = "View: Off"
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
 		return
 	end
 
-	viewingPlayer = not viewingPlayer
 	if viewingPlayer then
-		viewButton.Text = "View: On"
-		if selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("Humanoid") then
-			origCameraType = camera.CameraType
-			origCameraSubject = camera.CameraSubject
-			camera.CameraType = Enum.CameraType.Custom
-			camera.CameraSubject = selectedPlayer.Character:FindFirstChild("Humanoid")
-		end
+		stopViewing()
 	else
-		viewButton.Text = "View: Off"
-		camera.CameraType = origCameraType or Enum.CameraType.Custom
-		camera.CameraSubject = origCameraSubject or player.Character and player.Character:FindFirstChild("Humanoid") or camera.CameraSubject
+		startViewing(selectedPlayer)
 	end
 end)
 
 gotoButton.MouseButton1Click:Connect(function()
-	if not selectedPlayer then return end
-	if not selectedPlayer.Character then return end
-	if not selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-	if not character or not hrp then return end
+	if not selectedPlayer then
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
+		return
+	end
 
-	local targetHRP = selectedPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if targetHRP then
-		local success, err = pcall(function()
-			-- Versuche, den LocalPlayer neben den Zielspieler zu teleportieren
-			local offset = CFrame.new(3, 0, 0)
-			hrp.CFrame = targetHRP.CFrame * offset
+	if not selectedPlayer.Character or not selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		playerSelectButton.Text = "Player not found!"
+		wait(2)
+		playerSelectButton.Text = selectedPlayer.Name
+		return
+	end
+
+	if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+		return
+	end
+
+	local targetPosition = selectedPlayer.Character.HumanoidRootPart.Position
+	player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 0, 3))
+end)
+
+-- ====== COPY OUTFIT BUTTON FUNCTIONALITY ======
+copyOutfitButton.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
+		return
+	end
+
+	copyOutfitButton.Text = "Copying..."
+	copyOutfitButton.BackgroundColor3 = secondary
+
+	local success, message = copyPlayerOutfit(selectedPlayer)
+
+	if success then
+		copyOutfitButton.Text = "Outfit Copied!"
+		wait(2)
+		copyOutfitButton.Text = "Copy Outfit"
+		copyOutfitButton.BackgroundColor3 = primaryMedium
+	else
+		copyOutfitButton.Text = "Copy Failed!"
+		wait(2)
+		copyOutfitButton.Text = "Copy Outfit"
+		copyOutfitButton.BackgroundColor3 = primaryMedium
+	end
+end)
+
+-- ====== PLAYER EVENTS ======
+game.Players.PlayerAdded:Connect(function()
+	if dropdownOpen then
+		updatePlayerList(searchBox.Text)
+	end
+end)
+
+game.Players.PlayerRemoving:Connect(function(leavingPlayer)
+	if selectedPlayer == leavingPlayer then
+		if viewingPlayer then
+			stopViewing()
+		end
+		selectedPlayer = nil
+		playerSelectButton.Text = "Select Player"
+	end
+
+	if dropdownOpen then
+		updatePlayerList(searchBox.Text)
+	end
+end)
+
+player.CharacterAdded:Connect(function()
+	if viewingPlayer then
+		stopViewing()
+	end
+	character = player.Character
+	hrp = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+end)
+
+-- ====== GUI SETTINGS ======
+local closeKeyLabel = Instance.new("TextLabel")
+closeKeyLabel.Size = UDim2.new(0,200,0,20)
+closeKeyLabel.Position = UDim2.new(0,10,0,20)
+closeKeyLabel.BackgroundTransparency = 1
+closeKeyLabel.TextColor3 = textColor
+closeKeyLabel.TextXAlignment = Enum.TextXAlignment.Left
+closeKeyLabel.Text = "GUI Toggle Key"
+closeKeyLabel.Parent = guiScroll
+
+local closeKey = Enum.KeyCode.Q
+local closeKeyBox = Instance.new("TextBox")
+closeKeyBox.Size = UDim2.new(0,200,0,30)
+closeKeyBox.Position = UDim2.new(0,10,0,40)
+closeKeyBox.Text = "Q"
+closeKeyBox.BackgroundColor3 = primaryDark
+closeKeyBox.TextColor3 = textColor
+closeKeyBox.Font = Enum.Font.Gotham
+closeKeyBox.TextSize = 12
+closeKeyBox.Parent = guiScroll
+Instance.new("UICorner", closeKeyBox).CornerRadius = UDim.new(0,6)
+
+closeKeyBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = closeKeyBox.Text
+	if #text > 1 then text = text:sub(1,1) end
+	text = text:upper()
+	closeKeyBox.Text = text
+	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
+	if success and keyEnum then closeKey = keyEnum end
+end)
+
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == closeKey then
+		mainFrame.Visible = not mainFrame.Visible
+	end
+end)
+
+-- ====== FLY SETTINGS ======
+local flyOnOff = Instance.new("TextButton")
+flyOnOff.Text = "Fly: Off"
+flyOnOff.Size = UDim2.new(0,200,0,30)
+flyOnOff.Position = UDim2.new(0,10,0,10)
+flyOnOff.BackgroundColor3 = primaryMedium
+flyOnOff.TextColor3 = textColor
+flyOnOff.Parent = flyScroll
+Instance.new("UICorner", flyOnOff).CornerRadius = UDim.new(0,6)
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0,200,0,20)
+speedLabel.Position = UDim2.new(0,10,0,60)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = textColor
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Text = "Fly Speed:"
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextSize = 12
+speedLabel.Parent = flyScroll
+
+local speedBox = Instance.new("TextBox")
+speedBox.Size = UDim2.new(0,200,0,30)
+speedBox.Position = UDim2.new(0,10,0,80)
+speedBox.Text = tostring(flySpeed)
+speedBox.BackgroundColor3 = primaryDark
+speedBox.TextColor3 = textColor
+speedBox.Font = Enum.Font.Gotham
+speedBox.TextSize = 12
+speedBox.Parent = flyScroll
+Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0,6)
+
+local keyLabel = Instance.new("TextLabel")
+keyLabel.Size = UDim2.new(0,200,0,20)
+keyLabel.Position = UDim2.new(0,10,0,130)
+keyLabel.BackgroundTransparency = 1
+keyLabel.TextColor3 = textColor
+keyLabel.TextXAlignment = Enum.TextXAlignment.Left
+keyLabel.Text = "Fly Key:"
+keyLabel.Font = Enum.Font.Gotham
+keyLabel.TextSize = 12
+keyLabel.Parent = flyScroll
+
+local keyBox = Instance.new("TextBox")
+keyBox.Size = UDim2.new(0,200,0,30)
+keyBox.Position = UDim2.new(0,10,0,150)
+keyBox.Text = flyKey.Name
+keyBox.BackgroundColor3 = primaryDark
+keyBox.TextColor3 = textColor
+keyBox.Font = Enum.Font.Gotham
+keyBox.TextSize = 12
+keyBox.Parent = flyScroll
+Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0,6)
+
+local noclipButton = Instance.new("TextButton")
+noclipButton.Text = "Fly Noclip: Off"
+noclipButton.Size = UDim2.new(0,200,0,30)
+noclipButton.Position = UDim2.new(0,10,0,190)
+noclipButton.BackgroundColor3 = primaryMedium
+noclipButton.TextColor3 = textColor
+noclipButton.Parent = flyScroll
+Instance.new("UICorner", noclipButton).CornerRadius = UDim.new(0,6)
+
+-- ====== COLOR PICKER FUNCTION ======
+local function createColorPicker(labelText, defaultColor, yPos, onChange)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0,200,0,20)
+	label.Position = UDim2.new(0,10,0,yPos)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = textColor
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Text = labelText
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 12
+	label.Parent = guiScroll
+
+	local colorBox = Instance.new("TextButton")
+	colorBox.Size = UDim2.new(0,200,0,30)
+	colorBox.Position = UDim2.new(0,10,0,yPos+20)
+	colorBox.BackgroundColor3 = defaultColor
+	colorBox.Text = ""
+	colorBox.BorderSizePixel = 2
+	colorBox.BorderColor3 = Color3.fromRGB(100,100,100)
+	colorBox.Parent = guiScroll
+	Instance.new("UICorner", colorBox).CornerRadius = UDim.new(0,6)
+
+	local pickerOpen = false
+	local pickerFrame
+
+	local colors = {
+		Color3.fromRGB(30,30,30), Color3.fromRGB(50,50,50), Color3.fromRGB(70,70,70),
+		Color3.fromRGB(100,0,255), Color3.fromRGB(128,0,255), Color3.fromRGB(200,50,255),
+		Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255),
+		Color3.fromRGB(255,255,0), Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,128),
+		Color3.fromRGB(0,255,255), Color3.fromRGB(255,192,203), Color3.fromRGB(192,192,192)
+	}
+
+	colorBox.MouseButton1Click:Connect(function()
+		if pickerOpen then
+			if pickerFrame then pickerFrame:Destroy() end
+			pickerOpen = false
+			return
+		end
+		pickerOpen = true
+		pickerFrame = Instance.new("Frame")
+		pickerFrame.Size = UDim2.new(0,200,0,160)
+		pickerFrame.Position = colorBox.Position + UDim2.new(0,0,0,35)
+		pickerFrame.BackgroundColor3 = primaryMedium
+		pickerFrame.Parent = guiScroll
+		Instance.new("UICorner", pickerFrame).CornerRadius = UDim.new(0,8)
+
+		local closeBtn = Instance.new("TextButton")
+		closeBtn.Size = UDim2.new(0,20,0,20)
+		closeBtn.Position = UDim2.new(1,-25,0,5)
+		closeBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+		closeBtn.Text = "X"
+		closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+		closeBtn.Font = Enum.Font.GothamBold
+		closeBtn.TextSize = 12
+		closeBtn.Parent = pickerFrame
+		Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0,4)
+		closeBtn.MouseButton1Click:Connect(function()
+			pickerFrame:Destroy()
+			pickerOpen = false
 		end)
-		if not success then
-			warn("[Goto] Teleport failed: ".. tostring(err))
+
+		for i, c in ipairs(colors) do
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(0,30,0,30)
+			btn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
+			btn.BackgroundColor3 = c
+			btn.Text = ""
+			btn.BorderSizePixel = 1
+			btn.BorderColor3 = Color3.fromRGB(200,200,200)
+			btn.Parent = pickerFrame
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0,4)
+			btn.MouseButton1Click:Connect(function()
+				colorBox.BackgroundColor3 = c
+				onChange(c)
+				pickerFrame:Destroy()
+				pickerOpen = false
+			end)
+		end
+	end)
+end
+
+createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
+	primaryDark = c
+	primaryMedium = c:Lerp(Color3.fromRGB(50,50,50),0.5)
+	primaryLight = c:Lerp(Color3.fromRGB(70,70,70),0.7)
+	mainFrame.BackgroundColor3 = primaryMedium
+	topBar.BackgroundColor3 = primaryLight
+	leftScroll.BackgroundColor3 = primaryDark
+	flyScroll.BackgroundColor3 = primaryMedium
+	guiScroll.BackgroundColor3 = primaryMedium
+	espScroll.BackgroundColor3 = primaryMedium
+	playerScroll.BackgroundColor3 = primaryMedium
+	playerSelectFrame.BackgroundColor3 = primaryDark
+	playerListFrame.BackgroundColor3 = primaryDark
+	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
+	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
+	flyButton.BackgroundColor3 = primaryMedium
+	guiButton.BackgroundColor3 = primaryMedium
+	espButton.BackgroundColor3 = primaryMedium
+	playerButton.BackgroundColor3 = primaryMedium
+	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+	gotoButton.BackgroundColor3 = primaryMedium
+	copyOutfitButton.BackgroundColor3 = primaryMedium
+	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
+end)
+
+createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
+	secondary = c
+	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
+	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
+	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+	copyOutfitButton.BackgroundColor3 = primaryMedium
+	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
+end)
+
+-- ====== FLY LOGIC ======
+local function setFlyingAnimations(enabled)
+	if enabled then
+		for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	else
+		humanoid.WalkSpeed = 16
+		humanoid.JumpPower = 50
+	end
+end
+
+local function stopFly()
+	if bv then bv:Destroy() bv = nil end
+	if bg then bg:Destroy() bg = nil end
+	humanoid.PlatformStand = false
+	setFlyingAnimations(false)
+	humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+	local velocity = hrp.Velocity
+	hrp.Velocity = Vector3.new(velocity.X, 0, velocity.Z)
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
+		end
+	end
+end
+
+flyOnOff.MouseButton1Click:Connect(function()
+	flying = not flying
+	if flying then
+		flyOnOff.Text = "Fly: On"
+		flyOnOff.BackgroundColor3 = secondary
+		if not bv then
+			bv = Instance.new("BodyVelocity")
+			bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+			bv.Velocity = Vector3.new(0,0,0)
+			bv.Parent = hrp
+		end
+		if not bg then
+			bg = Instance.new("BodyGyro")
+			bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
+			bg.CFrame = hrp.CFrame
+			bg.Parent = hrp
+		end
+		humanoid.PlatformStand = true
+		setFlyingAnimations(true)
+	else
+		flyOnOff.Text = "Fly: Off"
+		flyOnOff.BackgroundColor3 = primaryMedium
+		stopFly()
+	end
+end)
+
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == flyKey then
+		flying = not flying
+		if flying then
+			flyOnOff.Text = "Fly: On"
+			flyOnOff.BackgroundColor3 = secondary
+			if not bv then
+				bv = Instance.new("BodyVelocity")
+				bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+				bv.Velocity = Vector3.new(0,0,0)
+				bv.Parent = hrp
+			end
+			if not bg then
+				bg = Instance.new("BodyGyro")
+				bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
+				bg.CFrame = hrp.CFrame
+				bg.Parent = hrp
+			end
+			humanoid.PlatformStand = true
+			setFlyingAnimations(true)
+		else
+			flyOnOff.Text = "Fly: Off"
+			flyOnOff.BackgroundColor3 = primaryMedium
+			stopFly()
 		end
 	end
 end)
 
--- ====== Fly / Noclip Logik ======
-local keyStates = {W = false, A = false, S = false, D = false, Space = false, LeftShift = false}
+speedBox.FocusLost:Connect(function()
+	local val = tonumber(speedBox.Text)
+	if val then flySpeed = val end
+end)
 
-uis.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
-	if input.UserInputType == Enum.UserInputType.Keyboard then
-		local key = input.KeyCode
-		if key == Enum.KeyCode.W then keyStates.W = true end
-		if key == Enum.KeyCode.A then keyStates.A = true end
-		if key == Enum.KeyCode.S then keyStates.S = true end
-		if key == Enum.KeyCode.D then keyStates.D = true end
-		if key == Enum.KeyCode.Space then keyStates.Space = true end
-		if key == Enum.KeyCode.LeftShift then keyStates.LeftShift = true end
+keyBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = keyBox.Text
+	if #text > 1 then text = text:sub(1,1) end
+	text = text:upper()
+	keyBox.Text = text
+	local success, keyEnum = pcall(function() return Enum.KeyCode[text] end)
+	if success and keyEnum then flyKey = keyEnum end
+end)
 
-		-- Fly key toggle
-		if key == flyKey then
-			flying = not flying
-			if flying then
-				flyToggleButton.Text = "Fly: On (E)"
-				flyToggleButton.BackgroundColor3 = secondary
-				-- Create BV and BG
-				if hrp then
-					bv = Instance.new("BodyVelocity")
-					bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-					bv.P = 1e4
-					bv.Velocity = Vector3.new(0,0,0)
-					bv.Parent = hrp
+noclipButton.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	if noclip then
+		noclipButton.Text = "Fly Noclip: On"
+		noclipButton.BackgroundColor3 = secondary
+	else
+		noclipButton.Text = "Fly Noclip: Off"
+		noclipButton.BackgroundColor3 = primaryMedium
+	end
+end)
 
-					bg = Instance.new("BodyGyro")
-					bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
-					bg.P = 1e4
-					bg.CFrame = hrp.CFrame
-					bg.Parent = hrp
-				end
-			else
-				flyToggleButton.Text = "Fly: Off (E)"
-				flyToggleButton.BackgroundColor3 = primaryMedium
-				-- Cleanup BV and BG
-				if bv then
-					if bv.Parent then bv:Destroy() end
-					bv = nil
-				end
-				if bg then
-					if bg.Parent then bg:Destroy() end
-					bg = nil
-				end
+-- ====== MAIN FLY LOOP ======
+runService.RenderStepped:Connect(function()
+	if flying and bv and bg then
+		local cam = workspace.CurrentCamera
+		local moveDir = Vector3.new(0,0,0)
+		if uis:IsKeyDown(Enum.KeyCode.W) then moveDir += cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.S) then moveDir -= cam.CFrame.LookVector end
+		if uis:IsKeyDown(Enum.KeyCode.A) then moveDir -= cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.D) then moveDir += cam.CFrame.RightVector end
+		if uis:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
+		if uis:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.new(0,1,0) end
+
+		if moveDir.Magnitude > 0 then
+			moveDir = moveDir.Unit * flySpeed
+		end
+
+		bv.Velocity = moveDir
+		bg.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
+
+		for _, part in pairs(character:GetChildren()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = not noclip
 			end
 		end
 	end
 end)
 
-uis.InputEnded:Connect(function(input, gpe)
-	if gpe then return end
-	if input.UserInputType == Enum.UserInputType.Keyboard then
-		local key = input.KeyCode
-		if key == Enum.KeyCode.W then keyStates.W = false end
-		if key == Enum.KeyCode.A then keyStates.A = false end
-		if key == Enum.KeyCode.S then keyStates.S = false end
-		if key == Enum.KeyCode.D then keyStates.D = false end
-		if key == Enum.KeyCode.Space then keyStates.Space = false end
-		if key == Enum.KeyCode.LeftShift then keyStates.LeftShift = false end
-	end
-end)
-
--- Slider dragging for Fly speed
-local draggingSpeed = false
-speedKnob.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		draggingSpeed = true
-	end
-end)
-uis.InputChanged:Connect(function(input)
-	if draggingSpeed and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local sliderPos = speedSlider.AbsolutePosition.X
-		local sliderSize = speedSlider.AbsoluteSize.X
-		local mouseX = input.Position.X
-		local relativeX = math.max(0, math.min(sliderSize - 20, mouseX - sliderPos))
-		local percentage = relativeX / (sliderSize - 20)
-		local newSpeed = math.floor(percentage * 200) -- max 200
-		flySpeed = math.max(5, newSpeed)
-		speedKnob.Position = UDim2.new(percentage, 0, 0, 0)
-		speedLabel.Text = "Fly Speed: " .. tostring(flySpeed)
-	end
-end)
-uis.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		draggingSpeed = false
-	end
-end)
-
-flyToggleButton.MouseButton1Click:Connect(function()
-	-- manuel per UI umschalten
-	flying = not flying
-	if flying then
-		flyToggleButton.Text = "Fly: On (E)"
-		flyToggleButton.BackgroundColor3 = secondary
-		if hrp and not bv then
-			bv = Instance.new("BodyVelocity")
-			bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-			bv.P = 1e4
-			bv.Velocity = Vector3.new(0,0,0)
-			bv.Parent = hrp
-
-			bg = Instance.new("BodyGyro")
-			bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
-			bg.P = 1e4
-			bg.CFrame = hrp.CFrame
-			bg.Parent = hrp
-		end
-	else
-		flyToggleButton.Text = "Fly: Off (E)"
-		flyToggleButton.BackgroundColor3 = primaryMedium
-		if bv then if bv.Parent then bv:Destroy() end bv = nil end
-		if bg then if bg.Parent then bg:Destroy() end bg = nil end
-	end
-end)
-
-flyNoclipButton.MouseButton1Click:Connect(function()
-	noclip = not noclip
-	if noclip then
-		flyNoclipButton.Text = "Noclip: On"
-		flyNoclipButton.BackgroundColor3 = secondary
-	else
-		flyNoclipButton.Text = "Noclip: Off"
-		flyNoclipButton.BackgroundColor3 = primaryMedium
-	end
-end)
-
--- Noclip function
-local function applyNoclip(state)
-	if not character then return end
-	for _, part in pairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			pcall(function() part.CanCollide = not state end)
-		end
-	end
-end
-
--- Flight update loop
-runService.RenderStepped:Connect(function(delta)
-	-- Noclip maintenance
-	if noclip then
-		applyNoclip(true)
-	end
-
-	-- Flying movement
-	if flying and hrp and bv and bg then
-		-- Use camera look to determine forward movement
-		local camCFrame = camera.CFrame
-		local forward = camCFrame.LookVector
-		local right = camCFrame.RightVector
-		local moveVec = Vector3.new(0,0,0)
-
-		if keyStates.W then moveVec = moveVec + Vector3.new(forward.X, 0, forward.Z) end
-		if keyStates.S then moveVec = moveVec - Vector3.new(forward.X, 0, forward.Z) end
-		if keyStates.A then moveVec = moveVec - Vector3.new(right.X, 0, right.Z) end
-		if keyStates.D then moveVec = moveVec + Vector3.new(right.X, 0, right.Z) end
-
-		moveVec = moveVec.Unit ~= moveVec.Unit and Vector3.new(0,0,0) or moveVec.Unit -- handle zero vector
-		local vertical = 0
-		if keyStates.Space then vertical = vertical + 1 end
-		if keyStates.LeftShift then vertical = vertical - 1 end
-
-		local finalVel = (moveVec * flySpeed) + Vector3.new(0, vertical * flySpeed, 0)
-		bv.Velocity = finalVel
-		bg.CFrame = CFrame.new(hrp.Position, hrp.Position + camCFrame.LookVector)
-	end
-end)
-
--- Cleanup when flying turned off or character removed
-local function cleanupFlyComponents()
-	if bv then if bv.Parent then bv:Destroy() end bv = nil end
-	if bg then if bg.Parent then bg:Destroy() end bg = nil end
-end
-
--- ====== Character Respawn Handling ======
-local function onCharacterAdded(char)
-	character = char
-	hrp = character:WaitForChild("HumanoidRootPart")
-	humanoid = character:WaitForChild("Humanoid")
-
-	-- If fly was active, reattach BodyVelocity / BodyGyro
-	if flying then
-		cleanupFlyComponents()
-		bv = Instance.new("BodyVelocity")
-		bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-		bv.P = 1e4
-		bv.Velocity = Vector3.new(0,0,0)
-		bv.Parent = hrp
-
-		bg = Instance.new("BodyGyro")
-		bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
-		bg.P = 1e4
-		bg.CFrame = hrp.CFrame
-		bg.Parent = hrp
-	end
-
-	-- Reapply noclip if active
-	if noclip then
-		applyNoclip(true)
-	end
-
-	-- If we were viewing a player, ensure camera subject is valid
-	if viewingPlayer and selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("Humanoid") then
-		camera.CameraType = Enum.CameraType.Custom
-		camera.CameraSubject = selectedPlayer.Character:FindFirstChild("Humanoid")
-	else
-		-- restore camera subject to local player if possible
-		if player.Character and player.Character:FindFirstChild("Humanoid") then
-			camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
-		end
-	end
-end
-
-player.CharacterAdded:Connect(onCharacterAdded)
-
--- Make sure to cleanup on script disable / player leaving
-game:BindToClose(function()
-	-- restore camera
-	if camera then
-		camera.CameraType = origCameraType
-		camera.CameraSubject = origCameraSubject
-	end
-	-- cleanup ESP
-	disableESP()
-	-- cleanup fly components
-	cleanupFlyComponents()
-end)
-
--- Safety: Handle when players leave/join to update list
-game.Players.PlayerAdded:Connect(function(pl)
-	refreshPlayerList(searchBox.Text)
-end)
-game.Players.PlayerRemoving:Connect(function(pl)
-	-- cleanup any ESP related to them (already handled earlier) and refresh list
-	cleanupPlayerESP(pl)
-	refreshPlayerList(searchBox.Text)
-end)
-
--- Ensure existing players are in list on script start
-refreshPlayerList()
-
-print("[Script] GUI & Funktionen initialisiert.")
+print("[SCRIPT] Dynamic Character ESP Script loaded successfully!")
+print("[INFO] ESP Mode: Single Dynamic BoxAdornment per Player - OPTIMIZED")
+print("[INFO] Features: Character-fitted bounding box, optimized updates, Copy Outfit function")
+print("[CONTROLS] GUI Toggle: Q | Fly Key: E | WASD: Move | Space/LCtrl: Up/Down")
