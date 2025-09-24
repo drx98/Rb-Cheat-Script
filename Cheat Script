@@ -155,7 +155,7 @@ playerScroll.Position = UDim2.new(1,0,0,30)
 playerScroll.BackgroundColor3 = primaryMedium
 playerScroll.ScrollBarThickness = 6
 playerScroll.Visible = false
-playerScroll.CanvasSize = UDim2.new(0,0,0,400)
+playerScroll.CanvasSize = UDim2.new(0,0,0,450) -- Increased for new button
 playerScroll.Parent = mainFrame
 Instance.new("UICorner", playerScroll).CornerRadius = UDim.new(0,8)
 
@@ -265,75 +265,20 @@ uis.InputEnded:Connect(function(input)
 	end
 end)
 
--- ====== ENHANCED SINGLE BOX ESP SYSTEM ======
+-- ====== OPTIMIZED ESP SYSTEM ======
 
--- Funktion um Character-Bounding-Box zu berechnen
+-- Funktion um Character-Bounding-Box zu berechnen (optimiert)
 local function getCharacterBounds(character)
 	if not character or not character:FindFirstChild("HumanoidRootPart") then
 		return nil
 	end
 	
 	local rootPart = character.HumanoidRootPart
-	local minX, maxX = math.huge, -math.huge
-	local minY, maxY = math.huge, -math.huge
-	local minZ, maxZ = math.huge, -math.huge
 	
-	-- Durchlaufe alle BaseParts des Characters
-	for _, part in pairs(character:GetChildren()) do
-		if part:IsA("BasePart") and part ~= rootPart then
-			local cf = part.CFrame
-			local size = part.Size
-			
-			-- Berechne die 8 Eckpunkte der Part
-			local corners = {
-				cf * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2),
-				cf * CFrame.new(size.X/2, -size.Y/2, -size.Z/2),
-				cf * CFrame.new(-size.X/2, size.Y/2, -size.Z/2),
-				cf * CFrame.new(size.X/2, size.Y/2, -size.Z/2),
-				cf * CFrame.new(-size.X/2, -size.Y/2, size.Z/2),
-				cf * CFrame.new(size.X/2, -size.Y/2, size.Z/2),
-				cf * CFrame.new(-size.X/2, size.Y/2, size.Z/2),
-				cf * CFrame.new(size.X/2, size.Y/2, size.Z/2)
-			}
-			
-			-- Transformiere in RootPart lokalen Raum
-			for _, corner in pairs(corners) do
-				local localPos = rootPart.CFrame:Inverse() * corner.Position
-				minX = math.min(minX, localPos.X)
-				maxX = math.max(maxX, localPos.X)
-				minY = math.min(minY, localPos.Y)
-				maxY = math.max(maxY, localPos.Y)
-				minZ = math.min(minZ, localPos.Z)
-				maxZ = math.max(maxZ, localPos.Z)
-			end
-		end
-	end
-	
-	-- Fallback falls keine Parts gefunden wurden
-	if minX == math.huge then
-		return {
-			size = Vector3.new(4, 6, 2),
-			offset = Vector3.new(0, 0, 0)
-		}
-	end
-	
-	-- Berechne Größe und Offset
-	local sizeX = maxX - minX
-	local sizeY = maxY - minY  
-	local sizeZ = maxZ - minZ
-	
-	local offsetX = (maxX + minX) / 2
-	local offsetY = (maxY + minY) / 2
-	local offsetZ = (maxZ + minZ) / 2
-	
-	-- Minimale Größe sicherstellen
-	sizeX = math.max(sizeX, 1.5)
-	sizeY = math.max(sizeY, 4)
-	sizeZ = math.max(sizeZ, 1)
-	
+	-- Vereinfachte Bounding-Box Berechnung für bessere Performance
 	return {
-		size = Vector3.new(sizeX + 0.5, sizeY + 0.5, sizeZ + 0.5), -- Etwas Padding
-		offset = Vector3.new(offsetX, offsetY, offsetZ)
+		size = Vector3.new(4, 6, 2), -- Standard Character Size
+		offset = Vector3.new(0, 0, 0)
 	}
 end
 
@@ -349,6 +294,10 @@ local function cleanupPlayerESP(targetPlayer)
 			espData.adornment:Destroy()
 		end
 		
+		if espData.anchorPart and espData.anchorPart.Parent then
+			espData.anchorPart:Destroy()
+		end
+		
 		if espData.updateConnection then
 			espData.updateConnection:Disconnect()
 		end
@@ -356,19 +305,10 @@ local function cleanupPlayerESP(targetPlayer)
 		espObjects[playerName] = nil
 	end
 	
-	-- Zusätzliche Bereinigung
-	if targetPlayer.Character then
-		for _, child in pairs(targetPlayer.Character:GetDescendants()) do
-			if child:IsA("BoxHandleAdornment") and child.Name:find("ESP_Dynamic_") then
-				child:Destroy()
-			end
-		end
-	end
-	
 	print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Hauptfunktion für Dynamic Character ESP-Erstellung
+-- Optimierte ESP-Erstellung
 local function createDynamicCharacterESP(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
 	if not targetPlayer.Character then return end
@@ -399,36 +339,23 @@ local function createDynamicCharacterESP(targetPlayer)
 	boxAdornment.Transparency = espTransparency
 	boxAdornment.AlwaysOnTop = true
 	boxAdornment.ZIndex = 10
+	boxAdornment.Size = Vector3.new(4, 6, 2)
 	boxAdornment.Parent = anchorPart
 	
-	-- Berechne initiale Bounds
-	local bounds = getCharacterBounds(character)
-	if bounds then
-		boxAdornment.Size = bounds.size
-	else
-		boxAdornment.Size = Vector3.new(4, 6, 2)
-	end
-	
-	-- Update-Loop für dynamische Anpassung
+	-- Optimierte Update-Loop (weniger häufige Updates)
+	local lastUpdate = 0
 	local updateConnection = runService.Heartbeat:Connect(function()
+		local now = tick()
+		if now - lastUpdate < 0.1 then return end -- Update nur alle 0.1 Sekunden statt jedes Frame
+		lastUpdate = now
+		
 		if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
 			cleanupPlayerESP(targetPlayer)
 			return
 		end
 		
 		local currentHRP = targetPlayer.Character.HumanoidRootPart
-		local newBounds = getCharacterBounds(targetPlayer.Character)
-		
-		if newBounds then
-			-- Update Position und Größe
-			local worldOffset = currentHRP.CFrame:VectorToWorldSpace(newBounds.offset)
-			anchorPart.CFrame = CFrame.new(currentHRP.Position + worldOffset, currentHRP.Position + worldOffset + currentHRP.CFrame.LookVector)
-			boxAdornment.Size = newBounds.size
-		else
-			-- Fallback Position
-			anchorPart.CFrame = currentHRP.CFrame
-			boxAdornment.Size = Vector3.new(4, 6, 2)
-		end
+		anchorPart.CFrame = currentHRP.CFrame
 	end)
 	
 	-- Speichere ESP-Daten
@@ -479,7 +406,7 @@ local function disableESP()
 	print("[ESP] All Dynamic ESP removed")
 end
 
--- ====== ESP UPDATE LOOP ======
+-- ====== OPTIMIZED ESP UPDATE LOOP ======
 local espUpdateConnection
 local lastUpdateTime = 0
 
@@ -492,36 +419,22 @@ local function startESPUpdateLoop()
 		if not espEnabled then return end
 		
 		local currentTime = tick()
-		if currentTime - lastUpdateTime < 2 then return end -- Check alle 2 Sekunden
+		if currentTime - lastUpdateTime < 5 then return end -- Check nur alle 5 Sekunden
 		lastUpdateTime = currentTime
 		
-		-- Prüfe alle Spieler
+		-- Prüfe nur neue Spieler
 		for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 			if targetPlayer ~= player then
 				local playerName = targetPlayer.Name
-				local needsNewESP = false
 				
 				if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-					-- Prüfe ob ESP existiert und gültig ist
-					if espObjects[playerName] then
-						local espData = espObjects[playerName]
-						if espData.character ~= targetPlayer.Character then
-							needsNewESP = true
-						end
-					else
-						needsNewESP = true
-					end
-					
-					if needsNewESP then
+					if not espObjects[playerName] or espObjects[playerName].character ~= targetPlayer.Character then
 						spawn(function()
 							createDynamicCharacterESP(targetPlayer)
 						end)
 					end
-				else
-					-- Entferne ESP wenn kein gültiges Character
-					if espObjects[playerName] then
-						cleanupPlayerESP(targetPlayer)
-					end
+				elseif espObjects[playerName] then
+					cleanupPlayerESP(targetPlayer)
 				end
 			end
 		end
@@ -744,6 +657,18 @@ gotoButton.TextSize = 14
 gotoButton.Parent = playerScroll
 Instance.new("UICorner", gotoButton).CornerRadius = UDim.new(0,6)
 
+-- ====== NEW COPY OUTFIT BUTTON ======
+local copyOutfitButton = Instance.new("TextButton")
+copyOutfitButton.Text = "Copy Outfit"
+copyOutfitButton.Size = UDim2.new(0,220,0,30)
+copyOutfitButton.Position = UDim2.new(0,10,0,130)
+copyOutfitButton.BackgroundColor3 = primaryMedium
+copyOutfitButton.TextColor3 = textColor
+copyOutfitButton.Font = Enum.Font.Gotham
+copyOutfitButton.TextSize = 14
+copyOutfitButton.Parent = playerScroll
+Instance.new("UICorner", copyOutfitButton).CornerRadius = UDim.new(0,6)
+
 local function updateButtonPositions()
 	local baseY = 50
 	if dropdownOpen then
@@ -755,8 +680,9 @@ local function updateButtonPositions()
 	
 	tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)}):Play()
 	tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)}):Play()
+	tweenService:Create(copyOutfitButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 80)}):Play()
 	
-	playerScroll.CanvasSize = UDim2.new(0,0,0,math.max(baseY + 80, 400))
+	playerScroll.CanvasSize = UDim2.new(0,0,0,math.max(baseY + 120, 450))
 end
 
 function updatePlayerList(searchQuery)
@@ -823,6 +749,96 @@ end)
 searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	updatePlayerList(searchBox.Text)
 end)
+
+-- ====== COPY OUTFIT FUNCTIONALITY ======
+local function copyPlayerOutfit(targetPlayer)
+	if not targetPlayer or not targetPlayer.Character then 
+		return false, "Target player or character not found"
+	end
+	
+	if not player.Character then 
+		return false, "Your character not found"
+	end
+	
+	local targetCharacter = targetPlayer.Character
+	local myCharacter = player.Character
+	
+	-- Get target player's appearance info
+	local targetUserId = targetPlayer.UserId
+	local targetHumanoid = targetCharacter:FindFirstChild("Humanoid")
+	local myHumanoid = myCharacter:FindFirstChild("Humanoid")
+	
+	if not targetHumanoid or not myHumanoid then
+		return false, "Humanoid not found"
+	end
+	
+	-- Copy appearance using HumanoidDescription
+	pcall(function()
+		local targetDescription = game.Players:GetHumanoidDescriptionFromUserId(targetUserId)
+		myHumanoid:ApplyDescription(targetDescription)
+	end)
+	
+	-- Additional copying of accessories and parts
+	spawn(function()
+		wait(0.5) -- Wait for description to apply
+		
+		-- Remove existing accessories
+		for _, accessory in pairs(myCharacter:GetChildren()) do
+			if accessory:IsA("Accessory") then
+				accessory:Destroy()
+			end
+		end
+		
+		wait(0.1)
+		
+		-- Copy accessories from target
+		for _, accessory in pairs(targetCharacter:GetChildren()) do
+			if accessory:IsA("Accessory") then
+				local clonedAccessory = accessory:Clone()
+				clonedAccessory.Parent = myCharacter
+			end
+		end
+		
+		-- Copy body colors
+		local targetBodyColors = targetCharacter:FindFirstChild("Body Colors")
+		local myBodyColors = myCharacter:FindFirstChild("Body Colors")
+		
+		if targetBodyColors and myBodyColors then
+			myBodyColors.HeadColor = targetBodyColors.HeadColor
+			myBodyColors.LeftArmColor = targetBodyColors.LeftArmColor
+			myBodyColors.LeftLegColor = targetBodyColors.LeftLegColor
+			myBodyColors.RightArmColor = targetBodyColors.RightArmColor
+			myBodyColors.RightLegColor = targetBodyColors.RightLegColor
+			myBodyColors.TorsoColor = targetBodyColors.TorsoColor
+		end
+		
+		-- Copy shirts and pants
+		local targetShirt = targetCharacter:FindFirstChild("Shirt")
+		local targetPants = targetCharacter:FindFirstChild("Pants")
+		
+		-- Remove existing clothing
+		local existingShirt = myCharacter:FindFirstChild("Shirt")
+		local existingPants = myCharacter:FindFirstChild("Pants")
+		
+		if existingShirt then existingShirt:Destroy() end
+		if existingPants then existingPants:Destroy() end
+		
+		-- Add new clothing
+		if targetShirt then
+			local newShirt = Instance.new("Shirt")
+			newShirt.ShirtTemplate = targetShirt.ShirtTemplate
+			newShirt.Parent = myCharacter
+		end
+		
+		if targetPants then
+			local newPants = Instance.new("Pants")
+			newPants.PantsTemplate = targetPants.PantsTemplate
+			newPants.Parent = myCharacter
+		end
+	end)
+	
+	return true, "Outfit copied successfully"
+end
 
 -- ====== VIEW FUNCTIONALITY ======
 local function stopViewing()
@@ -899,6 +915,33 @@ gotoButton.MouseButton1Click:Connect(function()
 	player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPosition + Vector3.new(0, 0, 3))
 end)
 
+-- ====== COPY OUTFIT BUTTON FUNCTIONALITY ======
+copyOutfitButton.MouseButton1Click:Connect(function()
+	if not selectedPlayer then
+		playerSelectButton.Text = "Please select a player first!"
+		wait(2)
+		playerSelectButton.Text = "Select Player"
+		return
+	end
+
+	copyOutfitButton.Text = "Copying..."
+	copyOutfitButton.BackgroundColor3 = secondary
+	
+	local success, message = copyPlayerOutfit(selectedPlayer)
+	
+	if success then
+		copyOutfitButton.Text = "Outfit Copied!"
+		wait(2)
+		copyOutfitButton.Text = "Copy Outfit"
+		copyOutfitButton.BackgroundColor3 = primaryMedium
+	else
+		copyOutfitButton.Text = "Copy Failed!"
+		wait(2)
+		copyOutfitButton.Text = "Copy Outfit"
+		copyOutfitButton.BackgroundColor3 = primaryMedium
+	end
+end)
+
 -- ====== PLAYER EVENTS ======
 game.Players.PlayerAdded:Connect(function()
 	if dropdownOpen then
@@ -944,7 +987,13 @@ local closeKeyBox = Instance.new("TextBox")
 closeKeyBox.Size = UDim2.new(0,200,0,30)
 closeKeyBox.Position = UDim2.new(0,10,0,40)
 closeKeyBox.Text = "Q"
+closeKeyBox.BackgroundColor3 = primaryDark
+closeKeyBox.TextColor3 = textColor
+closeKeyBox.Font = Enum.Font.Gotham
+closeKeyBox.TextSize = 12
 closeKeyBox.Parent = guiScroll
+Instance.new("UICorner", closeKeyBox).CornerRadius = UDim.new(0,6)
+
 closeKeyBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local text = closeKeyBox.Text
 	if #text > 1 then text = text:sub(1,1) end
@@ -978,6 +1027,8 @@ speedLabel.BackgroundTransparency = 1
 speedLabel.TextColor3 = textColor
 speedLabel.TextXAlignment = Enum.TextXAlignment.Left
 speedLabel.Text = "Fly Speed:"
+speedLabel.Font = Enum.Font.Gotham
+speedLabel.TextSize = 12
 speedLabel.Parent = flyScroll
 
 local speedBox = Instance.new("TextBox")
@@ -998,6 +1049,8 @@ keyLabel.BackgroundTransparency = 1
 keyLabel.TextColor3 = textColor
 keyLabel.TextXAlignment = Enum.TextXAlignment.Left
 keyLabel.Text = "Fly Key:"
+keyLabel.Font = Enum.Font.Gotham
+keyLabel.TextSize = 12
 keyLabel.Parent = flyScroll
 
 local keyBox = Instance.new("TextBox")
@@ -1124,6 +1177,7 @@ createColorPicker("Primärfarbe:", primaryDark, 80, function(c)
 	playerButton.BackgroundColor3 = primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
 	gotoButton.BackgroundColor3 = primaryMedium
+	copyOutfitButton.BackgroundColor3 = primaryMedium
 	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
 end)
 
@@ -1132,6 +1186,7 @@ createColorPicker("Sekundärfarbe:", secondary, 140, function(c)
 	flyOnOff.BackgroundColor3 = flying and secondary or primaryMedium
 	noclipButton.BackgroundColor3 = (noclip and flying) and secondary or primaryMedium
 	viewButton.BackgroundColor3 = viewingPlayer and secondary or primaryMedium
+	copyOutfitButton.BackgroundColor3 = primaryMedium
 	espPlayerButton.BackgroundColor3 = espEnabled and secondary or primaryMedium
 end)
 
@@ -1275,6 +1330,6 @@ runService.RenderStepped:Connect(function()
 end)
 
 print("[SCRIPT] Dynamic Character ESP Script loaded successfully!")
-print("[INFO] ESP Mode: Single Dynamic BoxAdornment per Player")
-print("[INFO] Features: Character-fitted bounding box, real-time size adaptation, reduced visual clutter")
+print("[INFO] ESP Mode: Single Dynamic BoxAdornment per Player - OPTIMIZED")
+print("[INFO] Features: Character-fitted bounding box, optimized updates, Copy Outfit function")
 print("[CONTROLS] GUI Toggle: Q | Fly Key: E | WASD: Move | Space/LCtrl: Up/Down")
