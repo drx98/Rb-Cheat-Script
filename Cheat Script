@@ -11,11 +11,10 @@ local flyKey = Enum.KeyCode.E
 local noclip = false
 local bv, bg
 
--- ====== ESP VARIABLEN (Professional Highlight + SelectionBox System) ======
+-- ====== ESP VARIABLEN (BoxAdornment Character Outline System) ======
 local espEnabled = false
-local espColor = Color3.fromRGB(255, 255, 255)
+local espColor = Color3.fromRGB(255, 0, 0)
 local espObjects = {}
-local espMode = "Highlight" -- "Highlight", "SelectionBox", "BoxAdornment", "Chams"
 
 -- ====== Farben ======
 local primaryDark = Color3.fromRGB(30,30,30)
@@ -45,7 +44,7 @@ Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1,0,1,0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Professional ESP - All Methods"
+titleLabel.Text = "Character ESP - BoxAdornment"
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextSize = 16
 titleLabel.TextColor3 = textColor
@@ -146,7 +145,7 @@ espScroll.Position = UDim2.new(1,0,0,30)
 espScroll.BackgroundColor3 = primaryMedium
 espScroll.ScrollBarThickness = 6
 espScroll.Visible = false
-espScroll.CanvasSize = UDim2.new(0,0,0,800)
+espScroll.CanvasSize = UDim2.new(0,0,0,300)
 espScroll.Parent = mainFrame
 Instance.new("UICorner", espScroll).CornerRadius = UDim.new(0,8)
 
@@ -169,77 +168,22 @@ guiScroll.Visible = false
 guiScroll.Parent = mainFrame
 Instance.new("UICorner", guiScroll).CornerRadius = UDim.new(0,8)
 
--- ====== ESP MODE SELECTOR ======
-local espModeLabel = Instance.new("TextLabel")
-espModeLabel.Size = UDim2.new(0,200,0,20)
-espModeLabel.Position = UDim2.new(0,10,0,10)
-espModeLabel.BackgroundTransparency = 1
-espModeLabel.TextColor3 = textColor
-espModeLabel.TextXAlignment = Enum.TextXAlignment.Left
-espModeLabel.Text = "ESP Mode:"
-espModeLabel.Font = Enum.Font.Gotham
-espModeLabel.TextSize = 12
-espModeLabel.Parent = espScroll
-
-local espModeFrame = Instance.new("Frame")
-espModeFrame.Size = UDim2.new(0,220,0,120)
-espModeFrame.Position = UDim2.new(0,10,0,35)
-espModeFrame.BackgroundColor3 = primaryDark
-espModeFrame.Parent = espScroll
-Instance.new("UICorner", espModeFrame).CornerRadius = UDim.new(0,6)
-
--- ESP Mode Buttons
-local modeButtons = {}
-local modes = {"Highlight", "SelectionBox", "BoxAdornment", "Chams"}
-
-for i, mode in ipairs(modes) do
-	local modeButton = Instance.new("TextButton")
-	modeButton.Text = mode
-	modeButton.Size = UDim2.new(0,100,0,25)
-	modeButton.Position = UDim2.new(0, 10 + ((i-1)%2)*105, 0, 10 + math.floor((i-1)/2)*30)
-	modeButton.BackgroundColor3 = mode == espMode and secondary or primaryMedium
-	modeButton.TextColor3 = textColor
-	modeButton.Font = Enum.Font.Gotham
-	modeButton.TextSize = 11
-	modeButton.Parent = espModeFrame
-	Instance.new("UICorner", modeButton).CornerRadius = UDim.new(0,4)
-	
-	modeButtons[mode] = modeButton
-	
-	modeButton.MouseButton1Click:Connect(function()
-		-- Update ESP Mode
-		espMode = mode
-		
-		-- Update button colors
-		for modeName, btn in pairs(modeButtons) do
-			btn.BackgroundColor3 = modeName == espMode and secondary or primaryMedium
-		end
-		
-		-- Restart ESP with new mode if enabled
-		if espEnabled then
-			disableESP()
-			wait(0.1)
-			enableESP()
-		end
-	end)
-end
-
 -- ====== ESP PLAYER BUTTON ======
 local espPlayerButton = Instance.new("TextButton")
-espPlayerButton.Text = "ESP Player: Off"
-espPlayerButton.Size = UDim2.new(0,220,0,30)
-espPlayerButton.Position = UDim2.new(0,10,0,170)
+espPlayerButton.Text = "Character ESP: Off"
+espPlayerButton.Size = UDim2.new(0,220,0,40)
+espPlayerButton.Position = UDim2.new(0,10,0,20)
 espPlayerButton.BackgroundColor3 = primaryMedium
 espPlayerButton.TextColor3 = textColor
-espPlayerButton.Font = Enum.Font.Gotham
-espPlayerButton.TextSize = 14
+espPlayerButton.Font = Enum.Font.GothamBold
+espPlayerButton.TextSize = 16
 espPlayerButton.Parent = espScroll
 Instance.new("UICorner", espPlayerButton).CornerRadius = UDim.new(0,6)
 
 -- ====== ESP COLOR PICKER ======
 local espColorLabel = Instance.new("TextLabel")
 espColorLabel.Size = UDim2.new(0,200,0,20)
-espColorLabel.Position = UDim2.new(0,10,0,220)
+espColorLabel.Position = UDim2.new(0,10,0,80)
 espColorLabel.BackgroundTransparency = 1
 espColorLabel.TextColor3 = textColor
 espColorLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -250,7 +194,7 @@ espColorLabel.Parent = espScroll
 
 local espColorBox = Instance.new("TextButton")
 espColorBox.Size = UDim2.new(0,200,0,30)
-espColorBox.Position = UDim2.new(0,10,0,240)
+espColorBox.Position = UDim2.new(0,10,0,100)
 espColorBox.BackgroundColor3 = espColor
 espColorBox.Text = ""
 espColorBox.BorderSizePixel = 2
@@ -258,7 +202,32 @@ espColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
 espColorBox.Parent = espScroll
 Instance.new("UICorner", espColorBox).CornerRadius = UDim.new(0,6)
 
--- ====== PROFESSIONAL ESP SYSTEM ======
+-- ====== DETAILED CHARACTER ESP SYSTEM ======
+-- Körperteile mit angepassten Größen und Positionen
+local bodyPartData = {
+    ["Head"] = {size = Vector3.new(2, 1, 1), offset = Vector3.new(0, 0, 0)},
+    ["Torso"] = {size = Vector3.new(2, 2, 1), offset = Vector3.new(0, 0, 0)},
+    ["UpperTorso"] = {size = Vector3.new(2, 1.5, 1), offset = Vector3.new(0, 0, 0)},
+    ["LowerTorso"] = {size = Vector3.new(2, 1.5, 1), offset = Vector3.new(0, 0, 0)},
+    ["Left Arm"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
+    ["LeftUpperArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["LeftLowerArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["LeftHand"] = {size = Vector3.new(1, 0.4, 1), offset = Vector3.new(0, 0, 0)},
+    ["Right Arm"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
+    ["RightUpperArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["RightLowerArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["RightHand"] = {size = Vector3.new(1, 0.4, 1), offset = Vector3.new(0, 0, 0)},
+    ["Left Leg"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
+    ["LeftUpperLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["LeftLowerLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["LeftFoot"] = {size = Vector3.new(1, 0.4, 2), offset = Vector3.new(0, 0, 0)},
+    ["Right Leg"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
+    ["RightUpperLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["RightLowerLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
+    ["RightFoot"] = {size = Vector3.new(1, 0.4, 2), offset = Vector3.new(0, 0, 0)},
+    ["HumanoidRootPart"] = {size = Vector3.new(2, 2, 1), offset = Vector3.new(0, 0, 0)}
+}
+
 -- Funktion um alle ESP eines Spielers zu bereinigen
 local function cleanupPlayerESP(targetPlayer)
 	local playerName = targetPlayer.Name
@@ -266,19 +235,14 @@ local function cleanupPlayerESP(targetPlayer)
 	if espObjects[playerName] then
 		local espData = espObjects[playerName]
 		
-		-- Bereinige alle ESP-Objekte
-		if espData.highlight then espData.highlight:Destroy() end
-		if espData.selectionBox then espData.selectionBox:Destroy() end
-		if espData.boxAdornment then espData.boxAdornment:Destroy() end
-		
-		-- Bereinige Chams und deren Verbindungen
-		if espData.chams then
-			for _, chamData in pairs(espData.chams) do
-				if chamData.cham and chamData.cham.Parent then
-					chamData.cham:Destroy()
+		-- Bereinige alle BoxAdornments und deren Verbindungen
+		if espData.bodyParts then
+			for partName, partData in pairs(espData.bodyParts) do
+				if partData.adornment and partData.adornment.Parent then
+					partData.adornment:Destroy()
 				end
-				if chamData.connection then
-					chamData.connection:Disconnect()
+				if partData.connection then
+					partData.connection:Disconnect()
 				end
 			end
 		end
@@ -289,26 +253,17 @@ local function cleanupPlayerESP(targetPlayer)
 	-- Zusätzliche Bereinigung
 	if targetPlayer.Character then
 		for _, child in pairs(targetPlayer.Character:GetDescendants()) do
-			if child:IsA("Highlight") and child.Name:find("ESP_") then
-				child:Destroy()
-			elseif child:IsA("SelectionBox") and child.Name:find("ESP_") then
-				child:Destroy()
-			elseif child:IsA("BoxHandleAdornment") and child.Name:find("ESP_") then
+			if child:IsA("BoxHandleAdornment") and child.Name:find("ESP_Character_") then
 				child:Destroy()
 			end
 		end
 	end
 	
-	-- Bereinige Chams aus workspace
-	for _, child in pairs(workspace:GetChildren()) do
-		if child.Name:find("ESP_Cham_") then
-			child:Destroy()
-		end
-	end
+	print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Hauptfunktion für ESP-Erstellung basierend auf Modus
-local function createESPForPlayer(targetPlayer)
+-- Hauptfunktion für Character ESP-Erstellung
+local function createCharacterESP(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
 	if not targetPlayer.Character then return end
 	
@@ -323,122 +278,48 @@ local function createESPForPlayer(targetPlayer)
 	
 	local espData = {
 		player = targetPlayer,
-		character = character
+		character = character,
+		bodyParts = {}
 	}
 	
-	-- Erstelle ESP basierend auf gewähltem Modus
-	if espMode == "Highlight" then
-		-- HIGHLIGHT ESP (Modernste Methode) - OHNE NAMETAGS
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "ESP_Highlight_" .. playerName
-		highlight.Adornee = character
-		highlight.FillColor = espColor
-		highlight.OutlineColor = espColor
-		highlight.FillTransparency = 0.6
-		highlight.OutlineTransparency = 0
-		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		highlight.Parent = character
-		
-		espData.highlight = highlight
-		
-	elseif espMode == "SelectionBox" then
-		-- SELECTION BOX ESP - MIT THROUGH-WALLS VISIBILITY
-		local selectionBox = Instance.new("SelectionBox")
-		selectionBox.Name = "ESP_SelectionBox_" .. playerName
-		selectionBox.Adornee = character
-		selectionBox.Color3 = espColor
-		selectionBox.LineThickness = 0.15
-		selectionBox.Transparency = 0.3
-		-- Wichtig: AlwaysOnTop für durch-Wände-Sichtbarkeit
-		selectionBox.Parent = workspace.CurrentCamera
-		
-		espData.selectionBox = selectionBox
-		
-	elseif espMode == "BoxAdornment" then
-		-- BOX HANDLE ADORNMENT ESP (Old School Profi) - OHNE NAMETAGS
-		local boxAdornment = Instance.new("BoxHandleAdornment")
-		boxAdornment.Name = "ESP_BoxAdornment_" .. playerName
-		boxAdornment.Adornee = humanoidRootPart
-		boxAdornment.Size = Vector3.new(4, 6, 2)
-		boxAdornment.Color3 = espColor
-		boxAdornment.Transparency = 0.6
-		boxAdornment.AlwaysOnTop = true
-		boxAdornment.ZIndex = 10
-		boxAdornment.Parent = humanoidRootPart
-		
-		espData.boxAdornment = boxAdornment
-		
-	elseif espMode == "Chams" then
-		-- CHAMS ESP (Durch-Wände-Sichtbar) - FIXED VERSION
-		local chams = {}
-		
-		for _, part in pairs(character:GetChildren()) do
-			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-				local cham = Instance.new("Part")
-				cham.Name = "ESP_Cham_" .. part.Name .. "_" .. playerName
-				cham.Material = Enum.Material.ForceField
-				cham.Color = espColor
-				cham.Transparency = 0.5
-				cham.CanCollide = false
-				cham.Anchored = true
-				cham.Size = part.Size
-				cham.Shape = part.Shape
-				cham.TopSurface = Enum.SurfaceType.Smooth
-				cham.BottomSurface = Enum.SurfaceType.Smooth
-				cham.Parent = workspace
-				
-				-- Kopiere Mesh falls vorhanden
-				local mesh = part:FindFirstChildOfClass("SpecialMesh")
-				if mesh then
-					local newMesh = mesh:Clone()
-					newMesh.Parent = cham
-				end
-				
-				-- Position Tracking mit besserer Performance
-				local connection
-				connection = runService.Heartbeat:Connect(function()
-					if part and part.Parent and cham and cham.Parent then
-						cham.CFrame = part.CFrame
-					else
-						if connection then connection:Disconnect() end
-						if cham and cham.Parent then cham:Destroy() end
-					end
-				end)
-				
-				table.insert(chams, {cham = cham, connection = connection})
-			end
+	-- Erstelle BoxAdornments für alle verfügbaren Körperteile
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") and bodyPartData[part.Name] then
+			local partData = bodyPartData[part.Name]
+			
+			-- Erstelle BoxHandleAdornment für dieses Körperteil
+			local boxAdornment = Instance.new("BoxHandleAdornment")
+			boxAdornment.Name = "ESP_Character_" .. part.Name .. "_" .. playerName
+			boxAdornment.Adornee = part
+			boxAdornment.Size = partData.size
+			boxAdornment.Color3 = espColor
+			boxAdornment.Transparency = 0.7
+			boxAdornment.AlwaysOnTop = true
+			boxAdornment.ZIndex = 10
+			boxAdornment.Parent = part
+			
+			-- Speichere die ESP-Daten für dieses Körperteil
+			espData.bodyParts[part.Name] = {
+				part = part,
+				adornment = boxAdornment
+			}
 		end
-		
-		espData.chams = chams
 	end
 	
 	-- Speichere ESP-Daten
 	espObjects[playerName] = espData
 	
-	print("[ESP] Created " .. espMode .. " ESP for: " .. playerName)
+	print("[ESP] Created Character ESP for: " .. playerName .. " with " .. 
+		  tostring(#espData.bodyParts) .. " body parts")
 end
 
 -- Funktion um ESP-Farben zu aktualisieren
 local function updateESPColors()
 	for playerName, espData in pairs(espObjects) do
-		-- Update basierend auf ESP-Modus
-		if espData.highlight then
-			espData.highlight.FillColor = espColor
-			espData.highlight.OutlineColor = espColor
-		end
-		
-		if espData.selectionBox then
-			espData.selectionBox.Color3 = espColor
-		end
-		
-		if espData.boxAdornment then
-			espData.boxAdornment.Color3 = espColor
-		end
-		
-		if espData.chams then
-			for _, chamData in pairs(espData.chams) do
-				if chamData.cham and chamData.cham.Parent then
-					chamData.cham.Color = espColor
+		if espData.bodyParts then
+			for partName, partData in pairs(espData.bodyParts) do
+				if partData.adornment and partData.adornment.Parent then
+					partData.adornment.Color3 = espColor
 				end
 			end
 		end
@@ -447,13 +328,13 @@ end
 
 -- Funktion um ESP für alle Spieler zu aktivieren
 local function enableESP()
-	print("[ESP] Enabling " .. espMode .. " ESP...")
+	print("[ESP] Enabling Character ESP...")
 	
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 		if targetPlayer ~= player and targetPlayer.Character then
 			spawn(function()
 				wait(0.1)
-				createESPForPlayer(targetPlayer)
+				createCharacterESP(targetPlayer)
 			end)
 		end
 	end
@@ -461,14 +342,14 @@ end
 
 -- Funktion um alle ESP zu deaktivieren
 local function disableESP()
-	print("[ESP] Disabling ESP...")
+	print("[ESP] Disabling Character ESP...")
 	
 	for playerName, espData in pairs(espObjects) do
 		cleanupPlayerESP(espData.player)
 	end
 	espObjects = {}
 	
-	print("[ESP] All ESP removed")
+	print("[ESP] All Character ESP removed")
 end
 
 -- ====== ESP UPDATE LOOP ======
@@ -506,7 +387,7 @@ local function startESPUpdateLoop()
 					
 					if needsNewESP then
 						spawn(function()
-							createESPForPlayer(targetPlayer)
+							createCharacterESP(targetPlayer)
 						end)
 					end
 				else
@@ -539,12 +420,12 @@ end
 espPlayerButton.MouseButton1Click:Connect(function()
 	espEnabled = not espEnabled
 	if espEnabled then
-		espPlayerButton.Text = "ESP Player: On"
+		espPlayerButton.Text = "Character ESP: On"
 		espPlayerButton.BackgroundColor3 = secondary
 		enableESP()
 		startESPUpdateLoop()
 	else
-		espPlayerButton.Text = "ESP Player: Off"
+		espPlayerButton.Text = "Character ESP: Off"
 		espPlayerButton.BackgroundColor3 = primaryMedium
 		disableESP()
 		stopESPUpdateLoop()
@@ -556,10 +437,10 @@ local espPickerOpen = false
 local espPickerFrame
 
 local espColors = {
-	Color3.fromRGB(255,255,255), Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0),
-	Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,0), Color3.fromRGB(255,0,255),
-	Color3.fromRGB(0,255,255), Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,255),
-	Color3.fromRGB(255,192,203), Color3.fromRGB(128,128,128), Color3.fromRGB(64,64,64),
+	Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255),
+	Color3.fromRGB(255,255,0), Color3.fromRGB(255,0,255), Color3.fromRGB(0,255,255),
+	Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,255), Color3.fromRGB(255,192,203),
+	Color3.fromRGB(255,255,255), Color3.fromRGB(128,128,128), Color3.fromRGB(64,64,64),
 	Color3.fromRGB(255,69,0), Color3.fromRGB(50,205,50), Color3.fromRGB(30,144,255)
 }
 
@@ -573,7 +454,7 @@ espColorBox.MouseButton1Click:Connect(function()
 	espPickerOpen = true
 	espPickerFrame = Instance.new("Frame")
 	espPickerFrame.Size = UDim2.new(0,200,0,160)
-	espPickerFrame.Position = UDim2.new(0,10,0,280)
+	espPickerFrame.Position = UDim2.new(0,10,0,140)
 	espPickerFrame.BackgroundColor3 = primaryDark
 	espPickerFrame.BorderSizePixel = 1
 	espPickerFrame.BorderColor3 = Color3.fromRGB(100,100,100)
@@ -618,7 +499,7 @@ espColorBox.MouseButton1Click:Connect(function()
 		end)
 	end
 
-	espScroll.CanvasSize = UDim2.new(0,0,0,460)
+	espScroll.CanvasSize = UDim2.new(0,0,0,320)
 end)
 
 -- ====== ESP PLAYER EVENTS ======
@@ -626,7 +507,7 @@ game.Players.PlayerAdded:Connect(function(newPlayer)
 	newPlayer.CharacterAdded:Connect(function()
 		if espEnabled then
 			wait(1)
-			createESPForPlayer(newPlayer)
+			createCharacterESP(newPlayer)
 		end
 	end)
 end)
@@ -640,7 +521,7 @@ for _, existingPlayer in pairs(game.Players:GetPlayers()) do
 		existingPlayer.CharacterAdded:Connect(function()
 			if espEnabled then
 				wait(1)
-				createESPForPlayer(existingPlayer)
+				createCharacterESP(existingPlayer)
 			end
 		end)
 		
@@ -976,7 +857,12 @@ local speedBox = Instance.new("TextBox")
 speedBox.Size = UDim2.new(0,200,0,30)
 speedBox.Position = UDim2.new(0,10,0,80)
 speedBox.Text = tostring(flySpeed)
+speedBox.BackgroundColor3 = primaryDark
+speedBox.TextColor3 = textColor
+speedBox.Font = Enum.Font.Gotham
+speedBox.TextSize = 12
 speedBox.Parent = flyScroll
+Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0,6)
 
 local keyLabel = Instance.new("TextLabel")
 keyLabel.Size = UDim2.new(0,200,0,20)
@@ -991,7 +877,12 @@ local keyBox = Instance.new("TextBox")
 keyBox.Size = UDim2.new(0,200,0,30)
 keyBox.Position = UDim2.new(0,10,0,150)
 keyBox.Text = flyKey.Name
+keyBox.BackgroundColor3 = primaryDark
+keyBox.TextColor3 = textColor
+keyBox.Font = Enum.Font.Gotham
+keyBox.TextSize = 12
 keyBox.Parent = flyScroll
+Instance.new("UICorner", keyBox).CornerRadius = UDim.new(0,6)
 
 local noclipButton = Instance.new("TextButton")
 noclipButton.Text = "Fly Noclip: Off"
@@ -1011,6 +902,8 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 	label.TextColor3 = textColor
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Text = labelText
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 12
 	label.Parent = guiScroll
 
 	local colorBox = Instance.new("TextButton")
@@ -1019,7 +912,9 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 	colorBox.BackgroundColor3 = defaultColor
 	colorBox.Text = ""
 	colorBox.BorderSizePixel = 2
+	colorBox.BorderColor3 = Color3.fromRGB(100,100,100)
 	colorBox.Parent = guiScroll
+	Instance.new("UICorner", colorBox).CornerRadius = UDim.new(0,6)
 
 	local pickerOpen = false
 	local pickerFrame
@@ -1052,7 +947,10 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 		closeBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
 		closeBtn.Text = "X"
 		closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+		closeBtn.Font = Enum.Font.GothamBold
+		closeBtn.TextSize = 12
 		closeBtn.Parent = pickerFrame
+		Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0,4)
 		closeBtn.MouseButton1Click:Connect(function()
 			pickerFrame:Destroy()
 			pickerOpen = false
@@ -1064,7 +962,10 @@ local function createColorPicker(labelText, defaultColor, yPos, onChange)
 			btn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
 			btn.BackgroundColor3 = c
 			btn.Text = ""
+			btn.BorderSizePixel = 1
+			btn.BorderColor3 = Color3.fromRGB(200,200,200)
 			btn.Parent = pickerFrame
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0,4)
 			btn.MouseButton1Click:Connect(function()
 				colorBox.BackgroundColor3 = c
 				onChange(c)
@@ -1245,3 +1146,8 @@ runService.RenderStepped:Connect(function()
 		end
 	end
 end)
+
+print("[SCRIPT] Character ESP Script loaded successfully!")
+print("[INFO] ESP Mode: BoxAdornment Character Outline")
+print("[INFO] Features: Detailed body part visualization, through-wall visibility")
+print("[CONTROLS] GUI Toggle: Q | Fly Key: E | WASD: Move | Space/LCtrl: Up/Down")
