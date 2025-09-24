@@ -11,7 +11,7 @@ local flyKey = Enum.KeyCode.E
 local noclip = false
 local bv, bg
 
--- ====== ESP VARIABLEN (BoxAdornment Character Outline System) ======
+-- ====== ESP VARIABLEN (Single Dynamic BoxAdornment System) ======
 local espEnabled = false
 local espColor = Color3.fromRGB(255, 0, 0)
 local espObjects = {}
@@ -44,7 +44,7 @@ Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,12)
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1,0,1,0)
 titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Character ESP - BoxAdornment"
+titleLabel.Text = "Character ESP - Dynamic Single Box"
 titleLabel.Font = Enum.Font.GothamBold
 titleLabel.TextSize = 16
 titleLabel.TextColor3 = textColor
@@ -145,7 +145,7 @@ espScroll.Position = UDim2.new(1,0,0,30)
 espScroll.BackgroundColor3 = primaryMedium
 espScroll.ScrollBarThickness = 6
 espScroll.Visible = false
-espScroll.CanvasSize = UDim2.new(0,0,0,300)
+espScroll.CanvasSize = UDim2.new(0,0,0,350)
 espScroll.Parent = mainFrame
 Instance.new("UICorner", espScroll).CornerRadius = UDim.new(0,8)
 
@@ -202,31 +202,140 @@ espColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
 espColorBox.Parent = espScroll
 Instance.new("UICorner", espColorBox).CornerRadius = UDim.new(0,6)
 
--- ====== DETAILED CHARACTER ESP SYSTEM ======
--- Körperteile mit angepassten Größen und Positionen
-local bodyPartData = {
-    ["Head"] = {size = Vector3.new(2, 1, 1), offset = Vector3.new(0, 0, 0)},
-    ["Torso"] = {size = Vector3.new(2, 2, 1), offset = Vector3.new(0, 0, 0)},
-    ["UpperTorso"] = {size = Vector3.new(2, 1.5, 1), offset = Vector3.new(0, 0, 0)},
-    ["LowerTorso"] = {size = Vector3.new(2, 1.5, 1), offset = Vector3.new(0, 0, 0)},
-    ["Left Arm"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
-    ["LeftUpperArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["LeftLowerArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["LeftHand"] = {size = Vector3.new(1, 0.4, 1), offset = Vector3.new(0, 0, 0)},
-    ["Right Arm"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
-    ["RightUpperArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["RightLowerArm"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["RightHand"] = {size = Vector3.new(1, 0.4, 1), offset = Vector3.new(0, 0, 0)},
-    ["Left Leg"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
-    ["LeftUpperLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["LeftLowerLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["LeftFoot"] = {size = Vector3.new(1, 0.4, 2), offset = Vector3.new(0, 0, 0)},
-    ["Right Leg"] = {size = Vector3.new(1, 2, 1), offset = Vector3.new(0, 0, 0)},
-    ["RightUpperLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["RightLowerLeg"] = {size = Vector3.new(1, 1.2, 1), offset = Vector3.new(0, 0, 0)},
-    ["RightFoot"] = {size = Vector3.new(1, 0.4, 2), offset = Vector3.new(0, 0, 0)},
-    ["HumanoidRootPart"] = {size = Vector3.new(2, 2, 1), offset = Vector3.new(0, 0, 0)}
-}
+-- ====== ESP TRANSPARENCY SLIDER ======
+local transparencyLabel = Instance.new("TextLabel")
+transparencyLabel.Size = UDim2.new(0,200,0,20)
+transparencyLabel.Position = UDim2.new(0,10,0,150)
+transparencyLabel.BackgroundTransparency = 1
+transparencyLabel.TextColor3 = textColor
+transparencyLabel.TextXAlignment = Enum.TextXAlignment.Left
+transparencyLabel.Text = "Transparency: 0.3"
+transparencyLabel.Font = Enum.Font.Gotham
+transparencyLabel.TextSize = 12
+transparencyLabel.Parent = espScroll
+
+local transparencySlider = Instance.new("Frame")
+transparencySlider.Size = UDim2.new(0,200,0,20)
+transparencySlider.Position = UDim2.new(0,10,0,170)
+transparencySlider.BackgroundColor3 = primaryDark
+transparencySlider.Parent = espScroll
+Instance.new("UICorner", transparencySlider).CornerRadius = UDim.new(0,10)
+
+local transparencyKnob = Instance.new("TextButton")
+transparencyKnob.Size = UDim2.new(0,20,0,20)
+transparencyKnob.Position = UDim2.new(0.3,0,0,0)
+transparencyKnob.BackgroundColor3 = secondary
+transparencyKnob.Text = ""
+transparencyKnob.Parent = transparencySlider
+Instance.new("UICorner", transparencyKnob).CornerRadius = UDim.new(0.5,0)
+
+local espTransparency = 0.3
+local draggingSlider = false
+
+transparencyKnob.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingSlider = true
+	end
+end)
+
+uis.InputChanged:Connect(function(input)
+	if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local sliderPos = transparencySlider.AbsolutePosition.X
+		local sliderSize = transparencySlider.AbsoluteSize.X
+		local mouseX = input.Position.X
+		local relativeX = math.max(0, math.min(sliderSize - 20, mouseX - sliderPos))
+		local percentage = relativeX / (sliderSize - 20)
+		
+		espTransparency = percentage
+		transparencyKnob.Position = UDim2.new(percentage, 0, 0, 0)
+		transparencyLabel.Text = "Transparency: " .. string.format("%.2f", espTransparency)
+		
+		-- Update alle ESP Objekte
+		for _, espData in pairs(espObjects) do
+			if espData.adornment and espData.adornment.Parent then
+				espData.adornment.Transparency = espTransparency
+			end
+		end
+	end
+end)
+
+uis.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingSlider = false
+	end
+end)
+
+-- ====== ENHANCED SINGLE BOX ESP SYSTEM ======
+
+-- Funktion um Character-Bounding-Box zu berechnen
+local function getCharacterBounds(character)
+	if not character or not character:FindFirstChild("HumanoidRootPart") then
+		return nil
+	end
+	
+	local rootPart = character.HumanoidRootPart
+	local minX, maxX = math.huge, -math.huge
+	local minY, maxY = math.huge, -math.huge
+	local minZ, maxZ = math.huge, -math.huge
+	
+	-- Durchlaufe alle BaseParts des Characters
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") and part ~= rootPart then
+			local cf = part.CFrame
+			local size = part.Size
+			
+			-- Berechne die 8 Eckpunkte der Part
+			local corners = {
+				cf * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2),
+				cf * CFrame.new(size.X/2, -size.Y/2, -size.Z/2),
+				cf * CFrame.new(-size.X/2, size.Y/2, -size.Z/2),
+				cf * CFrame.new(size.X/2, size.Y/2, -size.Z/2),
+				cf * CFrame.new(-size.X/2, -size.Y/2, size.Z/2),
+				cf * CFrame.new(size.X/2, -size.Y/2, size.Z/2),
+				cf * CFrame.new(-size.X/2, size.Y/2, size.Z/2),
+				cf * CFrame.new(size.X/2, size.Y/2, size.Z/2)
+			}
+			
+			-- Transformiere in RootPart lokalen Raum
+			for _, corner in pairs(corners) do
+				local localPos = rootPart.CFrame:Inverse() * corner.Position
+				minX = math.min(minX, localPos.X)
+				maxX = math.max(maxX, localPos.X)
+				minY = math.min(minY, localPos.Y)
+				maxY = math.max(maxY, localPos.Y)
+				minZ = math.min(minZ, localPos.Z)
+				maxZ = math.max(maxZ, localPos.Z)
+			end
+		end
+	end
+	
+	-- Fallback falls keine Parts gefunden wurden
+	if minX == math.huge then
+		return {
+			size = Vector3.new(4, 6, 2),
+			offset = Vector3.new(0, 0, 0)
+		}
+	end
+	
+	-- Berechne Größe und Offset
+	local sizeX = maxX - minX
+	local sizeY = maxY - minY  
+	local sizeZ = maxZ - minZ
+	
+	local offsetX = (maxX + minX) / 2
+	local offsetY = (maxY + minY) / 2
+	local offsetZ = (maxZ + minZ) / 2
+	
+	-- Minimale Größe sicherstellen
+	sizeX = math.max(sizeX, 1.5)
+	sizeY = math.max(sizeY, 4)
+	sizeZ = math.max(sizeZ, 1)
+	
+	return {
+		size = Vector3.new(sizeX + 0.5, sizeY + 0.5, sizeZ + 0.5), -- Etwas Padding
+		offset = Vector3.new(offsetX, offsetY, offsetZ)
+	}
+end
 
 -- Funktion um alle ESP eines Spielers zu bereinigen
 local function cleanupPlayerESP(targetPlayer)
@@ -235,16 +344,13 @@ local function cleanupPlayerESP(targetPlayer)
 	if espObjects[playerName] then
 		local espData = espObjects[playerName]
 		
-		-- Bereinige alle BoxAdornments und deren Verbindungen
-		if espData.bodyParts then
-			for partName, partData in pairs(espData.bodyParts) do
-				if partData.adornment and partData.adornment.Parent then
-					partData.adornment:Destroy()
-				end
-				if partData.connection then
-					partData.connection:Disconnect()
-				end
-			end
+		-- Bereinige BoxAdornment und Verbindungen
+		if espData.adornment and espData.adornment.Parent then
+			espData.adornment:Destroy()
+		end
+		
+		if espData.updateConnection then
+			espData.updateConnection:Disconnect()
 		end
 		
 		espObjects[playerName] = nil
@@ -253,7 +359,7 @@ local function cleanupPlayerESP(targetPlayer)
 	-- Zusätzliche Bereinigung
 	if targetPlayer.Character then
 		for _, child in pairs(targetPlayer.Character:GetDescendants()) do
-			if child:IsA("BoxHandleAdornment") and child.Name:find("ESP_Character_") then
+			if child:IsA("BoxHandleAdornment") and child.Name:find("ESP_Dynamic_") then
 				child:Destroy()
 			end
 		end
@@ -262,8 +368,8 @@ local function cleanupPlayerESP(targetPlayer)
 	print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Hauptfunktion für Character ESP-Erstellung
-local function createCharacterESP(targetPlayer)
+-- Hauptfunktion für Dynamic Character ESP-Erstellung
+local function createDynamicCharacterESP(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
 	if not targetPlayer.Character then return end
 	
@@ -276,65 +382,86 @@ local function createCharacterESP(targetPlayer)
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then return end
 	
-	local espData = {
-		player = targetPlayer,
-		character = character,
-		bodyParts = {}
-	}
+	-- Erstelle unsichtbaren Anchor-Part
+	local anchorPart = Instance.new("Part")
+	anchorPart.Name = "ESP_Anchor_" .. playerName
+	anchorPart.Size = Vector3.new(0.1, 0.1, 0.1)
+	anchorPart.Transparency = 1
+	anchorPart.CanCollide = false
+	anchorPart.Anchored = true
+	anchorPart.Parent = workspace
 	
-	-- Erstelle BoxAdornments für alle verfügbaren Körperteile
-	for _, part in pairs(character:GetChildren()) do
-		if part:IsA("BasePart") and bodyPartData[part.Name] then
-			local partData = bodyPartData[part.Name]
-			
-			-- Erstelle BoxHandleAdornment für dieses Körperteil
-			local boxAdornment = Instance.new("BoxHandleAdornment")
-			boxAdornment.Name = "ESP_Character_" .. part.Name .. "_" .. playerName
-			boxAdornment.Adornee = part
-			boxAdornment.Size = partData.size
-			boxAdornment.Color3 = espColor
-			boxAdornment.Transparency = 0.7
-			boxAdornment.AlwaysOnTop = true
-			boxAdornment.ZIndex = 10
-			boxAdornment.Parent = part
-			
-			-- Speichere die ESP-Daten für dieses Körperteil
-			espData.bodyParts[part.Name] = {
-				part = part,
-				adornment = boxAdornment
-			}
-		end
+	-- Erstelle BoxHandleAdornment
+	local boxAdornment = Instance.new("BoxHandleAdornment")
+	boxAdornment.Name = "ESP_Dynamic_" .. playerName
+	boxAdornment.Adornee = anchorPart
+	boxAdornment.Color3 = espColor
+	boxAdornment.Transparency = espTransparency
+	boxAdornment.AlwaysOnTop = true
+	boxAdornment.ZIndex = 10
+	boxAdornment.Parent = anchorPart
+	
+	-- Berechne initiale Bounds
+	local bounds = getCharacterBounds(character)
+	if bounds then
+		boxAdornment.Size = bounds.size
+	else
+		boxAdornment.Size = Vector3.new(4, 6, 2)
 	end
 	
-	-- Speichere ESP-Daten
-	espObjects[playerName] = espData
+	-- Update-Loop für dynamische Anpassung
+	local updateConnection = runService.Heartbeat:Connect(function()
+		if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+			cleanupPlayerESP(targetPlayer)
+			return
+		end
+		
+		local currentHRP = targetPlayer.Character.HumanoidRootPart
+		local newBounds = getCharacterBounds(targetPlayer.Character)
+		
+		if newBounds then
+			-- Update Position und Größe
+			local worldOffset = currentHRP.CFrame:VectorToWorldSpace(newBounds.offset)
+			anchorPart.CFrame = CFrame.new(currentHRP.Position + worldOffset, currentHRP.Position + worldOffset + currentHRP.CFrame.LookVector)
+			boxAdornment.Size = newBounds.size
+		else
+			-- Fallback Position
+			anchorPart.CFrame = currentHRP.CFrame
+			boxAdornment.Size = Vector3.new(4, 6, 2)
+		end
+	end)
 	
-	print("[ESP] Created Character ESP for: " .. playerName .. " with " .. 
-		  tostring(#espData.bodyParts) .. " body parts")
+	-- Speichere ESP-Daten
+	espObjects[playerName] = {
+		player = targetPlayer,
+		character = character,
+		adornment = boxAdornment,
+		anchorPart = anchorPart,
+		updateConnection = updateConnection
+	}
+	
+	print("[ESP] Created Dynamic ESP for: " .. playerName)
 end
 
 -- Funktion um ESP-Farben zu aktualisieren
 local function updateESPColors()
 	for playerName, espData in pairs(espObjects) do
-		if espData.bodyParts then
-			for partName, partData in pairs(espData.bodyParts) do
-				if partData.adornment and partData.adornment.Parent then
-					partData.adornment.Color3 = espColor
-				end
-			end
+		if espData.adornment and espData.adornment.Parent then
+			espData.adornment.Color3 = espColor
+			espData.adornment.Transparency = espTransparency
 		end
 	end
 end
 
 -- Funktion um ESP für alle Spieler zu aktivieren
 local function enableESP()
-	print("[ESP] Enabling Character ESP...")
+	print("[ESP] Enabling Dynamic Character ESP...")
 	
 	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
 		if targetPlayer ~= player and targetPlayer.Character then
 			spawn(function()
 				wait(0.1)
-				createCharacterESP(targetPlayer)
+				createDynamicCharacterESP(targetPlayer)
 			end)
 		end
 	end
@@ -342,14 +469,14 @@ end
 
 -- Funktion um alle ESP zu deaktivieren
 local function disableESP()
-	print("[ESP] Disabling Character ESP...")
+	print("[ESP] Disabling Dynamic Character ESP...")
 	
 	for playerName, espData in pairs(espObjects) do
 		cleanupPlayerESP(espData.player)
 	end
 	espObjects = {}
 	
-	print("[ESP] All Character ESP removed")
+	print("[ESP] All Dynamic ESP removed")
 end
 
 -- ====== ESP UPDATE LOOP ======
@@ -365,7 +492,7 @@ local function startESPUpdateLoop()
 		if not espEnabled then return end
 		
 		local currentTime = tick()
-		if currentTime - lastUpdateTime < 1 then return end
+		if currentTime - lastUpdateTime < 2 then return end -- Check alle 2 Sekunden
 		lastUpdateTime = currentTime
 		
 		-- Prüfe alle Spieler
@@ -387,7 +514,7 @@ local function startESPUpdateLoop()
 					
 					if needsNewESP then
 						spawn(function()
-							createCharacterESP(targetPlayer)
+							createDynamicCharacterESP(targetPlayer)
 						end)
 					end
 				else
@@ -499,7 +626,7 @@ espColorBox.MouseButton1Click:Connect(function()
 		end)
 	end
 
-	espScroll.CanvasSize = UDim2.new(0,0,0,320)
+	espScroll.CanvasSize = UDim2.new(0,0,0,370)
 end)
 
 -- ====== ESP PLAYER EVENTS ======
@@ -507,7 +634,7 @@ game.Players.PlayerAdded:Connect(function(newPlayer)
 	newPlayer.CharacterAdded:Connect(function()
 		if espEnabled then
 			wait(1)
-			createCharacterESP(newPlayer)
+			createDynamicCharacterESP(newPlayer)
 		end
 	end)
 end)
@@ -521,7 +648,7 @@ for _, existingPlayer in pairs(game.Players:GetPlayers()) do
 		existingPlayer.CharacterAdded:Connect(function()
 			if espEnabled then
 				wait(1)
-				createCharacterESP(existingPlayer)
+				createDynamicCharacterESP(existingPlayer)
 			end
 		end)
 		
@@ -1147,7 +1274,7 @@ runService.RenderStepped:Connect(function()
 	end
 end)
 
-print("[SCRIPT] Character ESP Script loaded successfully!")
-print("[INFO] ESP Mode: BoxAdornment Character Outline")
-print("[INFO] Features: Detailed body part visualization, through-wall visibility")
+print("[SCRIPT] Dynamic Character ESP Script loaded successfully!")
+print("[INFO] ESP Mode: Single Dynamic BoxAdornment per Player")
+print("[INFO] Features: Character-fitted bounding box, real-time size adaptation, reduced visual clutter")
 print("[CONTROLS] GUI Toggle: Q | Fly Key: E | WASD: Move | Space/LCtrl: Up/Down")
