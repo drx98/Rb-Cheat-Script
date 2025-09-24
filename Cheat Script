@@ -270,13 +270,15 @@ local function cleanupPlayerESP(targetPlayer)
 		if espData.highlight then espData.highlight:Destroy() end
 		if espData.selectionBox then espData.selectionBox:Destroy() end
 		if espData.boxAdornment then espData.boxAdornment:Destroy() end
-		if espData.billboardGui then espData.billboardGui:Destroy() end
 		
-		-- Bereinige Chams
+		-- Bereinige Chams und deren Verbindungen
 		if espData.chams then
-			for _, cham in pairs(espData.chams) do
-				if cham and cham.Parent then
-					cham:Destroy()
+			for _, chamData in pairs(espData.chams) do
+				if chamData.cham and chamData.cham.Parent then
+					chamData.cham:Destroy()
+				end
+				if chamData.connection then
+					chamData.connection:Disconnect()
 				end
 			end
 		end
@@ -293,9 +295,14 @@ local function cleanupPlayerESP(targetPlayer)
 				child:Destroy()
 			elseif child:IsA("BoxHandleAdornment") and child.Name:find("ESP_") then
 				child:Destroy()
-			elseif child:IsA("SurfaceGui") and child.Name:find("ESP_") then
-				child:Destroy()
 			end
+		end
+	end
+	
+	-- Bereinige Chams aus workspace
+	for _, child in pairs(workspace:GetChildren()) do
+		if child.Name:find("ESP_Cham_") then
+			child:Destroy()
 		end
 	end
 end
@@ -321,7 +328,7 @@ local function createESPForPlayer(targetPlayer)
 	
 	-- Erstelle ESP basierend auf gewähltem Modus
 	if espMode == "Highlight" then
-		-- HIGHLIGHT ESP (Modernste Methode)
+		-- HIGHLIGHT ESP (Modernste Methode) - OHNE NAMETAGS
 		local highlight = Instance.new("Highlight")
 		highlight.Name = "ESP_Highlight_" .. playerName
 		highlight.Adornee = character
@@ -335,19 +342,20 @@ local function createESPForPlayer(targetPlayer)
 		espData.highlight = highlight
 		
 	elseif espMode == "SelectionBox" then
-		-- SELECTION BOX ESP (Klassiker)
+		-- SELECTION BOX ESP - MIT THROUGH-WALLS VISIBILITY
 		local selectionBox = Instance.new("SelectionBox")
 		selectionBox.Name = "ESP_SelectionBox_" .. playerName
 		selectionBox.Adornee = character
 		selectionBox.Color3 = espColor
 		selectionBox.LineThickness = 0.15
 		selectionBox.Transparency = 0.3
-		selectionBox.Parent = character
+		-- Wichtig: AlwaysOnTop für durch-Wände-Sichtbarkeit
+		selectionBox.Parent = workspace.CurrentCamera
 		
 		espData.selectionBox = selectionBox
 		
 	elseif espMode == "BoxAdornment" then
-		-- BOX HANDLE ADORNMENT ESP (Old School Profi)
+		-- BOX HANDLE ADORNMENT ESP (Old School Profi) - OHNE NAMETAGS
 		local boxAdornment = Instance.new("BoxHandleAdornment")
 		boxAdornment.Name = "ESP_BoxAdornment_" .. playerName
 		boxAdornment.Adornee = humanoidRootPart
@@ -361,21 +369,32 @@ local function createESPForPlayer(targetPlayer)
 		espData.boxAdornment = boxAdornment
 		
 	elseif espMode == "Chams" then
-		-- CHAMS ESP (Durch-Wände-Sichtbar)
+		-- CHAMS ESP (Durch-Wände-Sichtbar) - FIXED VERSION
 		local chams = {}
 		
 		for _, part in pairs(character:GetChildren()) do
 			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-				local cham = part:Clone()
-				cham.Name = "ESP_Cham_" .. part.Name
+				local cham = Instance.new("Part")
+				cham.Name = "ESP_Cham_" .. part.Name .. "_" .. playerName
 				cham.Material = Enum.Material.ForceField
-				cham.BrickColor = BrickColor.new(espColor)
-				cham.Transparency = 0.7
+				cham.Color = espColor
+				cham.Transparency = 0.5
 				cham.CanCollide = false
 				cham.Anchored = true
+				cham.Size = part.Size
+				cham.Shape = part.Shape
+				cham.TopSurface = Enum.SurfaceType.Smooth
+				cham.BottomSurface = Enum.SurfaceType.Smooth
 				cham.Parent = workspace
 				
-				-- Cham Position Tracking
+				-- Kopiere Mesh falls vorhanden
+				local mesh = part:FindFirstChildOfClass("SpecialMesh")
+				if mesh then
+					local newMesh = mesh:Clone()
+					newMesh.Parent = cham
+				end
+				
+				-- Position Tracking mit besserer Performance
 				local connection
 				connection = runService.Heartbeat:Connect(function()
 					if part and part.Parent and cham and cham.Parent then
@@ -386,34 +405,12 @@ local function createESPForPlayer(targetPlayer)
 					end
 				end)
 				
-				table.insert(chams, cham)
+				table.insert(chams, {cham = cham, connection = connection})
 			end
 		end
 		
 		espData.chams = chams
 	end
-	
-	-- Name Label (für alle Modi)
-	local billboardGui = Instance.new("BillboardGui")
-	billboardGui.Name = "ESP_NameTag_" .. playerName
-	billboardGui.Size = UDim2.new(0, 200, 0, 50)
-	billboardGui.StudsOffset = Vector3.new(0, 3, 0)
-	billboardGui.AlwaysOnTop = true
-	billboardGui.Parent = humanoidRootPart
-	
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, 0, 1, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = targetPlayer.Name
-	nameLabel.TextColor3 = espColor
-	nameLabel.TextStrokeTransparency = 0.3
-	nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextScaled = true
-	nameLabel.Parent = billboardGui
-	
-	espData.billboardGui = billboardGui
-	espData.nameLabel = nameLabel
 	
 	-- Speichere ESP-Daten
 	espObjects[playerName] = espData
@@ -439,15 +436,11 @@ local function updateESPColors()
 		end
 		
 		if espData.chams then
-			for _, cham in pairs(espData.chams) do
-				if cham and cham.Parent then
-					cham.BrickColor = BrickColor.new(espColor)
+			for _, chamData in pairs(espData.chams) do
+				if chamData.cham and chamData.cham.Parent then
+					chamData.cham.Color = espColor
 				end
 			end
-		end
-		
-		if espData.nameLabel then
-			espData.nameLabel.TextColor3 = espColor
 		end
 	end
 end
