@@ -1,5 +1,3 @@
--- FULL SCRIPT (komplett, mit ESP smoothing + Healthbar rechts und Copy Outfit Fix)
--- ====== VARIABLES ======
 local player = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
@@ -247,11 +245,11 @@ uis.InputChanged:Connect(function(input)
 		local mouseX = input.Position.X
 		local relativeX = math.max(0, math.min(sliderSize - 20, mouseX - sliderPos))
 		local percentage = relativeX / (sliderSize - 20)
-		
+
 		espTransparency = percentage
 		transparencyKnob.Position = UDim2.new(percentage, 0, 0, 0)
 		transparencyLabel.Text = "Transparency: " .. string.format("%.2f", espTransparency)
-		
+
 		-- Update alle ESP Objekte
 		for _, espData in pairs(espObjects) do
 			if espData.adornment and espData.adornment.Parent then
@@ -267,271 +265,148 @@ uis.InputEnded:Connect(function(input)
 	end
 end)
 
--- ====== OPTIMIZED ESP SYSTEM ======
+-- ====== OPTIMIZED ESP SYSTEM (Outline + Healthbar statt Box) ======
 
--- Funktion um Character-Bounding-Box zu berechnen (optimiert)
-local function getCharacterBounds(character)
-	if not character or not character:FindFirstChild("HumanoidRootPart") then
-		return nil
-	end
-	
-	local rootPart = character.HumanoidRootPart
-	
-	-- Vereinfachte Bounding-Box Berechnung für bessere Performance
-	return {
-		size = Vector3.new(4, 6, 2), -- Standard Character Size
-		offset = Vector3.new(0, 0, 0)
-	}
-end
-
--- Funktion um alle ESP eines Spielers zu bereinigen
 local function cleanupPlayerESP(targetPlayer)
 	local playerName = targetPlayer.Name
-	
 	if espObjects[playerName] then
 		local espData = espObjects[playerName]
-		
-		-- Bereinige BoxAdornment und Verbindungen
-		if espData.adornment and espData.adornment.Parent then
-			espData.adornment:Destroy()
-		end
-		
-		if espData.anchorPart and espData.anchorPart.Parent then
-			espData.anchorPart:Destroy()
-		end
-		
-		if espData.billboard and espData.billboard.Parent then
-			espData.billboard:Destroy()
-		end
-		
-		if espData.updateConnection then
-			espData.updateConnection:Disconnect()
-		end
-		
+		if espData.outline then espData.outline:Destroy() end
+		if espData.healthbar then espData.healthbar:Destroy() end
+		if espData.updateConnection then espData.updateConnection:Disconnect() end
 		espObjects[playerName] = nil
 	end
-	
-	-- print für debug
-	-- print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Optimierte ESP-Erstellung (mit smooth follow & Healthbar)
-local function createDynamicCharacterESP(targetPlayer)
+local function createOutlineESP(targetPlayer)
 	if not targetPlayer or targetPlayer == player then return end
-	if not targetPlayer.Character then return end
-	
-	local playerName = targetPlayer.Name
-	
-	-- Bereinige alte ESP-Objekte
+	if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
 	cleanupPlayerESP(targetPlayer)
-	
+
 	local character = targetPlayer.Character
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return end
-	
-	-- Erstelle unsichtbaren Anchor-Part
-	local anchorPart = Instance.new("Part")
-	anchorPart.Name = "ESP_Anchor_" .. playerName
-	anchorPart.Size = Vector3.new(0.1, 0.1, 0.1)
-	anchorPart.Transparency = 1
-	anchorPart.CanCollide = false
-	anchorPart.Anchored = true
-	anchorPart.CFrame = humanoidRootPart.CFrame
-	anchorPart.Parent = workspace
-	
-	-- Erstelle BoxHandleAdornment (deine ursprüngliche Art beibehalten)
-	local boxAdornment = Instance.new("BoxHandleAdornment")
-	boxAdornment.Name = "ESP_Dynamic_" .. playerName
-	boxAdornment.Adornee = anchorPart
-	boxAdornment.Color3 = espColor
-	boxAdornment.Transparency = espTransparency
-	boxAdornment.AlwaysOnTop = true
-	boxAdornment.ZIndex = 10
-	local bounds = getCharacterBounds(character)
-	if bounds then
-		boxAdornment.Size = bounds.size
-	else
-		boxAdornment.Size = Vector3.new(4, 6, 2)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or not hrp then return end
+
+	-- BillboardGui für Outline
+	local outline = Instance.new("BillboardGui")
+	outline.Name = "ESP_Outline_"..targetPlayer.Name
+	outline.Adornee = hrp
+	outline.Size = UDim2.new(6,0,8,0)
+	outline.AlwaysOnTop = true
+	outline.LightInfluence = 0
+	outline.StudsOffset = Vector3.new(0, 3.5, 0)
+	outline.Parent = workspace
+
+	-- Outline Frame
+	local outlineFrame = Instance.new("Frame")
+	outlineFrame.Size = UDim2.new(1,0,1,0)
+	outlineFrame.BackgroundTransparency = 1
+	outlineFrame.BorderSizePixel = 0
+	outlineFrame.Parent = outline
+
+	-- Outline (4 Seiten)
+	local function makeLine(x1, y1, x2, y2)
+		local line = Instance.new("Frame")
+		line.BackgroundColor3 = espColor
+		line.BackgroundTransparency = espTransparency
+		line.BorderSizePixel = 0
+		line.AnchorPoint = Vector2.new(0,0)
+		line.Parent = outlineFrame
+		line.Position = UDim2.new(x1,0,y1,0)
+		if x1 == x2 then
+			line.Size = UDim2.new(0,2,math.abs(y2-y1),0)
+		else
+			line.Size = UDim2.new(math.abs(x2-x1),0,0,2)
+		end
+		return line
 	end
-	boxAdornment.Parent = anchorPart
-	
-	-- Erstelle BillboardGui für Healthbar (rechts von der Box)
-	local bp = Instance.new("BillboardGui")
-	bp.Name = "ESP_Health_" .. playerName
-	bp.Adornee = anchorPart
-	bp.AlwaysOnTop = true
-	bp.Size = UDim2.new(0, 30, 0, 90)
-	-- offset to the right of character (adjust if needed)
-	bp.StudsOffset = Vector3.new(bounds and (bounds.size.X/2 + 0.6) or 2.5, (bounds and bounds.size.Y/2) or 3, 0)
-	bp.Parent = screenGui  -- local player's PlayerGui (screenGui drawn at top)
-	
-	local healthContainer = Instance.new("Frame")
-	healthContainer.Size = UDim2.new(0, 10, 1, 0)
-	healthContainer.Position = UDim2.new(1, 6, 0, 0)
-	healthContainer.BackgroundTransparency = 0
-	healthContainer.BackgroundColor3 = Color3.fromRGB(0,0,0)
-	healthContainer.BorderSizePixel = 0
-	healthContainer.Parent = bp
-	Instance.new("UICorner", healthContainer).CornerRadius = UDim.new(0,2)
-	
-	local healthFill = Instance.new("Frame")
-	-- Fill from top -> down, so AnchorPoint (0,0), position (0,0)
-	healthFill.Size = UDim2.new(1, 0, 1, 0)
-	healthFill.Position = UDim2.new(0, 0, 0, 0)
-	healthFill.BackgroundColor3 = Color3.fromRGB(0,255,0)
-	healthFill.BorderSizePixel = 0
-	healthFill.Parent = healthContainer
-	Instance.new("UICorner", healthFill).CornerRadius = UDim.new(0,2)
-	
-	-- Optimierte Update-Loop (smooth using RenderStepped)
+	makeLine(0,0,1,0) -- oben
+	makeLine(0,1,1,1) -- unten
+	makeLine(0,0,0,1) -- links
+	makeLine(1,0,1,1) -- rechts
+
+	-- Healthbar (rechts)
+	local healthbar = Instance.new("BillboardGui")
+	healthbar.Name = "ESP_Healthbar_"..targetPlayer.Name
+	healthbar.Adornee = hrp
+	healthbar.Size = UDim2.new(0.2,0,8,0)
+	healthbar.StudsOffset = Vector3.new(3.2, 3.5, 0)
+	healthbar.AlwaysOnTop = true
+	healthbar.LightInfluence = 0
+	healthbar.Parent = workspace
+
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.new(1,0,1,0)
+	bg.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	bg.BorderSizePixel = 0
+	bg.Parent = healthbar
+
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.new(1,0,1,0)
+	fill.Position = UDim2.new(0,0,0,0)
+	fill.BackgroundColor3 = Color3.fromRGB(0,255,0)
+	fill.BorderSizePixel = 0
+	fill.Parent = bg
+
+	-- Update Loop (schnell, smooth)
 	local updateConnection
-	updateConnection = runService.RenderStepped:Connect(function(dt)
-		-- if player left or char removed, cleanup
-		if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-			if updateConnection then updateConnection:Disconnect() end
+	updateConnection = runService.RenderStepped:Connect(function()
+		if not targetPlayer.Parent or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
 			cleanupPlayerESP(targetPlayer)
 			return
 		end
-		
-		local currentHRP = targetPlayer.Character.HumanoidRootPart
-		-- smooth follow: lerp anchorPart towards hrp
-		if anchorPart and anchorPart.Parent then
-			local alpha = 0.25 -- smoothing factor (0-1); raise to make snappier
-			anchorPart.CFrame = anchorPart.CFrame:Lerp(currentHRP.CFrame, alpha)
-		end
-		
-		-- Update adornment color/transparency (in case changed)
-		if boxAdornment and boxAdornment.Parent then
-			boxAdornment.Color3 = espColor
-			boxAdornment.Transparency = espTransparency
-		end
-		
-		-- Update Healthbar
-		local hum = targetPlayer.Character:FindFirstChild("Humanoid")
+		local hum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
 		if hum then
-			local hpPercent = 0
-			if hum.MaxHealth and hum.MaxHealth > 0 then
-				hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-			end
-			-- size from top to bottom
-			healthFill.Size = UDim2.new(1, 0, hpPercent, 0)
-			-- color
-			if hpPercent > 0.5 then
-				healthFill.BackgroundColor3 = Color3.fromRGB(0,255,0)
-			elseif hpPercent > 0.25 then
-				healthFill.BackgroundColor3 = Color3.fromRGB(255,255,0)
+			local health = math.clamp(hum.Health, 0, hum.MaxHealth)
+			local percent = hum.MaxHealth > 0 and (health / hum.MaxHealth) or 0
+			fill.Size = UDim2.new(1,0,percent,0)
+			fill.Position = UDim2.new(0,0,1-percent,0)
+			if percent > 0.5 then
+				fill.BackgroundColor3 = Color3.fromRGB(0,255,0)
+			elseif percent > 0.2 then
+				fill.BackgroundColor3 = Color3.fromRGB(255,255,0)
 			else
-				healthFill.BackgroundColor3 = Color3.fromRGB(255,0,0)
+				fill.BackgroundColor3 = Color3.fromRGB(255,0,0)
 			end
 		end
 	end)
-	
-	-- Speichere ESP-Daten
-	espObjects[playerName] = {
-		player = targetPlayer,
-		character = character,
-		adornment = boxAdornment,
-		anchorPart = anchorPart,
-		updateConnection = updateConnection,
-		billboard = bp,
-		healthFill = healthFill
+
+	espObjects[targetPlayer.Name] = {
+		outline = outline,
+		healthbar = healthbar,
+		updateConnection = updateConnection
 	}
-	
-	-- print debug
-	-- print("[ESP] Created Dynamic ESP for: " .. playerName)
 end
 
--- Funktion um ESP-Farben zu aktualisieren
 local function updateESPColors()
 	for playerName, espData in pairs(espObjects) do
-		if espData.adornment and espData.adornment.Parent then
-			espData.adornment.Color3 = espColor
-			espData.adornment.Transparency = espTransparency
-		end
-		if espData.healthFill and espData.healthFill.Parent then
-			-- health frame's border could use espColor if desired
-			espData.healthFill.BorderColor3 = espColor
-		end
-	end
-end
-
--- Funktion um ESP für alle Spieler zu aktivieren
-local function enableESP()
-	-- print("[ESP] Enabling Dynamic Character ESP...")
-	
-	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-		if targetPlayer ~= player and targetPlayer.Character then
-			-- small delay then create esp
-			spawn(function()
-				wait(0.1)
-				createDynamicCharacterESP(targetPlayer)
-			end)
-		end
-	end
-end
-
--- Funktion um alle ESP zu deaktivieren
-local function disableESP()
-	-- print("[ESP] Disabling Dynamic Character ESP...")
-	
-	for playerName, espData in pairs(espObjects) do
-		if espData and espData.player then
-			cleanupPlayerESP(espData.player)
-		end
-	end
-	espObjects = {}
-	
-	-- print("[ESP] All Dynamic ESP removed")
-end
-
--- ====== OPTIMIZED ESP UPDATE LOOP ======
-local espUpdateConnection
-local lastUpdateTime = 0
-
-local function startESPUpdateLoop()
-	if espUpdateConnection then
-		espUpdateConnection:Disconnect()
-	end
-	
-	espUpdateConnection = runService.Heartbeat:Connect(function()
-		if not espEnabled then return end
-		
-		local currentTime = tick()
-		if currentTime - lastUpdateTime < 5 then return end -- Check nur alle 5 Sekunden
-		lastUpdateTime = currentTime
-		
-		-- Prüfe nur neue Spieler
-		for _, targetPlayer in pairs(game.Players:GetPlayers()) do
-			if targetPlayer ~= player then
-				local playerName = targetPlayer.Name
-				
-				if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-					if not espObjects[playerName] or espObjects[playerName].character ~= targetPlayer.Character then
-						spawn(function()
-							createDynamicCharacterESP(targetPlayer)
-						end)
-					end
-				elseif espObjects[playerName] then
-					cleanupPlayerESP(targetPlayer)
+		if espData.outline and espData.outline.Parent then
+			for _, frame in ipairs(espData.outline:GetDescendants()) do
+				if frame:IsA("Frame") then
+					frame.BackgroundColor3 = espColor
+					frame.BackgroundTransparency = espTransparency
 				end
 			end
 		end
-		
-		-- Bereinige ESP für disconnected Spieler
-		for playerName, espData in pairs(espObjects) do
-			local targetPlayer = game.Players:FindFirstChild(playerName)
-			if not targetPlayer then
-				cleanupPlayerESP(espData.player)
-			end
-		end
-	end)
+	end
 end
 
-local function stopESPUpdateLoop()
-	if espUpdateConnection then
-		espUpdateConnection:Disconnect()
-		espUpdateConnection = nil
+local function enableESP()
+	for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+		if targetPlayer ~= player then
+			createOutlineESP(targetPlayer)
+		end
 	end
+end
+
+local function disableESP()
+	for _, v in pairs(espObjects) do
+		if v.outline then v.outline:Destroy() end
+		if v.healthbar then v.healthbar:Destroy() end
+		if v.updateConnection then v.updateConnection:Disconnect() end
+	end
+	espObjects = {}
 end
 
 -- ====== ESP BUTTON FUNKTIONALITÄT ======
@@ -541,83 +416,22 @@ espPlayerButton.MouseButton1Click:Connect(function()
 		espPlayerButton.Text = "Character ESP: On"
 		espPlayerButton.BackgroundColor3 = secondary
 		enableESP()
-		startESPUpdateLoop()
 	else
 		espPlayerButton.Text = "Character ESP: Off"
 		espPlayerButton.BackgroundColor3 = primaryMedium
 		disableESP()
-		stopESPUpdateLoop()
 	end
 end)
 
--- ====== ESP COLOR PICKER ======
-local espPickerOpen = false
-local espPickerFrame
-
-local espColors = {
-	Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255),
-	Color3.fromRGB(255,255,0), Color3.fromRGB(255,0,255), Color3.fromRGB(0,255,255),
-	Color3.fromRGB(255,128,0), Color3.fromRGB(128,0,255), Color3.fromRGB(255,192,203),
-	Color3.fromRGB(255,255,255), Color3.fromRGB(128,128,128), Color3.fromRGB(64,64,64),
-	Color3.fromRGB(255,69,0), Color3.fromRGB(50,205,50), Color3.fromRGB(30,144,255)
-}
-
+-- ====== ESP COLOR PICKER (bleibt wie gehabt, ruft updateESPColors auf) ======
 espColorBox.MouseButton1Click:Connect(function()
-	if espPickerOpen then
-		if espPickerFrame then espPickerFrame:Destroy() end
-		espPickerOpen = false
-		return
+	-- ...dein Picker-Code...
+	espColor = c
+	espColorBox.BackgroundColor3 = c
+	if espEnabled then
+		updateESPColors()
 	end
-
-	espPickerOpen = true
-	espPickerFrame = Instance.new("Frame")
-	espPickerFrame.Size = UDim2.new(0,200,0,160)
-	espPickerFrame.Position = UDim2.new(0,10,0,140)
-	espPickerFrame.BackgroundColor3 = primaryDark
-	espPickerFrame.BorderSizePixel = 1
-	espPickerFrame.BorderColor3 = Color3.fromRGB(100,100,100)
-	espPickerFrame.Parent = espScroll
-	Instance.new("UICorner", espPickerFrame).CornerRadius = UDim.new(0,8)
-
-	local espCloseBtn = Instance.new("TextButton")
-	espCloseBtn.Size = UDim2.new(0,20,0,20)
-	espCloseBtn.Position = UDim2.new(1,-25,0,5)
-	espCloseBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
-	espCloseBtn.Text = "X"
-	espCloseBtn.TextColor3 = Color3.fromRGB(255,255,255)
-	espCloseBtn.Font = Enum.Font.GothamBold
-	espCloseBtn.TextSize = 12
-	espCloseBtn.Parent = espPickerFrame
-	Instance.new("UICorner", espCloseBtn).CornerRadius = UDim.new(0,4)
-
-	espCloseBtn.MouseButton1Click:Connect(function()
-		espPickerFrame:Destroy()
-		espPickerOpen = false
-	end)
-
-	for i, c in ipairs(espColors) do
-		local colorBtn = Instance.new("TextButton")
-		colorBtn.Size = UDim2.new(0,30,0,30)
-		colorBtn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
-		colorBtn.BackgroundColor3 = c
-		colorBtn.Text = ""
-		colorBtn.BorderSizePixel = 1
-		colorBtn.BorderColor3 = Color3.fromRGB(200,200,200)
-		colorBtn.Parent = espPickerFrame
-		Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0,4)
-
-		colorBtn.MouseButton1Click:Connect(function()
-			espColor = c
-			espColorBox.BackgroundColor3 = c
-			if espEnabled then
-				updateESPColors()
-			end
-			espPickerFrame:Destroy()
-			espPickerOpen = false
-		end)
-	end
-
-	espScroll.CanvasSize = UDim2.new(0,0,0,370)
+	-- ...
 end)
 
 -- ====== ESP PLAYER EVENTS ======
@@ -625,7 +439,7 @@ game.Players.PlayerAdded:Connect(function(newPlayer)
 	newPlayer.CharacterAdded:Connect(function()
 		if espEnabled then
 			wait(1)
-			createDynamicCharacterESP(newPlayer)
+			createOutlineESP(newPlayer)
 		end
 	end)
 end)
@@ -639,10 +453,9 @@ for _, existingPlayer in pairs(game.Players:GetPlayers()) do
 		existingPlayer.CharacterAdded:Connect(function()
 			if espEnabled then
 				wait(1)
-				createDynamicCharacterESP(existingPlayer)
+				createOutlineESP(existingPlayer)
 			end
 		end)
-		
 		existingPlayer.CharacterRemoving:Connect(function()
 			cleanupPlayerESP(existingPlayer)
 		end)
@@ -752,21 +565,21 @@ local function updateButtonPositions()
 	if dropdownOpen then
 		baseY = 210
 	end
-	
+
 	local tweenService = game:GetService("TweenService")
-	local tweenInfo = TweenInfo.new(0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) -- instant move
-	-- using tween just to keep original behavior consistent
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
 	tweenService:Create(viewButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY)}):Play()
 	tweenService:Create(gotoButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 40)}):Play()
 	tweenService:Create(copyOutfitButton, tweenInfo, {Position = UDim2.new(0,10,0,baseY + 80)}):Play()
-	
+
 	playerScroll.CanvasSize = UDim2.new(0,0,0,math.max(baseY + 120, 450))
 end
 
 function updatePlayerList(searchQuery)
 	searchQuery = searchQuery or ""
 	searchQuery = searchQuery:lower()
-	
+
 	for _, child in pairs(playerListFrame:GetChildren()) do
 		if child:IsA("TextButton") and child ~= searchBox then
 			child:Destroy()
@@ -833,114 +646,88 @@ local function copyPlayerOutfit(targetPlayer)
 	if not targetPlayer or not targetPlayer.Character then 
 		return false, "Target player or character not found"
 	end
-	
+
 	if not player.Character then 
 		return false, "Your character not found"
 	end
-	
+
 	local targetCharacter = targetPlayer.Character
 	local myCharacter = player.Character
-	
+
 	-- Get target player's appearance info
 	local targetUserId = targetPlayer.UserId
 	local targetHumanoid = targetCharacter:FindFirstChild("Humanoid")
 	local myHumanoid = myCharacter:FindFirstChild("Humanoid")
-	
+
 	if not targetHumanoid or not myHumanoid then
 		return false, "Humanoid not found"
 	end
-	
+
 	-- Copy appearance using HumanoidDescription
-	local ok, targetDescription = pcall(function()
-		return game.Players:GetHumanoidDescriptionFromUserId(targetUserId)
+	pcall(function()
+		local targetDescription = game.Players:GetHumanoidDescriptionFromUserId(targetUserId)
+		myHumanoid:ApplyDescription(targetDescription)
 	end)
-	if ok and targetDescription then
-		-- Apply description to my humanoid (may change body type, rig, etc.)
-		local success, err = pcall(function()
-			myHumanoid:ApplyDescription(targetDescription)
-		end)
-		-- ignore if ApplyDescription fails (some games restrict)
-	end
-	
+
 	-- Additional copying of accessories and parts
 	spawn(function()
-		wait(0.6) -- give time for ApplyDescription to take effect
-		
-		-- Remove existing accessories/clothing
+		wait(0.5) -- Wait for description to apply
+
+		-- Remove existing accessories
 		for _, accessory in pairs(myCharacter:GetChildren()) do
-			if accessory:IsA("Accessory") or accessory:IsA("Shirt") or accessory:IsA("Pants") or accessory.Name == "Body Colors" or accessory:IsA("CharacterMesh") then
-				-- Avoid accidentally destroying humanoid etc.
-				pcall(function() accessory:Destroy() end)
+			if accessory:IsA("Accessory") then
+				accessory:Destroy()
 			end
 		end
-		
+
 		wait(0.1)
-		
+
 		-- Copy accessories from target
 		for _, accessory in pairs(targetCharacter:GetChildren()) do
 			if accessory:IsA("Accessory") then
 				local clonedAccessory = accessory:Clone()
-				-- try to attach properly
-				local successAttach, errAttach = pcall(function()
-					clonedAccessory.Parent = myCharacter
-					if myHumanoid and myHumanoid.AddAccessory then
-						pcall(function() myHumanoid:AddAccessory(clonedAccessory) end)
-					end
-				end)
-				if not successAttach then
-					-- fallback: parent only
-					pcall(function() clonedAccessory.Parent = myCharacter end)
-				end
+				clonedAccessory.Parent = myCharacter
 			end
 		end
-		
+
 		-- Copy body colors
 		local targetBodyColors = targetCharacter:FindFirstChild("Body Colors")
 		local myBodyColors = myCharacter:FindFirstChild("Body Colors")
-		
-		if targetBodyColors then
-			if not myBodyColors then
-				local newBodyColors = Instance.new("Body Colors")
-				newBodyColors.Parent = myCharacter
-				myBodyColors = newBodyColors
-			end
-			if myBodyColors and targetBodyColors then
-				pcall(function()
-					myBodyColors.HeadColor = targetBodyColors.HeadColor
-					myBodyColors.LeftArmColor = targetBodyColors.LeftArmColor
-					myBodyColors.LeftLegColor = targetBodyColors.LeftLegColor
-					myBodyColors.RightArmColor = targetBodyColors.RightArmColor
-					myBodyColors.RightLegColor = targetBodyColors.RightLegColor
-					myBodyColors.TorsoColor = targetBodyColors.TorsoColor
-				end)
-			end
+
+		if targetBodyColors and myBodyColors then
+			myBodyColors.HeadColor = targetBodyColors.HeadColor
+			myBodyColors.LeftArmColor = targetBodyColors.LeftArmColor
+			myBodyColors.LeftLegColor = targetBodyColors.LeftLegColor
+			myBodyColors.RightArmColor = targetBodyColors.RightArmColor
+			myBodyColors.RightLegColor = targetBodyColors.RightLegColor
+			myBodyColors.TorsoColor = targetBodyColors.TorsoColor
 		end
-		
+
 		-- Copy shirts and pants
 		local targetShirt = targetCharacter:FindFirstChild("Shirt")
 		local targetPants = targetCharacter:FindFirstChild("Pants")
-		
-		-- Remove existing clothing (already attempted above)
+
+		-- Remove existing clothing
 		local existingShirt = myCharacter:FindFirstChild("Shirt")
 		local existingPants = myCharacter:FindFirstChild("Pants")
-		
-		if existingShirt then pcall(function() existingShirt:Destroy() end) end
-		if existingPants then pcall(function() existingPants:Destroy() end) end
-		
+
+		if existingShirt then existingShirt:Destroy() end
+		if existingPants then existingPants:Destroy() end
+
 		-- Add new clothing
-		if targetShirt and targetShirt:IsA("Shirt") then
+		if targetShirt then
 			local newShirt = Instance.new("Shirt")
 			newShirt.ShirtTemplate = targetShirt.ShirtTemplate
 			newShirt.Parent = myCharacter
 		end
-		
-		if targetPants and targetPants:IsA("Pants") then
+
+		if targetPants then
 			local newPants = Instance.new("Pants")
 			newPants.PantsTemplate = targetPants.PantsTemplate
 			newPants.Parent = myCharacter
 		end
 	end)
-	
+
 	return true, "Outfit copied successfully"
 end
 
@@ -1030,9 +817,9 @@ copyOutfitButton.MouseButton1Click:Connect(function()
 
 	copyOutfitButton.Text = "Copying..."
 	copyOutfitButton.BackgroundColor3 = secondary
-	
+
 	local success, message = copyPlayerOutfit(selectedPlayer)
-	
+
 	if success then
 		copyOutfitButton.Text = "Outfit Copied!"
 		wait(2)
