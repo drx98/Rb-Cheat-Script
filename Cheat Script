@@ -1,5 +1,3 @@
--- FULL SCRIPT (komplett, mit ESP smoothing + Healthbar rechts und Copy Outfit Fix)
--- ====== VARIABLES ======
 local player = game.Players.LocalPlayer
 local uis = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
