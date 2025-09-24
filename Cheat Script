@@ -292,48 +292,48 @@ local function cleanupPlayerESP(targetPlayer)
 	print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Erstelle BillboardGui Health Bar
+-- Erstelle BillboardGui Health Bar (Fixed & Thinner)
 local function createHealthBar(character, playerName)
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then return nil end
 
-	-- BillboardGui erstellen
+	-- BillboardGui erstellen (viel dünner und kleiner)
 	local healthBillboard = Instance.new("BillboardGui")
 	healthBillboard.Name = "ESP_HealthBar_" .. playerName
 	healthBillboard.Adornee = humanoidRootPart
-	healthBillboard.Size = UDim2.new(0, 15, 0, 100) -- Schmaler für vertikale Bar
-	healthBillboard.StudsOffset = Vector3.new(3, 0, 0) -- Rechts vom Spieler
+	healthBillboard.Size = UDim2.new(0, 4, 0, 60) -- Sehr dünn (4 pixel breit, 60 hoch)
+	healthBillboard.StudsOffset = Vector3.new(2.5, 0, 0) -- Rechts vom Spieler
 	healthBillboard.AlwaysOnTop = true
 	healthBillboard.LightInfluence = 0
 	healthBillboard.Parent = character
 
-	-- Background Frame
+	-- Background Frame (Grau)
 	local backgroundFrame = Instance.new("Frame")
 	backgroundFrame.Name = "Background"
 	backgroundFrame.Size = UDim2.new(1, 0, 1, 0)
 	backgroundFrame.Position = UDim2.new(0, 0, 0, 0)
-	backgroundFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	backgroundFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 	backgroundFrame.BorderSizePixel = 1
 	backgroundFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	backgroundFrame.Parent = healthBillboard
-	Instance.new("UICorner", backgroundFrame).CornerRadius = UDim.new(0, 3)
+	Instance.new("UICorner", backgroundFrame).CornerRadius = UDim.new(0, 1)
 
-	-- Health Frame (füllt sich von unten nach oben)
+	-- Health Frame (Grün, füllt sich von unten nach oben)
 	local healthFrame = Instance.new("Frame")
 	healthFrame.Name = "HealthBar"
-	healthFrame.Size = UDim2.new(0.8, 0, 1, -4)
-	healthFrame.Position = UDim2.new(0.1, 0, 0, 2)
+	healthFrame.Size = UDim2.new(1, -2, 1, -2) -- Vollständige Größe minus Border
+	healthFrame.Position = UDim2.new(0, 1, 1, -1) -- Startet am unteren Rand
 	healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 	healthFrame.BorderSizePixel = 0
-	healthFrame.AnchorPoint = Vector2.new(0, 1) -- Anchor unten
+	healthFrame.AnchorPoint = Vector2.new(0, 1) -- Anchor unten für korrekte Füllung
 	healthFrame.Parent = backgroundFrame
-	Instance.new("UICorner", healthFrame).CornerRadius = UDim.new(0, 2)
+	Instance.new("UICorner", healthFrame).CornerRadius = UDim.new(0, 1)
 
-	-- Health Text
+	-- Health Text (kleiner und unter der Bar)
 	local healthText = Instance.new("TextLabel")
 	healthText.Name = "HealthText"
-	healthText.Size = UDim2.new(1, 20, 0, 20)
-	healthText.Position = UDim2.new(0, -10, 1, 5)
+	healthText.Size = UDim2.new(0, 30, 0, 12)
+	healthText.Position = UDim2.new(0.5, -15, 1, 2)
 	healthText.BackgroundTransparency = 1
 	healthText.Text = "100"
 	healthText.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -755,7 +755,7 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	updatePlayerList(searchBox.Text)
 end)
 
--- ====== IMPROVED COPY OUTFIT FUNCTIONALITY (INSTANT UPDATE) ======
+-- ====== COMPLETELY FIXED COPY OUTFIT FUNCTIONALITY ======
 local function copyPlayerOutfit(targetPlayer)
 	if not targetPlayer or not targetPlayer.Character then 
 		return false, "Target player or character not found"
@@ -765,20 +765,22 @@ local function copyPlayerOutfit(targetPlayer)
 		return false, "Your character not found"
 	end
 
-	print("[OUTFIT] Starting instant outfit copy from " .. targetPlayer.Name)
+	print("[OUTFIT] Starting complete outfit copy from " .. targetPlayer.Name)
 
 	local targetCharacter = targetPlayer.Character
 	local myCharacter = player.Character
 	local targetUserId = targetPlayer.UserId
 
-	-- SCHRITT 1: Sofortiges entfernen aller Accessories und Kleidung
+	-- SCHRITT 1: SOFORTIGES ENTFERNEN - Alle meine aktuellen Items löschen
+	print("[OUTFIT] Removing all current items...")
 	for _, item in pairs(myCharacter:GetChildren()) do
 		if item:IsA("Accessory") or item:IsA("Hat") or item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
 			item:Destroy()
 		end
 	end
 
-	-- SCHRITT 2: HumanoidDescription anwenden für Körperproportionen
+	-- SCHRITT 2: HUMANOID DESCRIPTION - Körperproportionen kopieren
+	print("[OUTFIT] Applying HumanoidDescription...")
 	spawn(function()
 		local success, targetDescription = pcall(function()
 			return game.Players:GetHumanoidDescriptionFromUserId(targetUserId)
@@ -787,108 +789,141 @@ local function copyPlayerOutfit(targetPlayer)
 		if success and targetDescription then
 			local myHumanoid = myCharacter:FindFirstChild("Humanoid")
 			if myHumanoid then
+				-- Alle wichtigen Properties übertragen
 				pcall(function()
+					targetDescription.HatAccessory = targetDescription.HatAccessory or ""
+					targetDescription.HairAccessory = targetDescription.HairAccessory or ""
+					targetDescription.FaceAccessory = targetDescription.FaceAccessory or ""
+					targetDescription.NeckAccessory = targetDescription.NeckAccessory or ""
+					targetDescription.ShoulderAccessory = targetDescription.ShoulderAccessory or ""
+					targetDescription.FrontAccessory = targetDescription.FrontAccessory or ""
+					targetDescription.BackAccessory = targetDescription.BackAccessory or ""
+					targetDescription.WaistAccessory = targetDescription.WaistAccessory or ""
+					
 					myHumanoid:ApplyDescription(targetDescription)
 				end)
-				print("[OUTFIT] Applied HumanoidDescription for body proportions")
+				print("[OUTFIT] HumanoidDescription applied successfully")
 			end
+		else
+			print("[OUTFIT] Failed to get HumanoidDescription, using manual copy")
 		end
 	end)
 
-	-- SCHRITT 3: Sofortige manuelle Kopie aller sichtbaren Elemente
-	wait(0.2) -- Kurze Wartezeit für HumanoidDescription
+	-- SCHRITT 3: WARTEN UND MANUELLE KOPIE
+	wait(0.5)
 
-	-- Kopiere alle Accessories
-	for _, accessory in pairs(targetCharacter:GetChildren()) do
-		if accessory:IsA("Accessory") or accessory:IsA("Hat") then
-			local clonedAccessory = accessory:Clone()
-			-- Stelle sicher, dass das Accessory richtig funktioniert
+	-- SCHRITT 4: ACCESSORIES MANUELL KOPIEREN
+	print("[OUTFIT] Copying accessories manually...")
+	for _, targetAccessory in pairs(targetCharacter:GetChildren()) do
+		if targetAccessory:IsA("Accessory") or targetAccessory:IsA("Hat") then
+			local clonedAccessory = targetAccessory:Clone()
+			
+			-- Stelle sicher dass das Handle existiert
 			if clonedAccessory:FindFirstChild("Handle") then
 				clonedAccessory.Parent = myCharacter
-				print("[OUTFIT] Copied accessory: " .. accessory.Name)
+				print("[OUTFIT] Copied accessory: " .. targetAccessory.Name)
+			else
+				print("[OUTFIT] Skipped accessory without handle: " .. targetAccessory.Name)
 			end
 		end
 	end
 
-	-- Kopiere alle Kleidung
-	for _, clothing in pairs(targetCharacter:GetChildren()) do
-		if clothing:IsA("Shirt") then
+	-- SCHRITT 5: KLEIDUNG MANUELL KOPIEREN
+	print("[OUTFIT] Copying clothing...")
+	for _, targetClothing in pairs(targetCharacter:GetChildren()) do
+		if targetClothing:IsA("Shirt") then
 			local newShirt = Instance.new("Shirt")
-			newShirt.Name = clothing.Name
-			newShirt.ShirtTemplate = clothing.ShirtTemplate
+			newShirt.Name = targetClothing.Name
+			newShirt.ShirtTemplate = targetClothing.ShirtTemplate
 			newShirt.Parent = myCharacter
-			print("[OUTFIT] Copied shirt")
-		elseif clothing:IsA("Pants") then
+			print("[OUTFIT] Copied shirt: " .. targetClothing.ShirtTemplate)
+			
+		elseif targetClothing:IsA("Pants") then
 			local newPants = Instance.new("Pants")
-			newPants.Name = clothing.Name
-			newPants.PantsTemplate = clothing.PantsTemplate
+			newPants.Name = targetClothing.Name
+			newPants.PantsTemplate = targetClothing.PantsTemplate
 			newPants.Parent = myCharacter
-			print("[OUTFIT] Copied pants")
-		elseif clothing:IsA("ShirtGraphic") then
-			local newShirtGraphic = Instance.new("ShirtGraphic")
-			newShirtGraphic.Name = clothing.Name
-			newShirtGraphic.Graphic = clothing.Graphic
-			newShirtGraphic.Parent = myCharacter
-			print("[OUTFIT] Copied t-shirt")
+			print("[OUTFIT] Copied pants: " .. targetClothing.PantsTemplate)
+			
+		elseif targetClothing:IsA("ShirtGraphic") then
+			local newTShirt = Instance.new("ShirtGraphic")
+			newTShirt.Name = targetClothing.Name
+			newTShirt.Graphic = targetClothing.Graphic
+			newTShirt.Parent = myCharacter
+			print("[OUTFIT] Copied t-shirt: " .. targetClothing.Graphic)
 		end
 	end
 
-	-- SCHRITT 4: Körperfarben kopieren
+	-- SCHRITT 6: KÖRPERFARBEN KOPIEREN
+	print("[OUTFIT] Copying body colors...")
 	local targetBodyColors = targetCharacter:FindFirstChild("Body Colors")
-	local myBodyColors = myCharacter:FindFirstChild("Body Colors")
-
-	if targetBodyColors and myBodyColors then
-		myBodyColors.HeadColor = targetBodyColors.HeadColor
-		myBodyColors.LeftArmColor = targetBodyColors.LeftArmColor
-		myBodyColors.LeftLegColor = targetBodyColors.LeftLegColor
-		myBodyColors.RightArmColor = targetBodyColors.RightArmColor
-		myBodyColors.RightLegColor = targetBodyColors.RightLegColor
-		myBodyColors.TorsoColor = targetBodyColors.TorsoColor
-		print("[OUTFIT] Copied body colors")
+	if targetBodyColors then
+		-- Entferne alte Body Colors
+		local oldBodyColors = myCharacter:FindFirstChild("Body Colors")
+		if oldBodyColors then oldBodyColors:Destroy() end
+		
+		-- Erstelle neue Body Colors
+		local newBodyColors = Instance.new("BodyColors")
+		newBodyColors.HeadColor = targetBodyColors.HeadColor
+		newBodyColors.LeftArmColor = targetBodyColors.LeftArmColor
+		newBodyColors.LeftLegColor = targetBodyColors.LeftLegColor
+		newBodyColors.RightArmColor = targetBodyColors.RightArmColor
+		newBodyColors.RightLegColor = targetBodyColors.RightLegColor
+		newBodyColors.TorsoColor = targetBodyColors.TorsoColor
+		newBodyColors.Parent = myCharacter
+		print("[OUTFIT] Body colors applied")
 	end
 
-	-- SCHRITT 5: Kopiere Körperteil-Details (Meshes, Decals, etc.)
+	-- SCHRITT 7: KÖRPERTEILE KOPIEREN (Meshes, Decals etc.)
+	print("[OUTFIT] Copying body part details...")
 	for _, targetPart in pairs(targetCharacter:GetChildren()) do
 		if targetPart:IsA("BasePart") and targetPart.Name ~= "HumanoidRootPart" then
 			local myPart = myCharacter:FindFirstChild(targetPart.Name)
 			if myPart and myPart:IsA("BasePart") then
 				
-				-- Kopiere alle Meshes
-				for _, mesh in pairs(targetPart:GetChildren()) do
-					if mesh:IsA("SpecialMesh") or mesh:IsA("Mesh") or mesh:IsA("BlockMesh") or mesh:IsA("CylinderMesh") then
-						local existingMesh = myPart:FindFirstChildOfClass(mesh.ClassName)
-						if existingMesh then existingMesh:Destroy() end
+				-- Kopiere Material Properties
+				pcall(function()
+					myPart.Material = targetPart.Material
+					myPart.BrickColor = targetPart.BrickColor
+					myPart.Color = targetPart.Color
+				end)
+				
+				-- Kopiere Meshes
+				for _, targetChild in pairs(targetPart:GetChildren()) do
+					if targetChild:IsA("SpecialMesh") or targetChild:IsA("BlockMesh") or targetChild:IsA("CylinderMesh") then
+						-- Entferne alte Meshes
+						for _, oldMesh in pairs(myPart:GetChildren()) do
+							if oldMesh:IsA("SpecialMesh") or oldMesh:IsA("BlockMesh") or oldMesh:IsA("CylinderMesh") then
+								oldMesh:Destroy()
+							end
+						end
 						
-						local newMesh = mesh:Clone()
+						-- Füge neues Mesh hinzu
+						local newMesh = targetChild:Clone()
 						newMesh.Parent = myPart
-					end
-				end
-
-				-- Kopiere alle Decals und Textures
-				for _, decal in pairs(targetPart:GetChildren()) do
-					if decal:IsA("Decal") or decal:IsA("Texture") then
-						local existingDecal = myPart:FindFirstChild(decal.Name)
-						if existingDecal then existingDecal:Destroy() end
+					elseif targetChild:IsA("Decal") or targetChild:IsA("Texture") then
+						-- Entferne alte Decals
+						for _, oldDecal in pairs(myPart:GetChildren()) do
+							if oldDecal:IsA("Decal") or oldDecal:IsA("Texture") then
+								oldDecal:Destroy()
+							end
+						end
 						
-						local newDecal = decal:Clone()
+						-- Füge neue Decals hinzu
+						local newDecal = targetChild:Clone()
 						newDecal.Parent = myPart
 					end
 				end
-
-				-- Kopiere Material und Oberflächeneigenschaften
-				myPart.Material = targetPart.Material
-				myPart.Color = targetPart.Color
-				myPart.Reflectance = targetPart.Reflectance
-				myPart.Transparency = targetPart.Transparency
 			end
 		end
 	end
 
-	-- SCHRITT 6: Finale Überprüfung nach kurzer Zeit
+	-- SCHRITT 8: FINALE ÜBERPRÜFUNG NACH 2 SEKUNDEN
 	spawn(function()
-		wait(1)
+		wait(2)
+		print("[OUTFIT] Final verification...")
 		
-		-- Prüfe nochmal nach fehlenden Accessories
+		-- Nochmal alle Accessories checken
 		for _, targetAccessory in pairs(targetCharacter:GetChildren()) do
 			if targetAccessory:IsA("Accessory") then
 				local found = false
@@ -899,21 +934,35 @@ local function copyPlayerOutfit(targetPlayer)
 					end
 				end
 				
-				if not found then
+				if not found and targetAccessory:FindFirstChild("Handle") then
 					local clonedAccessory = targetAccessory:Clone()
-					if clonedAccessory:FindFirstChild("Handle") then
-						clonedAccessory.Parent = myCharacter
-						print("[OUTFIT] Added missing accessory: " .. targetAccessory.Name)
-					end
+					clonedAccessory.Parent = myCharacter
+					print("[OUTFIT] Added missing accessory in verification: " .. targetAccessory.Name)
 				end
 			end
 		end
 		
-		print("[OUTFIT] Final verification and cleanup completed")
+		-- Nochmal Kleidung checken
+		if targetCharacter:FindFirstChild("Shirt") and not myCharacter:FindFirstChild("Shirt") then
+			local targetShirt = targetCharacter:FindFirstChild("Shirt")
+			local newShirt = Instance.new("Shirt")
+			newShirt.ShirtTemplate = targetShirt.ShirtTemplate
+			newShirt.Parent = myCharacter
+			print("[OUTFIT] Added missing shirt in verification")
+		end
+		
+		if targetCharacter:FindFirstChild("Pants") and not myCharacter:FindFirstChild("Pants") then
+			local targetPants = targetCharacter:FindFirstChild("Pants")
+			local newPants = Instance.new("Pants")
+			newPants.PantsTemplate = targetPants.PantsTemplate
+			newPants.Parent = myCharacter
+			print("[OUTFIT] Added missing pants in verification")
+		end
+		
+		print("[OUTFIT] Complete outfit transformation finished!")
 	end)
 
-	print("[OUTFIT] Instant outfit copy completed successfully!")
-	return true, "Outfit copied and applied instantly"
+	return true, "Complete outfit transformation in progress"
 end
 
 -- ====== VIEW FUNCTIONALITY ======
