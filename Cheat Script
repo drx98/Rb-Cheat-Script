@@ -8,7 +8,14 @@ local StarterGui = game:GetService("StarterGui")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
-local Character = Player.Character or Player.CharacterAdded:Wait()
+
+-- Wait for character to load properly
+local Character = Player.Character
+if not Character then
+	Player.CharacterAdded:Wait()
+	Character = Player.Character
+end
+
 local Humanoid = Character:WaitForChild("Humanoid")
 local RootPart = Character:WaitForChild("HumanoidRootPart")
 
@@ -49,7 +56,8 @@ local Settings = {
 	ESPFillColor = Color3.new(1, 0, 0),
 	ESPTransparency = 0.5,
 	NametagSize = 14,
-	NametagColor = Color3.new(1, 1, 1)
+	NametagColor = Color3.new(1, 1, 1),
+	OriginalCFrame = nil
 }
 
 local Connections = {}
@@ -1721,15 +1729,23 @@ end
 InitializeGUI()
 SetupEventHandlers()
 
--- Auto-Load and Success Message
+-- Auto-Load and Success Message with error handling
 spawn(function()
 	wait(0.5)
-	GUI.ScreenGui.Enabled = true
-
-	StarterGui:SetCore("ChatMakeSystemMessage", {
-		Text = "Vyrxis Menu loaded successfully! Hotkey: " .. Settings.ToggleKey.Name;
-		Color = Color3.new(0, 1, 0);
-		Font = Enum.Font.GothamBold;
-		FontSize = Enum.FontSize.Size18;
-	})
+	
+	-- Check if GUI was created successfully
+	if GUI.ScreenGui and GUI.ScreenGui.Parent then
+		GUI.ScreenGui.Enabled = true
+		
+		pcall(function()
+			StarterGui:SetCore("ChatMakeSystemMessage", {
+				Text = "Vyrxis Menu loaded successfully! Hotkey: " .. Settings.ToggleKey.Name;
+				Color = Color3.new(0, 1, 0);
+				Font = Enum.Font.GothamBold;
+				FontSize = Enum.FontSize.Size18;
+			})
+		end)
+	else
+		warn("Vyrxis Menu: GUI failed to initialize properly")
+	end
 end)
