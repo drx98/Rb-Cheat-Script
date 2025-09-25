@@ -90,7 +90,7 @@ local function CreateShadow(parent)
 	return shadow
 end
 
--- Player Dropdown Creation
+-- Player Dropdown Creation with Search
 local function CreatePlayerDropdown(parent, callback)
 	local dropdown = Instance.new("Frame")
 	dropdown.Name = "PlayerDropdown"
@@ -122,37 +122,77 @@ local function CreatePlayerDropdown(parent, callback)
 	arrow.TextSize = 12
 	arrow.Parent = dropdown
 
-	local dropdownList = Instance.new("Frame")
-	dropdownList.Name = "DropdownList"
-	dropdownList.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-	dropdownList.BorderSizePixel = 0
-	dropdownList.Position = UDim2.new(0, 0, 1, 2)
-	dropdownList.Size = UDim2.new(1, 0, 0, 0)
-	dropdownList.Visible = false
-	dropdownList.ZIndex = dropdown.ZIndex + 1
-	dropdownList.Parent = dropdown
-	CreateCorner(dropdownList, 4)
+	-- High ZIndex container for dropdown
+	local dropdownContainer = Instance.new("Frame")
+	dropdownContainer.Name = "DropdownContainer"
+	dropdownContainer.BackgroundTransparency = 1
+	dropdownContainer.Position = UDim2.new(0, 0, 1, 2)
+	dropdownContainer.Size = UDim2.new(1, 0, 0, 180)
+	dropdownContainer.Visible = false
+	dropdownContainer.ZIndex = 200
+	dropdownContainer.Parent = dropdown
+
+	-- Dropdown frame
+	local dropdownFrame = Instance.new("Frame")
+	dropdownFrame.Name = "DropdownFrame"
+	dropdownFrame.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+	dropdownFrame.BorderSizePixel = 0
+	dropdownFrame.Size = UDim2.new(1, 0, 1, 0)
+	dropdownFrame.ZIndex = 201
+	dropdownFrame.Parent = dropdownContainer
+	CreateCorner(dropdownFrame, 4)
+
+	-- Search TextBox
+	local searchBox = Instance.new("TextBox")
+	searchBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	searchBox.BorderSizePixel = 0
+	searchBox.Position = UDim2.new(0, 5, 0, 5)
+	searchBox.Size = UDim2.new(1, -10, 0, 25)
+	searchBox.Font = Enum.Font.Gotham
+	searchBox.PlaceholderText = "Search players..."
+	searchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+	searchBox.Text = ""
+	searchBox.TextColor3 = Color3.new(1, 1, 1)
+	searchBox.TextSize = 12
+	searchBox.ZIndex = 202
+	searchBox.Parent = dropdownFrame
+	CreateCorner(searchBox, 4)
+
+	-- Scrolling frame for players
+	local scrollFrame = Instance.new("ScrollingFrame")
+	scrollFrame.BackgroundTransparency = 1
+	scrollFrame.Position = UDim2.new(0, 5, 0, 35)
+	scrollFrame.Size = UDim2.new(1, -10, 1, -40)
+	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scrollFrame.ScrollBarThickness = 4
+	scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+	scrollFrame.ZIndex = 202
+	scrollFrame.Parent = dropdownFrame
 
 	local listLayout = Instance.new("UIListLayout")
 	listLayout.SortOrder = Enum.SortOrder.Name
-	listLayout.Parent = dropdownList
+	listLayout.Parent = scrollFrame
 
-	local function updateDropdown()
+	local currentPlayers = {}
+
+	local function filterPlayers(searchText)
 		-- Clear existing options
-		for _, child in pairs(dropdownList:GetChildren()) do
+		for _, child in pairs(scrollFrame:GetChildren()) do
 			if child:IsA("TextButton") then
 				child:Destroy()
 			end
 		end
 
-		local players = {}
+		currentPlayers = {}
 		for _, player in pairs(Players:GetPlayers()) do
 			if player ~= Player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-				table.insert(players, player)
+				if searchText == "" or string.find(string.lower(player.Name), string.lower(searchText)) then
+					table.insert(currentPlayers, player)
+				end
 			end
 		end
 
-		for _, player in pairs(players) do
+		for _, player in pairs(currentPlayers) do
 			local option = Instance.new("TextButton")
 			option.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 			option.BorderSizePixel = 0
@@ -162,7 +202,8 @@ local function CreatePlayerDropdown(parent, callback)
 			option.TextColor3 = Color3.new(1, 1, 1)
 			option.TextSize = 12
 			option.TextXAlignment = Enum.TextXAlignment.Left
-			option.Parent = dropdownList
+			option.ZIndex = 203
+			option.Parent = scrollFrame
 
 			option.MouseEnter:Connect(function()
 				CreateTween(option, {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}, 0.2):Play()
@@ -174,22 +215,31 @@ local function CreatePlayerDropdown(parent, callback)
 
 			option.MouseButton1Click:Connect(function()
 				selectedButton.Text = player.Name
-				dropdownList.Visible = false
+				dropdownContainer.Visible = false
 				arrow.Text = "▼"
 				callback(player)
 			end)
 		end
 
-		dropdownList.Size = UDim2.new(1, 0, 0, math.min(#players * 25, 150))
+		-- Update canvas size
+		scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #currentPlayers * 25)
 	end
 
+	-- Search functionality
+	searchBox.Changed:Connect(function(property)
+		if property == "Text" then
+			filterPlayers(searchBox.Text)
+		end
+	end)
+
 	selectedButton.MouseButton1Click:Connect(function()
-		if dropdownList.Visible then
-			dropdownList.Visible = false
+		if dropdownContainer.Visible then
+			dropdownContainer.Visible = false
 			arrow.Text = "▼"
 		else
-			updateDropdown()
-			dropdownList.Visible = true
+			searchBox.Text = ""
+			filterPlayers("")
+			dropdownContainer.Visible = true
 			arrow.Text = "▲"
 		end
 	end)
@@ -674,30 +724,58 @@ VyrxisMenu.ToggleFeature = function(feature, enabled)
 			VyrxisMenu.DisableESP()
 		end
 
-	elseif feature == "Invisible" then
-		if enabled then
-			for _, part in pairs(Character:GetChildren()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-					part.Transparency = 1
-				elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
-					part.Handle.Transparency = 1
-				end
-			end
-			if Character:FindFirstChild("Head") and Character.Head:FindFirstChild("face") then
-				Character.Head.face.Transparency = 1
-			end
-		else
-			for _, part in pairs(Character:GetChildren()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-					part.Transparency = 0
-				elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
-					part.Handle.Transparency = 0
-				end
-			end
-			if Character:FindFirstChild("Head") and Character.Head:FindFirstChild("face") then
-				Character.Head.face.Transparency = 0
+-- Improved Invisibility using CFrame positioning
+VyrxisMenu.MakeInvisible = function(enabled)
+	if enabled then
+		-- Move character far away from the map
+		local originalCFrame = RootPart.CFrame
+		RootPart.CFrame = CFrame.new(0, -1000, 0) -- Move underground
+		
+		-- Also make parts transparent as backup
+		for _, part in pairs(Character:GetChildren()) do
+			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+				part.Transparency = 1
+			elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
+				part.Handle.Transparency = 1
 			end
 		end
+		if Character:FindFirstChild("Head") and Character.Head:FindFirstChild("face") then
+			Character.Head.face.Transparency = 1
+		end
+		
+		-- Store original position
+		Settings.OriginalCFrame = originalCFrame
+		
+		-- Create invisible loop to stay hidden
+		Connections.Invisible = RunService.Heartbeat:Connect(function()
+			if RootPart.Position.Y > -500 then -- If player somehow gets back up
+				RootPart.CFrame = CFrame.new(0, -1000, 0)
+			end
+		end)
+	else
+		-- Restore position and visibility
+		if Connections.Invisible then
+			Connections.Invisible:Disconnect()
+			Connections.Invisible = nil
+		end
+		
+		if Settings.OriginalCFrame then
+			RootPart.CFrame = Settings.OriginalCFrame
+		end
+		
+		-- Make parts visible again
+		for _, part in pairs(Character:GetChildren()) do
+			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+				part.Transparency = 0
+			elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
+				part.Handle.Transparency = 0
+			end
+		end
+		if Character:FindFirstChild("Head") and Character.Head:FindFirstChild("face") then
+			Character.Head.face.Transparency = 0
+		end
+	end
+end
 
 	elseif feature == "Nametags" then
 		if enabled then
@@ -843,9 +921,9 @@ VyrxisMenu.CreateNametag = function(player)
 	local billboardGui = Instance.new("BillboardGui")
 	billboardGui.Name = "VyrxisNametag"
 	billboardGui.Size = UDim2.new(0, 200, 0, 50)
-	billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+	billboardGui.StudsOffset = Vector3.new(0, -4, 0) -- Moved under feet
 	billboardGui.LightInfluence = 0
-	billboardGui.AlwaysOnTop = true -- Makes it visible through walls
+	billboardGui.AlwaysOnTop = true
 	billboardGui.Parent = player.Character:FindFirstChild("HumanoidRootPart")
 
 	local textLabel = Instance.new("TextLabel")
@@ -857,7 +935,7 @@ VyrxisMenu.CreateNametag = function(player)
 	textLabel.TextSize = Settings.NametagSize
 	textLabel.TextStrokeTransparency = 0
 	textLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-	textLabel.TextScaled = false -- Prevents blurring at distance
+	textLabel.TextScaled = false
 	textLabel.Parent = billboardGui
 
 	NametagObjects[player] = billboardGui
@@ -1062,29 +1140,47 @@ local function CreateVisualsCategory(parentFrame)
 	colorLabel.Parent = colorFrame
 
 	local colors = {
+		{name = "White", color = Color3.new(1, 1, 1)},
+		{name = "Black", color = Color3.new(0, 0, 0)},
+		{name = "Gray", color = Color3.new(0.5, 0.5, 0.5)},
 		{name = "Red", color = Color3.new(1, 0, 0)},
 		{name = "Blue", color = Color3.new(0, 0, 1)},
 		{name = "Green", color = Color3.new(0, 1, 0)},
 		{name = "Yellow", color = Color3.new(1, 1, 0)},
-		{name = "Purple", color = Color3.new(1, 0, 1)}
+		{name = "Purple", color = Color3.new(1, 0, 1)},
+		{name = "Cyan", color = Color3.new(0, 1, 1)},
+		{name = "Orange", color = Color3.new(1, 0.5, 0)},
+		{name = "Pink", color = Color3.new(1, 0.75, 0.8)},
+		{name = "Lime", color = Color3.new(0.5, 1, 0)}
 	}
 
+	-- Create two rows of color buttons
+	local buttonsPerRow = 6
 	for i, colorData in pairs(colors) do
+		local row = math.floor((i-1) / buttonsPerRow)
+		local col = (i-1) % buttonsPerRow
+		
 		local colorButton = Instance.new("TextButton")
 		colorButton.BackgroundColor3 = colorData.color
-		colorButton.BorderSizePixel = 0
-		colorButton.Position = UDim2.new((i-1) * 0.18 + 0.1, 0, 0, 25)
-		colorButton.Size = UDim2.new(0, 30, 0, 20)
+		colorButton.BorderSizePixel = 1
+		colorButton.BorderColor3 = Color3.new(0.3, 0.3, 0.3)
+		colorButton.Position = UDim2.new(col * (1/buttonsPerRow) + 0.02, 0, 0, 25 + row * 22)
+		colorButton.Size = UDim2.new(1/buttonsPerRow - 0.04, 0, 0, 18)
 		colorButton.Text = ""
 		colorButton.Parent = colorFrame
 		CreateCorner(colorButton, 4)
 
+		-- Special handling for black color (add white border)
+		if colorData.name == "Black" then
+			colorButton.BorderColor3 = Color3.new(1, 1, 1)
+		end
+
 		colorButton.MouseEnter:Connect(function()
-			CreateTween(colorButton, {Size = UDim2.new(0, 35, 0, 25)}, 0.2):Play()
+			CreateTween(colorButton, {Size = UDim2.new(1/buttonsPerRow - 0.02, 0, 0, 20)}, 0.2):Play()
 		end)
 
 		colorButton.MouseLeave:Connect(function()
-			CreateTween(colorButton, {Size = UDim2.new(0, 30, 0, 20)}, 0.2):Play()
+			CreateTween(colorButton, {Size = UDim2.new(1/buttonsPerRow - 0.04, 0, 0, 18)}, 0.2):Play()
 		end)
 
 		colorButton.MouseButton1Click:Connect(function()
@@ -1099,6 +1195,9 @@ local function CreateVisualsCategory(parentFrame)
 			end
 		end)
 	end
+
+	-- Adjust color frame height to accommodate two rows
+	colorFrame.Size = UDim2.new(1, 0, 0, 70)
 
 	-- ESP Transparency Slider
 	CreateSlider("ESP Transparency", 0, 1, Settings.ESPTransparency, function(value)
@@ -1145,21 +1244,90 @@ local function CreateVisualsCategory(parentFrame)
 	nametagColorLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nametagColorLabel.Parent = nametagColorFrame
 
+	-- ESP Transparency Slider
+	CreateSlider("ESP Transparency", 0, 1, Settings.ESPTransparency, function(value)
+		Settings.ESPTransparency = value
+		for player, espData in pairs(ESPObjects) do
+			if espData.highlight then
+				espData.highlight.FillTransparency = value
+			end
+		end
+	end, 3, parentFrame)
+
+	-- Nametag Settings
+	local nametagLabel = Instance.new("TextLabel")
+	nametagLabel.BackgroundTransparency = 1
+	nametagLabel.Size = UDim2.new(1, 0, 0, 30)
+	nametagLabel.Font = Enum.Font.GothamBold
+	nametagLabel.Text = "Nametag Settings"
+	nametagLabel.TextColor3 = Color3.new(1, 1, 1)
+	nametagLabel.TextSize = 18
+	nametagLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nametagLabel.LayoutOrder = 4
+	nametagLabel.Parent = parentFrame
+
+	-- Nametag Colors with expanded palette
+	local nametagColorFrame = Instance.new("Frame")
+	nametagColorFrame.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
+	nametagColorFrame.BorderSizePixel = 0
+	nametagColorFrame.Size = UDim2.new(1, 0, 0, 70)
+	nametagColorFrame.LayoutOrder = 5
+	nametagColorFrame.Parent = parentFrame
+	CreateCorner(nametagColorFrame, 6)
+
+	nametagColorFrame.Position = UDim2.new(0, -400, 0, 0)
+	CreateTween(nametagColorFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.3 + 5 * 0.05, Enum.EasingStyle.Back):Play()
+
+	local nametagColorLabel = Instance.new("TextLabel")
+	nametagColorLabel.BackgroundTransparency = 1
+	nametagColorLabel.Position = UDim2.new(0, 10, 0, 5)
+	nametagColorLabel.Size = UDim2.new(1, -20, 0, 20)
+	nametagColorLabel.Font = Enum.Font.Gotham
+	nametagColorLabel.Text = "Nametag Color:"
+	nametagColorLabel.TextColor3 = Color3.new(1, 1, 1)
+	nametagColorLabel.TextSize = 16
+	nametagColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nametagColorLabel.Parent = nametagColorFrame
+
+	-- Same expanded color palette for nametags
 	for i, colorData in pairs(colors) do
+		local row = math.floor((i-1) / buttonsPerRow)
+		local col = (i-1) % buttonsPerRow
+		
 		local nametagColorButton = Instance.new("TextButton")
 		nametagColorButton.BackgroundColor3 = colorData.color
-		nametagColorButton.BorderSizePixel = 0
-		nametagColorButton.Position = UDim2.new((i-1) * 0.18 + 0.1, 0, 0, 25)
-		nametagColorButton.Size = UDim2.new(0, 30, 0, 20)
+		nametagColorButton.BorderSizePixel = 1
+		nametagColorButton.BorderColor3 = Color3.new(0.3, 0.3, 0.3)
+		nametagColorButton.Position = UDim2.new(col * (1/buttonsPerRow) + 0.02, 0, 0, 25 + row * 22)
+		nametagColorButton.Size = UDim2.new(1/buttonsPerRow - 0.04, 0, 0, 18)
 		nametagColorButton.Text = ""
 		nametagColorButton.Parent = nametagColorFrame
 		CreateCorner(nametagColorButton, 4)
 
+		-- Special handling for black color
+		if colorData.name == "Black" then
+			nametagColorButton.BorderColor3 = Color3.new(1, 1, 1)
+		end
+
 		nametagColorButton.MouseEnter:Connect(function()
-			CreateTween(nametagColorButton, {Size = UDim2.new(0, 35, 0, 25)}, 0.2):Play()
+			CreateTween(nametagColorButton, {Size = UDim2.new(1/buttonsPerRow - 0.02, 0, 0, 20)}, 0.2):Play()
 		end)
 
 		nametagColorButton.MouseLeave:Connect(function()
+			CreateTween(nametagColorButton, {Size = UDim2.new(1/buttonsPerRow - 0.04, 0, 0, 18)}, 0.2):Play()
+		end)
+
+		nametagColorButton.MouseButton1Click:Connect(function()
+			Settings.NametagColor = colorData.color
+			-- Update existing nametags
+			for player, nametag in pairs(NametagObjects) do
+				if nametag and nametag:FindFirstChild("TextLabel") then
+					nametag.TextLabel.TextColor3 = colorData.color
+				end
+			end
+		end)
+	end
+endave:Connect(function()
 			CreateTween(nametagColorButton, {Size = UDim2.new(0, 30, 0, 20)}, 0.2):Play()
 		end)
 
