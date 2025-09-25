@@ -14,7 +14,7 @@ local bv, bg
 
 -- ====== ESP VARIABLEN (Highlight System) ======
 local espEnabled = false
-local espColor = Color3.fromRGB(255, 0, 0)
+local espColor = Color3.fromRGB(255, 255, 255) -- Weiß als Standard
 local espObjects = {}
 
 -- ====== Farben ======
@@ -196,7 +196,7 @@ espColorLabel.Parent = espScroll
 local espColorBox = Instance.new("TextButton")
 espColorBox.Size = UDim2.new(0,200,0,30)
 espColorBox.Position = UDim2.new(0,10,0,100)
-espColorBox.BackgroundColor3 = espColor
+espColorBox.BackgroundColor3 = espColor -- Jetzt weiß
 espColorBox.Text = ""
 espColorBox.BorderSizePixel = 2
 espColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
@@ -292,7 +292,7 @@ local function cleanupPlayerESP(targetPlayer)
 	print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Erstelle BillboardGui Health Bar (Fixed & Thinner)
+-- Erstelle BillboardGui Health Bar (FIXED POSITIONING)
 local function createHealthBar(character, playerName)
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then return nil end
@@ -307,7 +307,7 @@ local function createHealthBar(character, playerName)
 	healthBillboard.LightInfluence = 0
 	healthBillboard.Parent = character
 
-	-- Background Frame (Grau)
+	-- Background Frame (Grau - das soll oben sein)
 	local backgroundFrame = Instance.new("Frame")
 	backgroundFrame.Name = "Background"
 	backgroundFrame.Size = UDim2.new(1, 0, 1, 0)
@@ -318,14 +318,14 @@ local function createHealthBar(character, playerName)
 	backgroundFrame.Parent = healthBillboard
 	Instance.new("UICorner", backgroundFrame).CornerRadius = UDim.new(0, 1)
 
-	-- Health Frame (Grün, füllt sich von unten nach oben)
+	-- Health Frame (Grün, füllt sich von unten nach oben - FIXED)
 	local healthFrame = Instance.new("Frame")
 	healthFrame.Name = "HealthBar"
-	healthFrame.Size = UDim2.new(1, -2, 1, -2) -- Vollständige Größe minus Border
-	healthFrame.Position = UDim2.new(0, 1, 1, -1) -- Startet am unteren Rand
+	healthFrame.Size = UDim2.new(1, -2, 1, -2) -- Startet mit voller Größe
+	healthFrame.Position = UDim2.new(0, 1, 0, 1) -- FIXED: Position oben links
 	healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 	healthFrame.BorderSizePixel = 0
-	healthFrame.AnchorPoint = Vector2.new(0, 1) -- Anchor unten für korrekte Füllung
+	healthFrame.AnchorPoint = Vector2.new(0, 0) -- FIXED: Anchor oben statt unten
 	healthFrame.Parent = backgroundFrame
 	Instance.new("UICorner", healthFrame).CornerRadius = UDim.new(0, 1)
 
