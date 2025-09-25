@@ -29,6 +29,7 @@ local textColor = Color3.fromRGB(255,255,255)
 -- ====== GUI erstellen ======
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TabletGUI"
+screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
