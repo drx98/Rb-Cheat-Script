@@ -16,6 +16,8 @@ local bv, bg
 local espEnabled = false
 local espColor = Color3.fromRGB(255, 255, 255) -- Weiß als Standard
 local espObjects = {}
+local nametagEnabled = false
+local nametagColor = Color3.fromRGB(255, 255, 255) -- Weiß als Standard für Nametags
 
 -- ====== Farben ======
 local primaryDark = Color3.fromRGB(30,30,30)
@@ -146,7 +148,7 @@ espScroll.Position = UDim2.new(1,0,0,30)
 espScroll.BackgroundColor3 = primaryMedium
 espScroll.ScrollBarThickness = 6
 espScroll.Visible = false
-espScroll.CanvasSize = UDim2.new(0,0,0,350)
+espScroll.CanvasSize = UDim2.new(0,0,0,450) -- Vergrößert für neue Buttons
 espScroll.Parent = mainFrame
 Instance.new("UICorner", espScroll).CornerRadius = UDim.new(0,8)
 
@@ -292,19 +294,23 @@ local function cleanupPlayerESP(targetPlayer)
 	print("[ESP] Cleaned up ESP for: " .. playerName)
 end
 
--- Erstelle BillboardGui Health Bar (FIXED POSITIONING)
+-- Erstelle BillboardGui Health Bar (FIXED SIZE IN DISTANCE)
 local function createHealthBar(character, playerName)
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then return nil end
 
-	-- BillboardGui erstellen (viel dünner und kleiner)
+	-- BillboardGui erstellen (mit fester Größe)
 	local healthBillboard = Instance.new("BillboardGui")
 	healthBillboard.Name = "ESP_HealthBar_" .. playerName
 	healthBillboard.Adornee = humanoidRootPart
-	healthBillboard.Size = UDim2.new(0, 4, 0, 60) -- Sehr dünn (4 pixel breit, 60 hoch)
+	healthBillboard.Size = UDim2.new(0, 4, 0, 60) -- Feste Pixel-Größe
 	healthBillboard.StudsOffset = Vector3.new(2.5, 0, 0) -- Rechts vom Spieler
 	healthBillboard.AlwaysOnTop = true
 	healthBillboard.LightInfluence = 0
+	-- WICHTIG: Diese Properties verhindern Größenänderung bei Distanz
+	healthBillboard.MaxDistance = 1000
+	healthBillboard.SizeOffset = Vector2.new(0, 0)
+	healthBillboard.ExtentsOffset = Vector3.new(0, 0, 0)
 	healthBillboard.Parent = character
 
 	-- Background Frame (Grau - das soll oben sein)
@@ -545,8 +551,43 @@ espColorBox.MouseButton1Click:Connect(function()
 		end)
 	end
 
-	espScroll.CanvasSize = UDim2.new(0,0,0,370)
+espScroll.CanvasSize = UDim2.new(0,0,0,370)
+	end
 end)
+
+-- ====== ESP NAMETAG BUTTON ======
+local espNametagButton = Instance.new("TextButton")
+espNametagButton.Text = "ESP Nametags: Off"
+espNametagButton.Size = UDim2.new(0,220,0,40)
+espNametagButton.Position = UDim2.new(0,10,0,210)
+espNametagButton.BackgroundColor3 = primaryMedium
+espNametagButton.TextColor3 = textColor
+espNametagButton.Font = Enum.Font.GothamBold
+espNametagButton.TextSize = 16
+espNametagButton.Parent = espScroll
+Instance.new("UICorner", espNametagButton).CornerRadius = UDim.new(0,6)
+
+-- ====== NAMETAG COLOR PICKER ======
+local nametagColorLabel = Instance.new("TextLabel")
+nametagColorLabel.Size = UDim2.new(0,200,0,20)
+nametagColorLabel.Position = UDim2.new(0,10,0,270)
+nametagColorLabel.BackgroundTransparency = 1
+nametagColorLabel.TextColor3 = textColor
+nametagColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+nametagColorLabel.Text = "Nametag Color:"
+nametagColorLabel.Font = Enum.Font.Gotham
+nametagColorLabel.TextSize = 12
+nametagColorLabel.Parent = espScroll
+
+local nametagColorBox = Instance.new("TextButton")
+nametagColorBox.Size = UDim2.new(0,200,0,30)
+nametagColorBox.Position = UDim2.new(0,10,0,290)
+nametagColorBox.BackgroundColor3 = nametagColor
+nametagColorBox.Text = ""
+nametagColorBox.BorderSizePixel = 2
+nametagColorBox.BorderColor3 = Color3.fromRGB(100,100,100)
+nametagColorBox.Parent = espScroll
+Instance.new("UICorner", nametagColorBox).CornerRadius = UDim.new(0,6)
 
 -- ====== ESP PLAYER EVENTS ======
 game.Players.PlayerAdded:Connect(function(newPlayer)
