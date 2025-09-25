@@ -504,6 +504,11 @@ espColorBox.MouseButton1Click:Connect(function()
 		return
 	end
 
+    -- Falls du noch Code einfügen willst, kommt er hier rein
+    print("ESP Color Picker geöffnet!")
+
+end)
+
 	espPickerOpen = true
 	espPickerFrame = Instance.new("Frame")
 	espPickerFrame.Size = UDim2.new(0,200,0,160)
