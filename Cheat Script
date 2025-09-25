@@ -29,7 +29,6 @@ local textColor = Color3.fromRGB(255,255,255)
 -- ====== GUI erstellen ======
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TabletGUI"
-screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
@@ -471,6 +470,81 @@ local function disableESP()
 	print("[ESP] All Highlight ESP removed")
 end
 
+-- ====== ESP NAMETAG BUTTON FUNCTIONALITY ======
+espNametagButton.MouseButton1Click:Connect(function()
+	nametagEnabled = not nametagEnabled
+	if nametagEnabled then
+		espNametagButton.Text = "ESP Nametags: On"
+		espNametagButton.BackgroundColor3 = secondary
+		updateNametags()
+	else
+		espNametagButton.Text = "ESP Nametags: Off"
+		espNametagButton.BackgroundColor3 = primaryMedium
+		updateNametags()
+	end
+end)
+
+-- ====== NAMETAG COLOR PICKER ======
+local nametagPickerOpen = false
+local nametagPickerFrame
+
+nametagColorBox.MouseButton1Click:Connect(function()
+	if nametagPickerOpen then
+		if nametagPickerFrame then nametagPickerFrame:Destroy() end
+		nametagPickerOpen = false
+		return
+	end
+
+	nametagPickerOpen = true
+	nametagPickerFrame = Instance.new("Frame")
+	nametagPickerFrame.Size = UDim2.new(0,200,0,160)
+	nametagPickerFrame.Position = UDim2.new(0,10,0,330)
+	nametagPickerFrame.BackgroundColor3 = primaryDark
+	nametagPickerFrame.BorderSizePixel = 1
+	nametagPickerFrame.BorderColor3 = Color3.fromRGB(100,100,100)
+	nametagPickerFrame.Parent = espScroll
+	Instance.new("UICorner", nametagPickerFrame).CornerRadius = UDim.new(0,8)
+
+	local nametagCloseBtn = Instance.new("TextButton")
+	nametagCloseBtn.Size = UDim2.new(0,20,0,20)
+	nametagCloseBtn.Position = UDim2.new(1,-25,0,5)
+	nametagCloseBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	nametagCloseBtn.Text = "X"
+	nametagCloseBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	nametagCloseBtn.Font = Enum.Font.GothamBold
+	nametagCloseBtn.TextSize = 12
+	nametagCloseBtn.Parent = nametagPickerFrame
+	Instance.new("UICorner", nametagCloseBtn).CornerRadius = UDim.new(0,4)
+
+	nametagCloseBtn.MouseButton1Click:Connect(function()
+		nametagPickerFrame:Destroy()
+		nametagPickerOpen = false
+	end)
+
+	for i, c in ipairs(espColors) do
+		local colorBtn = Instance.new("TextButton")
+		colorBtn.Size = UDim2.new(0,30,0,30)
+		colorBtn.Position = UDim2.new(0, 5 + ((i-1)%5)*35, 0, 30 + math.floor((i-1)/5)*35)
+		colorBtn.BackgroundColor3 = c
+		colorBtn.Text = ""
+		colorBtn.BorderSizePixel = 1
+		colorBtn.BorderColor3 = Color3.fromRGB(200,200,200)
+		colorBtn.Parent = nametagPickerFrame
+		Instance.new("UICorner", colorBtn).CornerRadius = UDim.new(0,4)
+
+		colorBtn.MouseButton1Click:Connect(function()
+			nametagColor = c
+			nametagColorBox.BackgroundColor3 = c
+			if nametagEnabled then
+				updateNametagColors()
+			end
+			nametagPickerFrame:Destroy()
+			nametagPickerOpen = false
+		end)
+	end
+
+	espScroll.CanvasSize = UDim2.new(0,0,0,500)
+end)
 -- ====== ESP BUTTON FUNKTIONALITÄT ======
 espPlayerButton.MouseButton1Click:Connect(function()
 	espEnabled = not espEnabled
@@ -503,11 +577,6 @@ espColorBox.MouseButton1Click:Connect(function()
 		espPickerOpen = false
 		return
 	end
-
-    -- Falls du noch Code einfügen willst, kommt er hier rein
-    print("ESP Color Picker geöffnet!")
-
-end)
 
 	espPickerOpen = true
 	espPickerFrame = Instance.new("Frame")
