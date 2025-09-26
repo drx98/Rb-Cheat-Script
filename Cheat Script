@@ -1,6 +1,3 @@
--- Vyrxis Menu - Professional Roblox Mod Menu
--- Complete implementation with all requested features
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
