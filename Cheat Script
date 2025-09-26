@@ -1035,73 +1035,141 @@
         end)
     end
 
-    -- Initialize with error handling
+    -- Initialize with comprehensive error handling
     local success, error = pcall(function()
+        -- Verify all required components
+        if not GUI or not GUI.ScreenGui then
+            error("GUI not properly initialized")
+        end
+        
         InitializeGUI()
         SetupEventHandlers()
     end)
 
     if not success then
         warn("Vyrxis Menu initialization failed: " .. tostring(error))
+        
+        -- Cleanup on failure
+        pcall(function()
+            if GUI and GUI.ScreenGui then
+                GUI.ScreenGui:Destroy()
+            end
+        end)
+        
         return false
     end
 
-    -- Auto-Load and Success Message with error handling
+    -- Auto-Load and Success Message with enhanced error handling
     spawn(function()
-        wait(0.5)
+        wait(1) -- Increased wait time for stability
         
-        if GUI.ScreenGui and GUI.ScreenGui.Parent then
-            GUI.ScreenGui.Enabled = true
-            
-            pcall(function()
-                StarterGui:SetCore("ChatMakeSystemMessage", {
-                    Text = "Vyrxis Menu v2.0 loaded successfully! Press " .. Settings.ToggleKey.Name .. " to toggle.";
-                    Color = Color3.new(0, 1, 0);
-                    Font = Enum.Font.GothamBold;
-                    FontSize = Enum.FontSize.Size18;
-                })
-            end)
-        else
-            warn("Vyrxis Menu: GUI failed to initialize properly")
+        -- Verify GUI exists and is valid
+        if not GUI or not GUI.ScreenGui or not GUI.ScreenGui.Parent then
+            warn("Vyrxis Menu: GUI validation failed")
+            return
         end
+        
+        pcall(function()
+            GUI.ScreenGui.Enabled = true
+        end)
+        
+        pcall(function()
+            StarterGui:SetCore("ChatMakeSystemMessage", {
+                Text = "Vyrxis Menu v2.0 loaded! Press " .. tostring(Settings.ToggleKey.Name) .. " to toggle.";
+                Color = Color3.new(0, 1, 0);
+                Font = Enum.Font.GothamBold;
+                FontSize = Enum.FontSize.Size18;
+            })
+        end)
     end)
 
     return true
 end
 
+-- Safe execution wrapper
+local function SafeExecute()
+    local success, result = pcall(Main)
+    if not success then
+        warn("Vyrxis Menu execution failed: " .. tostring(result))
+        return false
+    end
+    return result
+end
+
 -- Execute the script
-return Main()-- Vyrxis Menu v2.0
+return SafeExecute()-- Vyrxis Menu v2.0
 -- Advanced Roblox Script Hub
 -- GitHub: https://github.com/YourUsername/VyrxisMenu
 
 local function Main()
-    -- Services
-    local Players = game:GetService("Players")
-    local UserInputService = game:GetService("UserInputService")
-    local RunService = game:GetService("RunService")
-    local TweenService = game:GetService("TweenService")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Workspace = game:GetService("Workspace")
-    local StarterGui = game:GetService("StarterGui")
+    -- Services with error handling
+    local success, services = pcall(function()
+        return {
+            Players = game:GetService("Players"),
+            UserInputService = game:GetService("UserInputService"),
+            RunService = game:GetService("RunService"),
+            TweenService = game:GetService("TweenService"),
+            ReplicatedStorage = game:GetService("ReplicatedStorage"),
+            Workspace = game:GetService("Workspace"),
+            StarterGui = game:GetService("StarterGui")
+        }
+    end)
+    
+    if not success then
+        error("Failed to get game services")
+        return false
+    end
+    
+    local Players = services.Players
+    local UserInputService = services.UserInputService
+    local RunService = services.RunService
+    local TweenService = services.TweenService
+    local ReplicatedStorage = services.ReplicatedStorage
+    local Workspace = services.Workspace
+    local StarterGui = services.StarterGui
 
     local Player = Players.LocalPlayer
-    local PlayerGui = Player:WaitForChild("PlayerGui")
+    if not Player then
+        error("LocalPlayer not found")
+        return false
+    end
+    
+    local PlayerGui = Player:WaitForChild("PlayerGui", 10)
+    if not PlayerGui then
+        error("PlayerGui not found")
+        return false
+    end
 
-    -- Wait for character to load properly
+    -- Wait for character with timeout
     local Character = Player.Character
     if not Character then
-        Player.CharacterAdded:Wait()
-        Character = Player.Character
+        local startTime = tick()
+        repeat
+            Player.CharacterAdded:Wait()
+            Character = Player.Character
+            if tick() - startTime > 30 then
+                error("Character load timeout")
+                return false
+            end
+        until Character and Character.Parent
     end
 
-    local Humanoid = Character:WaitForChild("Humanoid")
-    local RootPart = Character:WaitForChild("HumanoidRootPart")
+    local Humanoid = Character:WaitForChild("Humanoid", 10)
+    local RootPart = Character:WaitForChild("HumanoidRootPart", 10)
+    
+    if not Humanoid or not RootPart then
+        error("Character components not found")
+        return false
+    end
 
     -- Check if menu already exists
-    if PlayerGui:FindFirstChild("VyrxisMenu") then
-        PlayerGui.VyrxisMenu:Destroy()
-        wait(0.5)
-    end
+    pcall(function()
+        local existingMenu = PlayerGui:FindFirstChild("VyrxisMenu")
+        if existingMenu then
+            existingMenu:Destroy()
+            wait(0.5)
+        end
+    end)
 
     -- Variables
     local VyrxisMenu = {}
