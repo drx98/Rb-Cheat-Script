@@ -1,6 +1,3 @@
--- Vyrxis Menu - Professionelles Roblox Mod-Menü
--- Erstellt vollständig per Code
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
