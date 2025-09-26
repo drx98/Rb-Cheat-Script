@@ -1,4 +1,3 @@
--- Improved Invisibility using CFrame positioning
     VyrxisMenu.MakeInvisible = function(enabled)
         if enabled then
             -- Move character far away from the map
