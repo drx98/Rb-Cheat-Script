@@ -1,4 +1,50 @@
--- Vyrxis Menu - Professional Roblox GUI Script
+-- Character Respawn Handling
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoid = character:WaitForChild("Humanoid")
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    
+    -- Restart functions if they were enabled
+    if flyEnabled then
+        wait(1)
+        stopFlying()
+        startFlying()
+    end
+    
+    if noclipEnabled then
+        wait(1)
+        toggleNoclip(true)
+    end
+    
+    -- Recreate ESP and nametags for other players
+    if espEnabled then
+        wait(1)
+        -- Clear old ESP
+        for _, highlight in pairs(espHighlights) do
+            if highlight then highlight:Destroy() end
+        end
+        for _, healthBar in pairs(healthBars) do
+            if healthBar then healthBar:Destroy() end
+        end
+        espHighlights = {}
+        healthBars = {}
+        -- Recreate ESP
+        toggleESP(true)
+    end
+    
+    if nametagsEnabled then
+        wait(1)
+        -- Clear old nametags
+        for _, nametag in pairs(nametags) do
+            if nametag then nametag:Destroy() end
+        end
+        nametags = {}
+        -- Recreate nametags
+        toggleNametags(true)
+    end
+    
+    print("Character respawned - functions restored!")
+end)-- Vyrxis Menu - Professional Roblox GUI Script
 -- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -526,15 +572,180 @@ function createMeCategory(parent)
 end
 
 function createPlayerCategory(parent)
-    -- Player selection will be added here
-    local playerLabel = Instance.new("TextLabel")
-    playerLabel.Parent = parent
-    playerLabel.Size = UDim2.new(1, 0, 0, 40)
-    playerLabel.BackgroundTransparency = 1
-    playerLabel.Text = "Player Functions"
-    playerLabel.TextColor3 = accentColor
-    playerLabel.TextScaled = true
-    playerLabel.Font = Enum.Font.GothamBold
+    -- Player Selection Frame
+    local playerFrame = Instance.new("Frame")
+    playerFrame.Parent = parent
+    playerFrame.Size = UDim2.new(1, 0, 0, 150)
+    playerFrame.BackgroundColor3 = buttonColor
+    
+    local playerCorner = Instance.new("UICorner")
+    playerCorner.CornerRadius = UDim.new(0, 6)
+    playerCorner.Parent = playerFrame
+    
+    -- Search Box
+    local searchBox = Instance.new("TextBox")
+    searchBox.Parent = playerFrame
+    searchBox.Size = UDim2.new(1, -20, 0, 30)
+    searchBox.Position = UDim2.new(0, 10, 0, 10)
+    searchBox.BackgroundColor3 = primaryColor
+    searchBox.Text = "Search players..."
+    searchBox.TextColor3 = textColor
+    searchBox.TextScaled = true
+    searchBox.Font = Enum.Font.Gotham
+    searchBox.ClearTextOnFocus = false
+    
+    local searchCorner = Instance.new("UICorner")
+    searchCorner.CornerRadius = UDim.new(0, 4)
+    searchCorner.Parent = searchBox
+    
+    -- Player List
+    local playerList = Instance.new("ScrollingFrame")
+    playerList.Parent = playerFrame
+    playerList.Size = UDim2.new(1, -20, 0, 100)
+    playerList.Position = UDim2.new(0, 10, 0, 45)
+    playerList.BackgroundColor3 = primaryColor
+    playerList.ScrollBarThickness = 6
+    playerList.ScrollBarImageColor3 = accentColor
+    playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+    playerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    
+    local listCorner = Instance.new("UICorner")
+    listCorner.CornerRadius = UDim.new(0, 4)
+    listCorner.Parent = playerList
+    
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Parent = playerList
+    listLayout.Padding = UDim.new(0, 2)
+    listLayout.FillDirection = Enum.FillDirection.Vertical
+    
+    local listPadding = Instance.new("UIPadding")
+    listPadding.Parent = playerList
+    listPadding.PaddingTop = UDim.new(0, 5)
+    listPadding.PaddingLeft = UDim.new(0, 5)
+    listPadding.PaddingRight = UDim.new(0, 5)
+    listPadding.PaddingBottom = UDim.new(0, 5)
+    
+    -- Update player list function
+    local function updatePlayerList(filter)
+        for _, child in pairs(playerList:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+        
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= player and (not filter or string.find(plr.Name:lower(), filter:lower())) then
+                local playerBtn = Instance.new("TextButton")
+                playerBtn.Parent = playerList
+                playerBtn.Size = UDim2.new(1, -10, 0, 25)
+                playerBtn.BackgroundColor3 = buttonColor
+                playerBtn.Text = plr.Name
+                playerBtn.TextColor3 = textColor
+                playerBtn.TextScaled = true
+                playerBtn.Font = Enum.Font.Gotham
+                
+                local btnCorner = Instance.new("UICorner")
+                btnCorner.CornerRadius = UDim.new(0, 4)
+                btnCorner.Parent = playerBtn
+                
+                playerBtn.MouseButton1Click:Connect(function()
+                    selectedPlayer = plr
+                    for _, btn in pairs(playerList:GetChildren()) do
+                        if btn:IsA("TextButton") then
+                            btn.BackgroundColor3 = buttonColor
+                        end
+                    end
+                    playerBtn.BackgroundColor3 = accentColor
+                    print("Selected player:", plr.Name)
+                end)
+                
+                -- Hover effects
+                playerBtn.MouseEnter:Connect(function()
+                    if selectedPlayer ~= plr then
+                        playerBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                    end
+                end)
+                
+                playerBtn.MouseLeave:Connect(function()
+                    if selectedPlayer ~= plr then
+                        playerBtn.BackgroundColor3 = buttonColor
+                    end
+                end)
+            end
+        end
+    end
+    
+    updatePlayerList()
+    
+    -- Search functionality
+    searchBox.FocusLost:Connect(function()
+        if searchBox.Text == "" then
+            searchBox.Text = "Search players..."
+        end
+        updatePlayerList(searchBox.Text ~= "Search players..." and searchBox.Text or nil)
+    end)
+    
+    searchBox.Focused:Connect(function()
+        if searchBox.Text == "Search players..." then
+            searchBox.Text = ""
+        end
+    end)
+    
+    searchBox.Changed:Connect(function(property)
+        if property == "Text" and searchBox.Text ~= "Search players..." then
+            updatePlayerList(searchBox.Text ~= "" and searchBox.Text or nil)
+        end
+    end)
+    
+    -- Listen for new players
+    Players.PlayerAdded:Connect(function()
+        updatePlayerList(searchBox.Text ~= "Search players..." and searchBox.Text or nil)
+    end)
+    
+    Players.PlayerRemoving:Connect(function()
+        updatePlayerList(searchBox.Text ~= "Search players..." and searchBox.Text or nil)
+    end)
+    
+    -- View Button
+    createToggleButton(parent, "View Player", function(enabled)
+        viewEnabled = enabled
+        if enabled and selectedPlayer then
+            viewPlayer(selectedPlayer)
+        else
+            viewPlayer(nil)
+        end
+    end)
+    
+    -- Goto Button
+    local gotoBtn = Instance.new("TextButton")
+    gotoBtn.Parent = parent
+    gotoBtn.Size = UDim2.new(1, 0, 0, 40)
+    gotoBtn.BackgroundColor3 = buttonColor
+    gotoBtn.Text = "Teleport to Player"
+    gotoBtn.TextColor3 = textColor
+    gotoBtn.TextScaled = true
+    gotoBtn.Font = Enum.Font.Gotham
+    
+    local gotoCorner = Instance.new("UICorner")
+    gotoCorner.CornerRadius = UDim.new(0, 6)
+    gotoCorner.Parent = gotoBtn
+    
+    gotoBtn.MouseButton1Click:Connect(function()
+        if selectedPlayer then
+            teleportToPlayer(selectedPlayer)
+        else
+            print("No player selected!")
+        end
+    end)
+    
+    -- Hover effect for goto button
+    gotoBtn.MouseEnter:Connect(function()
+        gotoBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    end)
+    
+    gotoBtn.MouseLeave:Connect(function()
+        gotoBtn.BackgroundColor3 = buttonColor
+    end)
 end
 
 function createESPCategory(parent)
@@ -543,9 +754,94 @@ function createESPCategory(parent)
         toggleESP(enabled)
     end)
     
+    -- Color Selection
+    local colorFrame = Instance.new("Frame")
+    colorFrame.Parent = parent
+    colorFrame.Size = UDim2.new(1, 0, 0, 80)
+    colorFrame.BackgroundTransparency = 1
+    
+    local colorLabel = Instance.new("TextLabel")
+    colorLabel.Parent = colorFrame
+    colorLabel.Size = UDim2.new(1, 0, 0, 20)
+    colorLabel.BackgroundTransparency = 1
+    colorLabel.Text = "ESP Color"
+    colorLabel.TextColor3 = textColor
+    colorLabel.TextScaled = true
+    colorLabel.Font = Enum.Font.Gotham
+    colorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local colors = {
+        {Color3.fromRGB(255, 0, 0), "Red"},
+        {Color3.fromRGB(0, 255, 0), "Green"},
+        {Color3.fromRGB(0, 0, 255), "Blue"},
+        {Color3.fromRGB(255, 255, 0), "Yellow"},
+        {Color3.fromRGB(255, 0, 255), "Magenta"},
+        {Color3.fromRGB(0, 255, 255), "Cyan"},
+        {Color3.fromRGB(255, 255, 255), "White"},
+        {Color3.fromRGB(0, 0, 0), "Black"}
+    }
+    
+    for i, colorData in pairs(colors) do
+        local colorBtn = Instance.new("TextButton")
+        colorBtn.Parent = colorFrame
+        colorBtn.Size = UDim2.new(0, 40, 0, 20)
+        colorBtn.Position = UDim2.new(0, (i-1) * 45, 0, 25)
+        colorBtn.BackgroundColor3 = colorData[1]
+        colorBtn.Text = ""
+        
+        local colorBtnCorner = Instance.new("UICorner")
+        colorBtnCorner.CornerRadius = UDim.new(0, 4)
+        colorBtnCorner.Parent = colorBtn
+        
+        colorBtn.MouseButton1Click:Connect(function()
+            updateESPColor(colorData[1])
+        end)
+    end
+    
+    createSlider(parent, "ESP Transparency", 0, 1, 0.5, function(value)
+        updateESPTransparency(value)
+    end)
+    
     createToggleButton(parent, "Nametags", function(enabled)
         nametagsEnabled = enabled
         toggleNametags(enabled)
+    end)
+    
+    -- Nametag Color Selection
+    local nametagColorFrame = Instance.new("Frame")
+    nametagColorFrame.Parent = parent
+    nametagColorFrame.Size = UDim2.new(1, 0, 0, 60)
+    nametagColorFrame.BackgroundTransparency = 1
+    
+    local nametagColorLabel = Instance.new("TextLabel")
+    nametagColorLabel.Parent = nametagColorFrame
+    nametagColorLabel.Size = UDim2.new(1, 0, 0, 20)
+    nametagColorLabel.BackgroundTransparency = 1
+    nametagColorLabel.Text = "Nametag Color"
+    nametagColorLabel.TextColor3 = textColor
+    nametagColorLabel.TextScaled = true
+    nametagColorLabel.Font = Enum.Font.Gotham
+    nametagColorLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    for i, colorData in pairs(colors) do
+        local nametagColorBtn = Instance.new("TextButton")
+        nametagColorBtn.Parent = nametagColorFrame
+        nametagColorBtn.Size = UDim2.new(0, 40, 0, 20)
+        nametagColorBtn.Position = UDim2.new(0, (i-1) * 45, 0, 25)
+        nametagColorBtn.BackgroundColor3 = colorData[1]
+        nametagColorBtn.Text = ""
+        
+        local nametagColorBtnCorner = Instance.new("UICorner")
+        nametagColorBtnCorner.CornerRadius = UDim.new(0, 4)
+        nametagColorBtnCorner.Parent = nametagColorBtn
+        
+        nametagColorBtn.MouseButton1Click:Connect(function()
+            updateNametagColor(colorData[1])
+        end)
+    end
+    
+    createSlider(parent, "Nametag Size", 1, 10, 3, function(value)
+        updateNametagSize(value)
     end)
 end
 
@@ -553,6 +849,16 @@ end
 local flyConnection
 local flyBodyVelocity
 local flyBodyAngularVelocity
+local noclipConnection
+local originalCamera
+local viewConnection
+local espHighlights = {}
+local healthBars = {}
+local nametags = {}
+local espColor = Color3.fromRGB(0, 255, 255)
+local espTransparency = 0.5
+local nametagColor = Color3.fromRGB(255, 255, 255)
+local nametagSize = 3
 
 function startFlying()
     if not character or not rootPart then return end
@@ -583,6 +889,7 @@ function startFlying()
             flyBodyVelocity.Velocity = moveVector * flySpeed
         end
     end)
+    print("Flying started!")
 end
 
 function stopFlying()
@@ -594,22 +901,338 @@ function stopFlying()
         flyBodyVelocity:Destroy()
         flyBodyVelocity = nil
     end
+    print("Flying stopped!")
 end
 
 function giveAllItems()
-    print("Give all items function called")
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return end
+    
+    -- Try to find tools in workspace and replicated storage
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Tool") and not backpack:FindFirstChild(obj.Name) then
+            pcall(function()
+                local toolClone = obj:Clone()
+                toolClone.Parent = backpack
+            end)
+        end
+    end
+    
+    if game.ReplicatedStorage then
+        for _, obj in pairs(game.ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("Tool") and not backpack:FindFirstChild(obj.Name) then
+                pcall(function()
+                    local toolClone = obj:Clone()
+                    toolClone.Parent = backpack
+                end)
+            end
+        end
+    end
+    
+    print("Attempted to give all items!")
 end
 
 function toggleNoclip(enabled)
-    print("Noclip:", enabled)
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+    end
+    
+    if enabled then
+        noclipConnection = RunService.Stepped:Connect(function()
+            if character then
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+        print("Noclip enabled!")
+    else
+        if character then
+            for _, part in pairs(character:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+        end
+        print("Noclip disabled!")
+    end
 end
 
+-- Player Viewing System
+function viewPlayer(targetPlayer)
+    local camera = workspace.CurrentCamera
+    
+    if viewConnection then
+        viewConnection:Disconnect()
+        viewConnection = nil
+    end
+    
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
+        originalCamera = camera.CFrame
+        viewConnection = RunService.Heartbeat:Connect(function()
+            if targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
+                camera.CFrame = targetPlayer.Character.Head.CFrame
+            end
+        end)
+        print("Viewing player:", targetPlayer.Name)
+    else
+        if originalCamera then
+            camera.CFrame = originalCamera
+        end
+        print("Stopped viewing player")
+    end
+end
+
+-- Teleport to Player
+function teleportToPlayer(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        print("Cannot teleport - target player not found or no character!")
+        return
+    end
+    
+    if character and rootPart then
+        rootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 0, -3)
+        print("Teleported to:", targetPlayer.Name)
+    else
+        print("Cannot teleport - your character not found!")
+    end
+end
+
+-- ESP System
 function toggleESP(enabled)
-    print("ESP:", enabled)
+    if enabled then
+        for _, otherPlayer in pairs(Players:GetPlayers()) do
+            if otherPlayer ~= player and otherPlayer.Character then
+                createESPHighlight(otherPlayer)
+            end
+        end
+        
+        -- Listen for new players and respawns
+        Players.PlayerAdded:Connect(function(newPlayer)
+            newPlayer.CharacterAdded:Connect(function()
+                wait(1)
+                if espEnabled then
+                    createESPHighlight(newPlayer)
+                end
+            end)
+        end)
+        
+        -- Listen for existing player respawns
+        for _, existingPlayer in pairs(Players:GetPlayers()) do
+            if existingPlayer ~= player then
+                existingPlayer.CharacterAdded:Connect(function()
+                    wait(1)
+                    if espEnabled then
+                        createESPHighlight(existingPlayer)
+                    end
+                end)
+            end
+        end
+        print("ESP enabled!")
+    else
+        for _, highlight in pairs(espHighlights) do
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+        for _, healthBar in pairs(healthBars) do
+            if healthBar then
+                healthBar:Destroy()
+            end
+        end
+        espHighlights = {}
+        healthBars = {}
+        print("ESP disabled!")
+    end
 end
 
+function createESPHighlight(targetPlayer)
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local highlight = Instance.new("Highlight")
+    highlight.Parent = targetPlayer.Character
+    highlight.FillColor = espColor
+    highlight.FillTransparency = espTransparency
+    highlight.OutlineColor = espColor
+    highlight.OutlineTransparency = 0
+    
+    espHighlights[targetPlayer.UserId] = highlight
+    
+    -- Create Health Bar
+    createHealthBar(targetPlayer)
+end
+
+function createHealthBar(targetPlayer)
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local humanoidTarget = targetPlayer.Character:FindFirstChild("Humanoid")
+    if not humanoidTarget then return end
+    
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Parent = targetPlayer.Character.HumanoidRootPart
+    billboardGui.Size = UDim2.new(0, 8, 0, 60)
+    billboardGui.StudsOffset = Vector3.new(2, 0, 0)
+    billboardGui.AlwaysOnTop = true
+    billboardGui.LightInfluence = 0
+    
+    -- Background for health bar
+    local healthBg = Instance.new("Frame")
+    healthBg.Parent = billboardGui
+    healthBg.Size = UDim2.new(1, 0, 1, 0)
+    healthBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    healthBg.BorderSizePixel = 0
+    
+    local healthBgCorner = Instance.new("UICorner")
+    healthBgCorner.CornerRadius = UDim.new(0, 2)
+    healthBgCorner.Parent = healthBg
+    
+    -- Health bar fill
+    local healthFill = Instance.new("Frame")
+    healthFill.Parent = healthBg
+    healthFill.Size = UDim2.new(1, 0, humanoidTarget.Health / humanoidTarget.MaxHealth, 0)
+    healthFill.Position = UDim2.new(0, 0, 1, 0)
+    healthFill.AnchorPoint = Vector2.new(0, 1)
+    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthFill.BorderSizePixel = 0
+    
+    local healthFillCorner = Instance.new("UICorner")
+    healthFillCorner.CornerRadius = UDim.new(0, 2)
+    healthFillCorner.Parent = healthFill
+    
+    healthBars[targetPlayer.UserId] = billboardGui
+    
+    -- Update health bar continuously
+    spawn(function()
+        while billboardGui.Parent and humanoidTarget.Parent do
+            wait(0.1)
+            if humanoidTarget and humanoidTarget.Parent then
+                local healthPercent = humanoidTarget.Health / humanoidTarget.MaxHealth
+                healthFill.Size = UDim2.new(1, 0, healthPercent, 0)
+                
+                -- Color based on health
+                if healthPercent > 0.6 then
+                    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Green
+                elseif healthPercent > 0.3 then
+                    healthFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
+                else
+                    healthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red
+                end
+            else
+                break
+            end
+        end
+    end)
+end
+
+function updateESPColor(color)
+    espColor = color
+    for _, highlight in pairs(espHighlights) do
+        if highlight then
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+        end
+    end
+    print("ESP color updated!")
+end
+
+function updateESPTransparency(transparency)
+    espTransparency = transparency
+    for _, highlight in pairs(espHighlights) do
+        if highlight then
+            highlight.FillTransparency = transparency
+        end
+    end
+    print("ESP transparency updated to:", transparency)
+end
+
+-- Nametag System
 function toggleNametags(enabled)
-    print("Nametags:", enabled)
+    if enabled then
+        for _, otherPlayer in pairs(Players:GetPlayers()) do
+            if otherPlayer ~= player and otherPlayer.Character then
+                createNametag(otherPlayer)
+            end
+        end
+        
+        -- Listen for new players and respawns
+        Players.PlayerAdded:Connect(function(newPlayer)
+            newPlayer.CharacterAdded:Connect(function()
+                wait(1)
+                if nametagsEnabled then
+                    createNametag(newPlayer)
+                end
+            end)
+        end)
+        
+        -- Listen for existing player respawns
+        for _, existingPlayer in pairs(Players:GetPlayers()) do
+            if existingPlayer ~= player then
+                existingPlayer.CharacterAdded:Connect(function()
+                    wait(1)
+                    if nametagsEnabled then
+                        createNametag(existingPlayer)
+                    end
+                end)
+            end
+        end
+        print("Nametags enabled!")
+    else
+        for _, nametag in pairs(nametags) do
+            if nametag then
+                nametag:Destroy()
+            end
+        end
+        nametags = {}
+        print("Nametags disabled!")
+    end
+end
+
+function createNametag(targetPlayer)
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Parent = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    billboardGui.Size = UDim2.new(0, 200, 0, 50)
+    billboardGui.StudsOffset = Vector3.new(0, -3, 0)
+    billboardGui.AlwaysOnTop = true
+    billboardGui.LightInfluence = 0
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Parent = billboardGui
+    nameLabel.Size = UDim2.new(1, 0, 1, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = targetPlayer.Name
+    nameLabel.TextColor3 = nametagColor
+    nameLabel.TextScaled = false
+    nameLabel.TextSize = nametagSize * 6
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    
+    nametags[targetPlayer.UserId] = billboardGui
+end
+
+function updateNametagColor(color)
+    nametagColor = color
+    for _, nametag in pairs(nametags) do
+        if nametag and nametag:FindFirstChild("TextLabel") then
+            nametag.TextLabel.TextColor3 = color
+        end
+    end
+    print("Nametag color updated!")
+end
+
+function updateNametagSize(size)
+    nametagSize = size
+    for _, nametag in pairs(nametags) do
+        if nametag and nametag:FindFirstChild("TextLabel") then
+            nametag.TextLabel.TextSize = size * 6
+        end
+    end
+    print("Nametag size updated to:", size)
 end
 
 -- Input Handling
