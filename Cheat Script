@@ -32,6 +32,7 @@ local toggleKey = Enum.KeyCode.Insert
 local espHighlights = {}
 local nametags = {}
 local healthbars = {}
+local flyLookDirection = nil -- Speichert die Blickrichtung beim Aktivieren des Fliegens
 
 -- GUI erstellen
 local ScreenGui = Instance.new("ScreenGui")
@@ -595,6 +596,9 @@ flyButton.MouseButton1Click:Connect(function()
 		if character and character:FindFirstChild("HumanoidRootPart") then
 			local humanoidRootPart = character.HumanoidRootPart
 
+			-- Speichere die aktuelle Kamera-Richtung beim Aktivieren des Fliegens
+			flyLookDirection = Camera.CFrame.LookVector
+			
 			flyBodyVelocity = Instance.new("BodyVelocity")
 			flyBodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
 			flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
@@ -606,6 +610,7 @@ flyButton.MouseButton1Click:Connect(function()
 			flyBodyAngularVelocity.Parent = humanoidRootPart
 		end
 	else
+		flyLookDirection = nil -- Reset beim Deaktivieren
 		if flyBodyVelocity then
 			flyBodyVelocity:Destroy()
 			flyBodyVelocity = nil
@@ -617,7 +622,7 @@ flyButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FIXED: Character-Rotation beim Fliegen - Wie Shift-Lock (3D Kamera-Tracking)
+-- FIXED: Character-Rotation beim Fliegen - Feste Blickrichtung wie Shift-Lock
 RunService.Heartbeat:Connect(function()
 	local camera = Workspace.CurrentCamera
 	local character = LocalPlayer.Character
@@ -625,20 +630,19 @@ RunService.Heartbeat:Connect(function()
 	if character and character:FindFirstChild("HumanoidRootPart") then
 		local humanoidRootPart = character.HumanoidRootPart
 
-		-- Character-Rotation NUR beim Fliegen - Vollständige 3D Kamera-Verfolgung
-		if isFlying then
-			local lookDirection = camera.CFrame.LookVector
-			local upDirection = camera.CFrame.UpVector
-			-- Vollständige 3D-Rotation in alle Richtungen (wie Shift-Lock)
-			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + lookDirection, upDirection)
-			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.25)
+		-- Character-Rotation beim Fliegen - verwendet gespeicherte Blickrichtung
+		if isFlying and flyLookDirection then
+			-- Character schaut immer in die ursprüngliche Richtung vom Fly-Start
+			local horizontalLook = Vector3.new(flyLookDirection.X, 0, flyLookDirection.Z).Unit
+			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + horizontalLook)
+			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.3)
 		end
 
 		-- Fly-Bewegung
 		if isFlying and flyBodyVelocity then
 			flySpeed = flySpeedSlider()
 
-			-- Bewegungsvektor basierend auf Kamera-Richtung
+			-- Bewegungsvektor basierend auf aktueller Kamera-Richtung (für Bewegung)
 			local moveVector = Vector3.new(0, 0, 0)
 
 			if UserInputService:IsKeyDown(Enum.KeyCode.W) then
