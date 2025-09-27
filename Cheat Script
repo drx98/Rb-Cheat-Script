@@ -103,7 +103,7 @@ local function createShadow(parent)
     return shadow
 end
 
--- Load Screen
+-- Load Screen (FIXED: 100% transparent background)
 local function createLoadScreen()
     if loadScreenShown then return end
     loadScreenShown = true
@@ -116,7 +116,7 @@ local function createLoadScreen()
     local loadFrame = Instance.new("Frame")
     loadFrame.Size = UDim2.new(1, 0, 1, 0)
     loadFrame.Position = UDim2.new(0, 0, 0, 0)
-    loadFrame.BackgroundTransparency = 1  -- Komplett transparent
+    loadFrame.BackgroundTransparency = 1  -- 100% transparent
     loadFrame.Parent = loadGui
     
     local loadContainer = Instance.new("Frame")
@@ -306,6 +306,7 @@ local function createMainUI()
     minimizeBtn.TextScaled = true
     minimizeBtn.Font = Enum.Font.GothamBold
     minimizeBtn.BorderSizePixel = 0
+    minimizeBtn.AutoButtonColor = false  -- Instant response
     minimizeBtn.Parent = controlsContainer
     createCorner(minimizeBtn, 6)
     createStroke(minimizeBtn, COLORS.BORDER)
@@ -319,6 +320,7 @@ local function createMainUI()
     settingsBtn.TextScaled = true
     settingsBtn.Font = Enum.Font.GothamSemibold
     settingsBtn.BorderSizePixel = 0
+    settingsBtn.AutoButtonColor = false  -- Instant response
     settingsBtn.Parent = controlsContainer
     createCorner(settingsBtn, 6)
     
@@ -385,19 +387,19 @@ local function createMainUI()
     welcomeText.Font = Enum.Font.Gotham
     welcomeText.Parent = ContentFrame
     
-    -- Button hover effects
+    -- Button hover effects - IMMEDIATE RESPONSE
     minimizeBtn.MouseEnter:Connect(function()
-        createTween(minimizeBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundColor3 = COLORS.DANGER})
+        minimizeBtn.BackgroundColor3 = COLORS.DANGER
     end)
     minimizeBtn.MouseLeave:Connect(function()
-        createTween(minimizeBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundColor3 = COLORS.SURFACE_LIGHT})
+        minimizeBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
     end)
     
     settingsBtn.MouseEnter:Connect(function()
-        createTween(settingsBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundColor3 = COLORS.PRIMARY_HOVER})
+        settingsBtn.BackgroundColor3 = COLORS.PRIMARY_HOVER
     end)
     settingsBtn.MouseLeave:Connect(function()
-        createTween(settingsBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundColor3 = COLORS.PRIMARY})
+        settingsBtn.BackgroundColor3 = COLORS.PRIMARY
     end)
     
     -- Drag functionality
@@ -496,6 +498,7 @@ local function createSettingsFrame()
     closeBtn.TextScaled = true
     closeBtn.Font = Enum.Font.GothamBold
     closeBtn.BorderSizePixel = 0
+    closeBtn.AutoButtonColor = false
     closeBtn.Parent = header
     createCorner(closeBtn, 6)
     
@@ -526,6 +529,7 @@ local function createSettingsFrame()
     keybindBtn.TextScaled = true
     keybindBtn.Font = Enum.Font.GothamSemibold
     keybindBtn.BorderSizePixel = 0
+    keybindBtn.AutoButtonColor = false
     keybindBtn.Parent = content
     createCorner(keybindBtn, 8)
     
@@ -550,7 +554,7 @@ local function createSettingsFrame()
     end)
 end
 
--- Enhanced UI Elements
+-- Enhanced UI Elements - FIXED BUTTON RESPONSIVENESS
 local function createModernButton(parent, text, callback, style)
     style = style or "default"
     
@@ -562,7 +566,7 @@ local function createModernButton(parent, text, callback, style)
                           COLORS.SURFACE_LIGHT
     btn.Text = ""
     btn.BorderSizePixel = 0
-    btn.AutoButtonColor = false  -- Schnellere Reaktion
+    btn.AutoButtonColor = false  -- FIXED: Instant response
     btn.Parent = parent
     
     createCorner(btn, 8)
@@ -587,7 +591,7 @@ local function createModernButton(parent, text, callback, style)
     indicator.Parent = btn
     createCorner(indicator, 4)
     
-    -- Sofortige Hover-Effekte
+    -- FIXED: Instant hover effects without tweens
     btn.MouseEnter:Connect(function()
         btn.BackgroundColor3 = Color3.new(
             math.min(1, btn.BackgroundColor3.R + 0.1),
@@ -719,6 +723,7 @@ local function createModernColorPicker(parent, text, currentColor, callback)
         colorBtn.BackgroundColor3 = colorData[1]
         colorBtn.Text = ""
         colorBtn.BorderSizePixel = 0
+        colorBtn.AutoButtonColor = false
         colorBtn.Parent = container
         
         createCorner(colorBtn, 6)
@@ -801,6 +806,7 @@ local function createCategoryButton(name, callback, icon)
     btn.BackgroundColor3 = COLORS.SURFACE_LIGHT
     btn.Text = ""
     btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false  -- FIXED: Instant response
     btn.Parent = Liste
     
     createCorner(btn, 8)
@@ -827,7 +833,7 @@ local function createCategoryButton(name, callback, icon)
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
     nameLabel.Parent = btn
     
-    -- Hover effects
+    -- FIXED: Instant hover effects
     btn.MouseEnter:Connect(function()
         btn.BackgroundColor3 = COLORS.PRIMARY
         iconLabel.TextColor3 = COLORS.TEXT_PRIMARY
@@ -1327,10 +1333,11 @@ local function createMeFrame()
     frame.CanvasSize = UDim2.new(0, 0, 0, 350)
 end
 
+-- FIXED PLAYER FRAME - Complete implementation
 local function createPlayerFrame()
     local frame = createCategoryFrame("Player")
     
-    -- Kleines ScrollingFrame für Player-Auswahl
+    -- Player selection container
     local playerContainer = Instance.new("Frame")
     playerContainer.Size = UDim2.new(1, -20, 0, 200)
     playerContainer.BackgroundColor3 = COLORS.SURFACE
@@ -1343,7 +1350,7 @@ local function createPlayerFrame()
     containerPadding.PaddingAll = UDim.new(0, 8)
     containerPadding.Parent = playerContainer
     
-    -- Suchleiste mit Vorschlägen
+    -- Search bar with suggestions
     local searchBox = Instance.new("TextBox")
     searchBox.Size = UDim2.new(1, 0, 0, 30)
     searchBox.Position = UDim2.new(0, 0, 0, 0)
@@ -1359,7 +1366,7 @@ local function createPlayerFrame()
     createCorner(searchBox, 6)
     createStroke(searchBox, COLORS.BORDER)
     
-    -- Kleines Player ScrollingFrame
+    -- Small player ScrollingFrame
     local playerScrollFrame = Instance.new("ScrollingFrame")
     playerScrollFrame.Size = UDim2.new(1, 0, 0, 120)
     playerScrollFrame.Position = UDim2.new(0, 0, 0, 38)
@@ -1381,7 +1388,7 @@ local function createPlayerFrame()
     listPadding.PaddingAll = UDim.new(0, 4)
     listPadding.Parent = playerScrollFrame
     
-    -- Buttons unter dem Container
+    -- Control buttons under container
     local viewBtn = Instance.new("TextButton")
     viewBtn.Size = UDim2.new(0, 120, 0, 35)
     viewBtn.Position = UDim2.new(0, 0, 0, 220)
@@ -1421,7 +1428,7 @@ local function createPlayerFrame()
     selectedLabel.TextXAlignment = Enum.TextXAlignment.Left
     selectedLabel.Parent = frame
     
-    -- Funktionen
+    -- Functions for player search and suggestions
     local function getSimilarPlayers(input)
         local players = getAllPlayers()
         local similar = {}
@@ -1435,7 +1442,7 @@ local function createPlayerFrame()
             end
         end
         
-        -- Sortiere nach Ähnlichkeit (beginnt mit Suchtext zuerst)
+        -- Sort by similarity (starts with search text first)
         table.sort(similar, function(a, b)
             local aStarts = string.sub(a.Name:lower(), 1, #input) == input:lower()
             local bStarts = string.sub(b.Name:lower(), 1, #input) == input:lower()
@@ -1453,7 +1460,7 @@ local function createPlayerFrame()
     end
     
     local function updatePlayerList(searchText)
-        -- Lösche alle bestehenden Player-Buttons
+        -- Delete all existing player buttons
         for _, child in ipairs(playerScrollFrame:GetChildren()) do
             if child:IsA("TextButton") then
                 child:Destroy()
@@ -1475,7 +1482,7 @@ local function createPlayerFrame()
             playerBtn.Parent = playerScrollFrame
             createCorner(playerBtn, 4)
             
-            -- Hover-Effekt
+            -- Instant hover effect
             playerBtn.MouseEnter:Connect(function()
                 if settings.selectedPlayer ~= player then
                     playerBtn.BackgroundColor3 = COLORS.PRIMARY
@@ -1488,9 +1495,9 @@ local function createPlayerFrame()
                 end
             end)
             
-            -- Auswahl-Funktion
+            -- Selection function
             playerBtn.MouseButton1Click:Connect(function()
-                -- Deselektiere alle anderen
+                -- Deselect all others
                 for _, btn in ipairs(playerScrollFrame:GetChildren()) do
                     if btn:IsA("TextButton") and btn ~= playerBtn then
                         btn.BackgroundColor3 = COLORS.SURFACE_LIGHT
@@ -1504,12 +1511,12 @@ local function createPlayerFrame()
         end
     end
     
-    -- Suchfunktion mit Vorschlägen
+    -- Search function with suggestions
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         updatePlayerList(searchBox.Text)
     end)
     
-    -- View Button Toggle-Funktionalität
+    -- View Button Toggle functionality
     local function updateViewButton(viewing)
         if viewing then
             viewBtn.Text = "View: ON"
@@ -1527,14 +1534,14 @@ local function createPlayerFrame()
         end
     end)
     
-    -- Goto Button Funktionalität
+    -- Goto Button functionality
     gotoBtn.MouseButton1Click:Connect(function()
         if settings.selectedPlayer then
             teleportToPlayer(settings.selectedPlayer)
         end
     end)
     
-    -- Button Hover-Effekte
+    -- Button Hover effects - INSTANT
     viewBtn.MouseEnter:Connect(function()
         if viewBtn.BackgroundColor3 ~= COLORS.SUCCESS then
             viewBtn.BackgroundColor3 = Color3.new(
@@ -1559,7 +1566,7 @@ local function createPlayerFrame()
         gotoBtn.BackgroundColor3 = COLORS.PRIMARY
     end)
     
-    -- Events für Player Join/Leave
+    -- Events for Player Join/Leave
     local function onPlayerAdded()
         wait(0.1)
         updatePlayerList(searchBox.Text)
@@ -1577,7 +1584,7 @@ local function createPlayerFrame()
     Players.PlayerAdded:Connect(onPlayerAdded)
     Players.PlayerRemoving:Connect(onPlayerRemoving)
     
-    -- Initiale Player-Liste
+    -- Initial player list
     updatePlayerList()
     
     frame.CanvasSize = UDim2.new(0, 0, 0, 310)
