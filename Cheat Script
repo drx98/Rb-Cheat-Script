@@ -1,4 +1,3 @@
--- ESP KATEGORIE
 local espFrame = categoryFrames["ESP"]
 if not espFrame then
 	print("Error: ESP frame not found!")
