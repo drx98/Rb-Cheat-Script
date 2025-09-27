@@ -128,11 +128,13 @@ local function createLoadScreen()
     -- Nach 5 Sekunden entfernen
     spawn(function()
         wait(5)
-        local fadeOut = TweenService:Create(LoadScreen, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {BackgroundTransparency = 1})
-        fadeOut:Play()
-        TweenService:Create(title, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {TextTransparency = 1}):Play()
-        wait(0.5)
-        LoadScreen:Destroy()
+        pcall(function()
+            local fadeOut = TweenService:Create(LoadScreen, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {BackgroundTransparency = 1})
+            fadeOut:Play()
+            TweenService:Create(title, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {TextTransparency = 1}):Play()
+            wait(0.5)
+            LoadScreen:Destroy()
+        end)
         createMainMenu()
     end)
 end
@@ -266,10 +268,6 @@ local function createMainMenu()
     end)
     
     -- Dragging für MainFrame
-    local dragging = false
-    local dragStart = nil
-    local startPos = nil
-    
     MainRahmen.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
@@ -278,15 +276,16 @@ local function createMainMenu()
         end
     end)
     
-    MainRahmen.InputChanged:Connect(function(input)
+    UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local delta = input.Position - dragStart
-            MainRahmen.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            MainFrame.Position = UDim2.new(MainRahmen.Position.X.Scale, MainRahmen.Position.X.Offset, MainRahmen.Position.Y.Scale, MainRahmen.Position.Y.Offset + 30)
+            local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            MainRahmen.Position = newPos
+            MainFrame.Position = UDim2.new(newPos.X.Scale, newPos.X.Offset, newPos.Y.Scale, newPos.Y.Offset + 30)
         end
     end)
     
-    MainRahmen.InputEnded:Connect(function(input)
+    UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
@@ -374,6 +373,8 @@ end
 
 -- Kategorie öffnen
 function openCategory(categoryName)
+    print("Opening category: " .. categoryName) -- Debug
+    
     -- Entferne vorherige Kategorie-Frames
     for _, child in pairs(MainFrame:GetChildren()) do
         if child.Name:find("CategoryFrame") then
@@ -390,6 +391,7 @@ function openCategory(categoryName)
     categoryFrame.Size = UDim2.new(0, 430, 1, -20)
     categoryFrame.ScrollBarThickness = 6
     categoryFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 206, 209)
+    categoryFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     
     local catFrameCorner = Instance.new("UICorner")
     catFrameCorner.CornerRadius = UDim.new(0, 6)
@@ -400,6 +402,11 @@ function openCategory(categoryName)
     layout.Padding = UDim.new(0, 10)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     
+    -- Canvas Size automatisch anpassen
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        categoryFrame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
+    end)
+    
     if categoryName == "Fly" then
         createFlyCategory(categoryFrame)
     elseif categoryName == "Me" then
@@ -409,6 +416,8 @@ function openCategory(categoryName)
     elseif categoryName == "ESP" then
         createESPCategory(categoryFrame)
     end
+    
+    print("Category frame created successfully") -- Debug
 end
 
 -- Fly Kategorie
@@ -1195,5 +1204,7 @@ game.Players.PlayerRemoving:Connect(function(player)
 end)
 
 -- GUI initialisieren
+print("Initializing Vyrxis Menu...")
 createGui()
 createLoadScreen()
+print("Vyrxis Menu initialized successfully!")
