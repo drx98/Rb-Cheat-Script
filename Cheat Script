@@ -925,23 +925,32 @@ end
 
 local nametagSizeSlider = createSlider(espFrame, "Nametag Size", 8, 30, 14, 6)
 
--- ESP Highlight Funktion
+-- ESP Highlight Funktion - Verbessert
 local function createESPHighlight(character)
+    if not character or not character.Parent then return nil end
+    
     local highlight = Instance.new("Highlight")
+    highlight.Name = "VyrxisESP"
     highlight.FillColor = espColor
     highlight.OutlineColor = espColor
     highlight.FillTransparency = espTransparency / 100
     highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = character
+    
+    print("ESP Highlight erstellt für: " .. (character.Name or "Unknown"))
     return highlight
 end
 
--- Nametag und Healthbar Funktion
+-- Nametag und Healthbar Funktion - Verbessert
 local function createNametag(character, playerName)
+    if not character or not character.Parent then return nil end
+    
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return nil end
     
     local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "VyrxisNametag"
     billboardGui.Size = UDim2.new(0, 200, 0, 50)
     billboardGui.StudsOffset = Vector3.new(0, -3, 0)
     billboardGui.Parent = humanoidRootPart
@@ -959,23 +968,26 @@ local function createNametag(character, playerName)
     textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     textLabel.Parent = billboardGui
     
+    print("Nametag erstellt für: " .. playerName)
     return billboardGui
 end
 
--- Healthbar Funktion
+-- Healthbar Funktion - Verbessert
 local function createHealthbar(character)
+    if not character or not character.Parent then return nil end
+    
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     local humanoid = character:FindFirstChild("Humanoid")
     if not humanoidRootPart or not humanoid then return nil end
     
     local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Size = UDim2.new(0, 4, 0, 50) -- Viel dünner gemacht
-    billboardGui.StudsOffset = Vector3.new(1.5, 0, 0)
+    billboardGui.Name = "VyrxisHealthbar"
+    billboardGui.Size = UDim2.new(0, 6, 0, 60) -- Etwas breiter für bessere Sichtbarkeit
+    billboardGui.StudsOffset = Vector3.new(2, 0, 0)
     billboardGui.Parent = humanoidRootPart
     billboardGui.Adornee = humanoidRootPart
     billboardGui.AlwaysOnTop = true
     billboardGui.LightInfluence = 0
-    -- Wichtig: StudsOffsetWorldSpace = false, damit es relativ zum Character skaliert
     billboardGui.StudsOffsetWorldSpace = false
     
     local background = Instance.new("Frame")
@@ -986,26 +998,28 @@ local function createHealthbar(character)
     background.Parent = billboardGui
     
     local healthBar = Instance.new("Frame")
-    healthBar.Size = UDim2.new(1, -2, humanoid.Health / humanoid.MaxHealth, -2)
+    healthBar.Size = UDim2.new(1, -2, math.max(humanoid.Health / humanoid.MaxHealth, 0.01), -2)
     healthBar.Position = UDim2.new(0, 1, 1, -1)
     healthBar.AnchorPoint = Vector2.new(0, 1)
     healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
     healthBar.BorderSizePixel = 0
     healthBar.Parent = background
     
-    -- Health update
+    -- Health update connection
     local connection
     connection = humanoid.HealthChanged:Connect(function()
-        local healthPercent = humanoid.Health / humanoid.MaxHealth
-        healthBar.Size = UDim2.new(1, -2, healthPercent, -2)
-        
-        -- Color based on health
-        if healthPercent > 0.5 then
-            healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-        elseif healthPercent > 0.25 then
-            healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-        else
-            healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        if healthBar and healthBar.Parent then
+            local healthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.01)
+            healthBar.Size = UDim2.new(1, -2, healthPercent, -2)
+            
+            -- Color based on health
+            if healthPercent > 0.5 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+            elseif healthPercent > 0.25 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+            else
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            end
         end
     end)
     
@@ -1016,68 +1030,114 @@ local function createHealthbar(character)
         end
     end)
     
+    print("Healthbar erstellt für: " .. (character.Name or "Unknown"))
     return billboardGui
 end
 
--- ESP Toggle - Komplett überarbeitet
+-- ESP Toggle - Debug Version
 espHighlightButton.MouseButton1Click:Connect(function()
     isESPEnabled = not isESPEnabled
     espHighlightButton.Text = isESPEnabled and "ESP Highlight: ON" or "ESP Highlight: OFF"
     espHighlightButton.BackgroundColor3 = isESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
     
+    print("ESP Toggle: " .. tostring(isESPEnabled))
+    
     if isESPEnabled then
-        -- Erstelle ESP für alle Spieler außer LocalPlayer
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                -- Warte auf Character falls noch nicht geladen
-                if player.Character then
-                    -- ESP Highlight erstellen
-                    if not espHighlights[player] or not espHighlights[player].Parent then
-                        local highlight = createESPHighlight(player.Character)
-                        espHighlights[player] = highlight
-                    end
-                    
-                    -- Healthbar erstellen
-                    if not healthbars[player] or not healthbars[player].Parent then
-                        local healthbar = createHealthbar(player.Character)
-                        healthbars[player] = healthbar
-                    end
-                else
-                    -- Falls Character noch nicht da ist, warte darauf
-                    spawn(function()
-                        repeat
-                            wait(0.1)
-                        until player.Character
-                        
-                        if isESPEnabled then -- Prüfe ob ESP noch an ist
-                            if not espHighlights[player] or not espHighlights[player].Parent then
-                                local highlight = createESPHighlight(player.Character)
-                                espHighlights[player] = highlight
-                            end
-                            
-                            if not healthbars[player] or not healthbars[player].Parent then
-                                local healthbar = createHealthbar(player.Character)
-                                healthbars[player] = healthbar
-                            end
-                        end
-                    end)
-                end
-            end
-        end
-    else
-        -- Entferne alle ESP Elemente
+        -- Cleane alle vorherigen ESP Elemente
         for player, highlight in pairs(espHighlights) do
             if highlight and highlight.Parent then
                 highlight:Destroy()
             end
-            espHighlights[player] = nil
         end
         for player, healthbar in pairs(healthbars) do
             if healthbar and healthbar.Parent then
                 healthbar:Destroy()
             end
-            healthbars[player] = nil
         end
+        espHighlights = {}
+        healthbars = {}
+        
+        -- Erstelle ESP für alle Spieler
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                print("Verarbeite Spieler: " .. player.Name)
+                
+                if player.Character then
+                    print("Character gefunden für: " .. player.Name)
+                    
+                    -- ESP Highlight erstellen
+                    local highlight = createESPHighlight(player.Character)
+                    if highlight then
+                        espHighlights[player] = highlight
+                        print("Highlight erfolgreich erstellt für: " .. player.Name)
+                    else
+                        print("FEHLER: Highlight konnte nicht erstellt werden für: " .. player.Name)
+                    end
+                    
+                    -- Healthbar erstellen
+                    local healthbar = createHealthbar(player.Character)
+                    if healthbar then
+                        healthbars[player] = healthbar
+                        print("Healthbar erfolgreich erstellt für: " .. player.Name)
+                    else
+                        print("FEHLER: Healthbar konnte nicht erstellt werden für: " .. player.Name)
+                    end
+                else
+                    print("Kein Character für Spieler: " .. player.Name)
+                    -- Warte auf Character
+                    spawn(function()
+                        local attempts = 0
+                        repeat
+                            wait(0.1)
+                            attempts = attempts + 1
+                        until player.Character or attempts > 50 -- Max 5 Sekunden warten
+                        
+                        if player.Character and isESPEnabled then
+                            print("Character später geladen für: " .. player.Name)
+                            
+                            local highlight = createESPHighlight(player.Character)
+                            if highlight then
+                                espHighlights[player] = highlight
+                                print("Spätes Highlight erstellt für: " .. player.Name)
+                            end
+                            
+                            local healthbar = createHealthbar(player.Character)
+                            if healthbar then
+                                healthbars[player] = healthbar
+                                print("Späte Healthbar erstellt für: " .. player.Name)
+                            end
+                        elseif attempts > 50 then
+                            print("Timeout beim Warten auf Character für: " .. player.Name)
+                        end
+                    end)
+                end
+            end
+        end
+        
+        print("ESP aktiviert. Highlights: " .. #espHighlights .. ", Healthbars: " .. #healthbars)
+    else
+        -- Entferne alle ESP Elemente
+        local highlightCount = 0
+        local healthbarCount = 0
+        
+        for player, highlight in pairs(espHighlights) do
+            if highlight and highlight.Parent then
+                highlight:Destroy()
+                highlightCount = highlightCount + 1
+            end
+        end
+        
+        for player, healthbar in pairs(healthbars) do
+            if healthbar and healthbar.Parent then
+                healthbar:Destroy()
+                healthbarCount = healthbarCount + 1
+            end
+        end
+        
+        espHighlights = {}
+        healthbars = {}
+        
+        print("ESP deaktiviert. Entfernt - Highlights: " .. highlightCount .. ", Healthbars: " .. healthbarCount)
     end
 end)
 
@@ -1127,111 +1187,119 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Player Added/Removed Events für ESP - Verbessert
+-- Player Events - Vereinfacht und robust
 Players.PlayerAdded:Connect(function(player)
-    local function setupESPForPlayer(character)
-        wait(0.5) -- Kurz warten damit Character vollständig geladen ist
+    if player == LocalPlayer then return end
+    
+    local function handleCharacterAdded(character)
+        wait(1) -- Warte bis Character vollständig geladen ist
         
-        if isESPEnabled and player ~= LocalPlayer then
-            -- Cleanup alte ESP Elemente falls vorhanden
-            if espHighlights[player] and espHighlights[player].Parent then
+        print("Character Added Event für: " .. player.Name)
+        
+        -- ESP Setup
+        if isESPEnabled then
+            -- Cleanup alte ESP Elemente
+            if espHighlights[player] then
                 espHighlights[player]:Destroy()
             end
-            if healthbars[player] and healthbars[player].Parent then
+            if healthbars[player] then
                 healthbars[player]:Destroy()
             end
             
             -- Erstelle neue ESP Elemente
             local highlight = createESPHighlight(character)
-            espHighlights[player] = highlight
-            
             local healthbar = createHealthbar(character)
-            healthbars[player] = healthbar
+            
+            if highlight then
+                espHighlights[player] = highlight
+            end
+            if healthbar then
+                healthbars[player] = healthbar
+            end
         end
         
-        if nametagsEnabled and player ~= LocalPlayer then
-            if nametags[player] and nametags[player].Parent then
+        -- Nametags Setup
+        if nametagsEnabled then
+            if nametags[player] then
                 nametags[player]:Destroy()
             end
             local nametag = createNametag(character, player.Name)
-            nametags[player] = nametag
-        end
-        
-        -- Player list update
-        updatePlayerList()
-    end
-    
-    -- Setup für bereits vorhandenen Character
-    if player.Character then
-        setupESPForPlayer(player.Character)
-    end
-    
-    -- Setup für zukünftige Characters (Respawns)
-    player.CharacterAdded:Connect(setupESPForPlayer)
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-    -- Cleanup alle ESP Elemente für entfernten Spieler
-    if espHighlights[player] then
-        if espHighlights[player].Parent then
-            espHighlights[player]:Destroy()
-        end
-        espHighlights[player] = nil
-    end
-    if nametags[player] then
-        if nametags[player].Parent then
-            nametags[player]:Destroy()
-        end
-        nametags[player] = nil
-    end
-    if healthbars[player] then
-        if healthbars[player].Parent then
-            healthbars[player]:Destroy()
-        end
-        healthbars[player] = nil
-    end
-    
-    -- Player list update
-    updatePlayerList()
-end)
-
--- Setup für bereits vorhandene Spieler
-for _, player in pairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        local function setupESPForExistingPlayer(character)
-            wait(0.5)
-            
-            if isESPEnabled then
-                if espHighlights[player] and espHighlights[player].Parent then
-                    espHighlights[player]:Destroy()
-                end
-                if healthbars[player] and healthbars[player].Parent then
-                    healthbars[player]:Destroy()
-                end
-                
-                local highlight = createESPHighlight(character)
-                espHighlights[player] = highlight
-                
-                local healthbar = createHealthbar(character)
-                healthbars[player] = healthbar
-            end
-            
-            if nametagsEnabled then
-                if nametags[player] and nametags[player].Parent then
-                    nametags[player]:Destroy()
-                end
-                local nametag = createNametag(character, player.Name)
+            if nametag then
                 nametags[player] = nametag
             end
         end
         
-        if player.Character then
-            setupESPForExistingPlayer(player.Character)
-        end
-        
-        player.CharacterAdded:Connect(setupESPForExistingPlayer)
+        updatePlayerList()
     end
-end
+    
+    -- Handle existing character
+    if player.Character then
+        handleCharacterAdded(player.Character)
+    end
+    
+    -- Handle future characters
+    player.CharacterAdded:Connect(handleCharacterAdded)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    print("Spieler verlässt: " .. player.Name)
+    
+    -- Cleanup alle Elemente
+    if espHighlights[player] then
+        espHighlights[player]:Destroy()
+        espHighlights[player] = nil
+    end
+    if healthbars[player] then
+        healthbars[player]:Destroy()
+        healthbars[player] = nil
+    end
+    if nametags[player] then
+        nametags[player]:Destroy()
+        nametags[player] = nil
+    end
+    
+    updatePlayerList()
+end)
+
+-- Setup für bereits vorhandene Spieler
+spawn(function()
+    wait(1) -- Warte kurz bis alles geladen ist
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            print("Setup für vorhandenen Spieler: " .. player.Name)
+            
+            local function setupExistingPlayer(character)
+                wait(1)
+                
+                if isESPEnabled then
+                    local highlight = createESPHighlight(character)
+                    local healthbar = createHealthbar(character)
+                    
+                    if highlight then
+                        espHighlights[player] = highlight
+                    end
+                    if healthbar then
+                        healthbars[player] = healthbar
+                    end
+                end
+                
+                if nametagsEnabled then
+                    local nametag = createNametag(character, player.Name)
+                    if nametag then
+                        nametags[player] = nametag
+                    end
+                end
+            end
+            
+            if player.Character then
+                setupExistingPlayer(player.Character)
+            end
+            
+            player.CharacterAdded:Connect(setupExistingPlayer)
+        end
+    end
+end)
 
 -- GUI Controls
 MinimizeButton.MouseButton1Click:Connect(function()
