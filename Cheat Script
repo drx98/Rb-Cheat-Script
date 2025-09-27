@@ -1,49 +1,49 @@
 -- Character Respawn Handling
 player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
-    humanoid = character:WaitForChild("Humanoid")
-    rootPart = character:WaitForChild("HumanoidRootPart")
+    updateCharacterReferences()
     
-    -- Restart functions if they were enabled
-    if flyEnabled then
-        wait(1)
-        stopFlying()
-        startFlying()
-    end
-    
-    if noclipEnabled then
-        wait(1)
-        toggleNoclip(true)
-    end
-    
-    -- Recreate ESP and nametags for other players
-    if espEnabled then
-        wait(1)
-        -- Clear old ESP
-        for _, highlight in pairs(espHighlights) do
-            if highlight then highlight:Destroy() end
+    -- Wait a bit for character to fully load
+    spawn(function()
+        wait(2)
+        
+        -- Restart functions if they were enabled
+        if flyEnabled then
+            stopFlying()
+            startFlying()
         end
-        for _, healthBar in pairs(healthBars) do
-            if healthBar then healthBar:Destroy() end
+        
+        if noclipEnabled then
+            toggleNoclip(true)
         end
-        espHighlights = {}
-        healthBars = {}
-        -- Recreate ESP
-        toggleESP(true)
-    end
-    
-    if nametagsEnabled then
-        wait(1)
-        -- Clear old nametags
-        for _, nametag in pairs(nametags) do
-            if nametag then nametag:Destroy() end
+        
+        -- Recreate ESP and nametags for other players
+        if espEnabled then
+            -- Clear old ESP
+            for _, highlight in pairs(espHighlights) do
+                pcall(function() highlight:Destroy() end)
+            end
+            for _, healthBar in pairs(healthBars) do
+                pcall(function() healthBar:Destroy() end)
+            end
+            espHighlights = {}
+            healthBars = {}
+            -- Recreate ESP
+            toggleESP(true)
         end
-        nametags = {}
-        -- Recreate nametags
-        toggleNametags(true)
-    end
-    
-    print("Character respawned - functions restored!")
+        
+        if nametagsEnabled then
+            -- Clear old nametags
+            for _, nametag in pairs(nametags) do
+                pcall(function() nametag:Destroy() end)
+            end
+            nametags = {}
+            -- Recreate nametags
+            toggleNametags(true)
+        end
+        
+        print("Character respawned - functions restored!")
+    end)
 end)-- Vyrxis Menu - Professional Roblox GUI Script
 -- Services
 local Players = game:GetService("Players")
@@ -55,8 +55,18 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid, rootPart
+
+-- Function to update character references
+local function updateCharacterReferences()
+    if character then
+        humanoid = character:WaitForChild("Humanoid")
+        rootPart = character:WaitForChild("HumanoidRootPart")
+    end
+end
+
+-- Initial setup
+updateCharacterReferences()
 
 -- Menu Variables
 local menuOpen = true
@@ -861,7 +871,10 @@ local nametagColor = Color3.fromRGB(255, 255, 255)
 local nametagSize = 3
 
 function startFlying()
-    if not character or not rootPart then return end
+    if not character or not rootPart then 
+        print("Cannot start flying - character/rootPart not found")
+        return 
+    end
     
     flyBodyVelocity = Instance.new("BodyVelocity")
     flyBodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
@@ -869,7 +882,7 @@ function startFlying()
     flyBodyVelocity.Parent = rootPart
     
     flyConnection = RunService.Heartbeat:Connect(function()
-        if flyEnabled and flyBodyVelocity then
+        if flyEnabled and flyBodyVelocity and flyBodyVelocity.Parent then
             local camera = workspace.CurrentCamera
             local moveVector = Vector3.new(0, 0, 0)
             
@@ -1012,19 +1025,21 @@ function toggleESP(enabled)
         
         -- Listen for new players and respawns
         Players.PlayerAdded:Connect(function(newPlayer)
-            newPlayer.CharacterAdded:Connect(function()
-                wait(1)
-                if espEnabled then
-                    createESPHighlight(newPlayer)
-                end
-            end)
+            if newPlayer ~= player then
+                newPlayer.CharacterAdded:Connect(function()
+                    wait(2)
+                    if espEnabled then
+                        createESPHighlight(newPlayer)
+                    end
+                end)
+            end
         end)
         
         -- Listen for existing player respawns
         for _, existingPlayer in pairs(Players:GetPlayers()) do
             if existingPlayer ~= player then
                 existingPlayer.CharacterAdded:Connect(function()
-                    wait(1)
+                    wait(2)
                     if espEnabled then
                         createESPHighlight(existingPlayer)
                     end
@@ -1159,19 +1174,21 @@ function toggleNametags(enabled)
         
         -- Listen for new players and respawns
         Players.PlayerAdded:Connect(function(newPlayer)
-            newPlayer.CharacterAdded:Connect(function()
-                wait(1)
-                if nametagsEnabled then
-                    createNametag(newPlayer)
-                end
-            end)
+            if newPlayer ~= player then
+                newPlayer.CharacterAdded:Connect(function()
+                    wait(2)
+                    if nametagsEnabled then
+                        createNametag(newPlayer)
+                    end
+                end)
+            end
         end)
         
         -- Listen for existing player respawns
         for _, existingPlayer in pairs(Players:GetPlayers()) do
             if existingPlayer ~= player then
                 existingPlayer.CharacterAdded:Connect(function()
-                    wait(1)
+                    wait(2)
                     if nametagsEnabled then
                         createNametag(existingPlayer)
                     end
