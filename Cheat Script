@@ -695,27 +695,27 @@ function FlySystem:Update()
 	local newCFrame = CFrame.fromMatrix(humanoidRootPart.Position, rightDirection, upDirection, -lookDirection)
 	humanoidRootPart.CFrame = newCFrame
 	
-	-- Bewegungsberechnung - Dahin fliegen wo man hinguckt
+	-- Bewegungsberechnung - W fliegt in exakte Kamera-Richtung
 	local moveVector = Vector3.new(0, 0, 0)
 	
-	-- Input Detection - basiert auf Kamera-Richtung
+	-- Input Detection
 	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-		moveVector = moveVector + lookDirection -- Vorwärts = Kamera-Richtung
+		moveVector = moveVector + lookDirection -- Fliege exakt dahin wo Kamera hinzeigt (auch schräg)
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-		moveVector = moveVector - lookDirection -- Rückwärts = entgegen Kamera-Richtung
+		moveVector = moveVector - lookDirection -- Rückwärts von Kamera-Richtung
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-		moveVector = moveVector - rightDirection -- Links = entgegen Kamera-Rechts
+		moveVector = moveVector - rightDirection -- Links basierend auf Kamera
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-		moveVector = moveVector + rightDirection -- Rechts = Kamera-Rechts
+		moveVector = moveVector + rightDirection -- Rechts basierend auf Kamera
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-		moveVector = moveVector + upDirection -- Hoch = Kamera-Oben
+		moveVector = moveVector + Vector3.new(0, 1, 0) -- Direkt nach oben (world space)
 	end
 	if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-		moveVector = moveVector - upDirection -- Runter = entgegen Kamera-Oben
+		moveVector = moveVector + Vector3.new(0, -1, 0) -- Direkt nach unten (world space)
 	end
 	
 	-- Normalisiere Bewegungsvektor für konsistente Geschwindigkeit
