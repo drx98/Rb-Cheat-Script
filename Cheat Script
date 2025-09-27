@@ -39,52 +39,134 @@ ScreenGui.Name = "VyrxisMenu"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = PlayerGui
 
--- Load Screen erstellen
+-- Load Screen erstellen - Verbessert
 local LoadScreen = Instance.new("Frame")
 LoadScreen.Name = "LoadScreen"
-LoadScreen.Size = UDim2.new(0, 400, 0, 200)
-LoadScreen.Position = UDim2.new(0.5, -200, 0.5, -100)
-LoadScreen.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+LoadScreen.Size = UDim2.new(0, 500, 0, 300)
+LoadScreen.Position = UDim2.new(0.5, -250, 0.5, -150)
+LoadScreen.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 LoadScreen.BorderSizePixel = 0
 LoadScreen.Parent = ScreenGui
 
 local LoadScreenCorner = Instance.new("UICorner")
-LoadScreenCorner.CornerRadius = UDim.new(0, 15)
+LoadScreenCorner.CornerRadius = UDim.new(0, 20)
 LoadScreenCorner.Parent = LoadScreen
+
+-- Gradient für Load Screen
+local LoadGradient = Instance.new("UIGradient")
+LoadGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+LoadGradient.Rotation = 45
+LoadGradient.Parent = LoadScreen
+
+-- Stroke für Load Screen
+local LoadStroke = Instance.new("UIStroke")
+LoadStroke.Color = Color3.fromRGB(0, 200, 255)
+LoadStroke.Thickness = 2
+LoadStroke.Transparency = 0.3
+LoadStroke.Parent = LoadScreen
 
 local LoadText = Instance.new("TextLabel")
 LoadText.Name = "LoadText"
-LoadText.Size = UDim2.new(1, 0, 1, 0)
-LoadText.Position = UDim2.new(0, 0, 0, 0)
+LoadText.Size = UDim2.new(1, -40, 0, 60)
+LoadText.Position = UDim2.new(0, 20, 0, 50)
 LoadText.BackgroundTransparency = 1
-LoadText.Text = "Vyrxis Menu Starting..."
+LoadText.Text = "Vyrxis Menu"
 LoadText.TextColor3 = Color3.fromRGB(255, 255, 255)
-LoadText.TextScaled = true
+LoadText.TextSize = 36
 LoadText.Font = Enum.Font.GothamBold
 LoadText.Parent = LoadScreen
 
--- Türkisfarbene Effekte für Load Screen
-local function createLoadEffect(parent, size, position)
-    local effect = Instance.new("Frame")
-    effect.Size = size
-    effect.Position = position
-    effect.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-    effect.BorderSizePixel = 0
-    effect.BackgroundTransparency = 0.8
-    effect.Parent = parent
+local LoadSubText = Instance.new("TextLabel")
+LoadSubText.Name = "LoadSubText"
+LoadSubText.Size = UDim2.new(1, -40, 0, 30)
+LoadSubText.Position = UDim2.new(0, 20, 0, 110)
+LoadSubText.BackgroundTransparency = 1
+LoadSubText.Text = "Starting..."
+LoadSubText.TextColor3 = Color3.fromRGB(180, 180, 180)
+LoadSubText.TextSize = 18
+LoadSubText.Font = Enum.Font.Gotham
+LoadSubText.Parent = LoadScreen
+
+-- Load Bar
+local LoadBarBackground = Instance.new("Frame")
+LoadBarBackground.Size = UDim2.new(1, -80, 0, 8)
+LoadBarBackground.Position = UDim2.new(0, 40, 0, 200)
+LoadBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+LoadBarBackground.BorderSizePixel = 0
+LoadBarBackground.Parent = LoadScreen
+
+local LoadBarCorner = Instance.new("UICorner")
+LoadBarCorner.CornerRadius = UDim.new(0, 4)
+LoadBarCorner.Parent = LoadBarBackground
+
+local LoadBar = Instance.new("Frame")
+LoadBar.Size = UDim2.new(0, 0, 1, 0)
+LoadBar.Position = UDim2.new(0, 0, 0, 0)
+LoadBar.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+LoadBar.BorderSizePixel = 0
+LoadBar.Parent = LoadBarBackground
+
+local LoadBarFillCorner = Instance.new("UICorner")
+LoadBarFillCorner.CornerRadius = UDim.new(0, 4)
+LoadBarFillCorner.Parent = LoadBar
+
+-- Load Bar Gradient
+local LoadBarGradient = Instance.new("UIGradient")
+LoadBarGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 150, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 200))
+}
+LoadBarGradient.Rotation = 0
+LoadBarGradient.Parent = LoadBar
+
+-- Türkisfarbene Bubble-Effekte für Load Screen
+local bubbles = {}
+
+local function createBubble(parent, size, position, speed)
+    local bubble = Instance.new("Frame")
+    bubble.Size = size
+    bubble.Position = position
+    bubble.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+    bubble.BorderSizePixel = 0
+    bubble.BackgroundTransparency = 0.7
+    bubble.Parent = parent
     
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = effect
+    corner.Parent = bubble
     
-    return effect
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 255))
+    }
+    gradient.Parent = bubble
+    
+    -- Bubble Animation
+    local function animateBubble()
+        local moveInfo = TweenInfo.new(speed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+        local moveTween = TweenService:Create(bubble, moveInfo, {
+            Position = UDim2.new(position.X.Scale, position.X.Offset + math.random(-50, 50), position.Y.Scale, position.Y.Offset + math.random(-30, 30)),
+            BackgroundTransparency = math.random(50, 90) / 100
+        })
+        moveTween:Play()
+    end
+    
+    animateBubble()
+    return bubble
 end
 
--- Effekte um den Bildschirm
-local topEffect = createLoadEffect(ScreenGui, UDim2.new(1, 0, 0, 5), UDim2.new(0, 0, 0, 0))
-local bottomEffect = createLoadEffect(ScreenGui, UDim2.new(1, 0, 0, 5), UDim2.new(0, 0, 1, -5))
-local leftEffect = createLoadEffect(ScreenGui, UDim2.new(0, 5, 1, 0), UDim2.new(0, 0, 0, 0))
-local rightEffect = createLoadEffect(ScreenGui, UDim2.new(0, 5, 1, 0), UDim2.new(1, -5, 0, 0))
+-- Erstelle Bubbles um den Bildschirm
+for i = 1, 15 do
+    local size = UDim2.new(0, math.random(20, 80), 0, math.random(20, 80))
+    local position = UDim2.new(math.random(0, 100) / 100, 0, math.random(0, 100) / 100, 0)
+    local speed = math.random(3, 8)
+    local bubble = createBubble(ScreenGui, size, position, speed)
+    table.insert(bubbles, bubble)
+end
 
 -- Load Screen Animation
 local loadTween = TweenService:Create(LoadText, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1), {TextTransparency = 0.3})
@@ -574,7 +656,7 @@ playerListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 playerListLayout.Padding = UDim.new(0, 2)
 playerListLayout.Parent = playerList
 
--- Player List Update
+-- Player List Update - Verbesserte Suchfunktion
 local function updatePlayerList()
     for _, child in pairs(playerList:GetChildren()) do
         if child:IsA("TextButton") then
@@ -583,34 +665,72 @@ local function updatePlayerList()
     end
     
     local searchTerm = playerSearchBox.Text:lower()
+    local matchedPlayers = {}
     
+    -- Sammle alle passenden Spieler
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and (searchTerm == "" or player.Name:lower():find(searchTerm)) then
-            local playerButton = Instance.new("TextButton")
-            playerButton.Size = UDim2.new(1, -10, 0, 25)
-            playerButton.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
-            playerButton.Text = player.Name
-            playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-            playerButton.TextScaled = true
-            playerButton.Font = Enum.Font.Gotham
-            playerButton.BorderSizePixel = 0
-            playerButton.Parent = playerList
+        if player ~= LocalPlayer then
+            local playerName = player.Name:lower()
+            local displayName = (player.DisplayName and player.DisplayName ~= player.Name) and player.DisplayName:lower() or ""
             
-            local playerBtnCorner = Instance.new("UICorner")
-            playerBtnCorner.CornerRadius = UDim.new(0, 2)
-            playerBtnCorner.Parent = playerButton
-            
-            playerButton.MouseButton1Click:Connect(function()
-                selectedPlayer = player.Name
-                for _, btn in pairs(playerList:GetChildren()) do
-                    if btn:IsA("TextButton") then
-                        btn.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
-                    end
-                end
-                playerButton.BackgroundColor3 = Color3.fromRGB(100, 100, 105)
-            end)
+            -- Prüfe ob Suchbegriff am Anfang des Namens steht oder komplett enthalten ist
+            if searchTerm == "" or 
+               playerName:sub(1, #searchTerm) == searchTerm or 
+               playerName:find(searchTerm) or
+               (displayName ~= "" and (displayName:sub(1, #searchTerm) == searchTerm or displayName:find(searchTerm))) then
+                table.insert(matchedPlayers, player)
+            end
         end
     end
+    
+    -- Sortiere die Spieler: Zuerst die, die mit dem Suchbegriff beginnen
+    table.sort(matchedPlayers, function(a, b)
+        local aName = a.Name:lower()
+        local bName = b.Name:lower()
+        local aStartsWith = aName:sub(1, #searchTerm) == searchTerm
+        local bStartsWith = bName:sub(1, #searchTerm) == searchTerm
+        
+        if aStartsWith and not bStartsWith then
+            return true
+        elseif not aStartsWith and bStartsWith then
+            return false
+        else
+            return aName < bName
+        end
+    end)
+    
+    -- Erstelle Buttons für gefundene Spieler
+    for i, player in pairs(matchedPlayers) do
+        local playerButton = Instance.new("TextButton")
+        playerButton.Size = UDim2.new(1, -10, 0, 25)
+        playerButton.BackgroundColor3 = (selectedPlayer == player.Name) and Color3.fromRGB(100, 100, 105) or Color3.fromRGB(70, 70, 75)
+        
+        -- Zeige sowohl Name als auch DisplayName falls unterschiedlich
+        local buttonText = player.Name
+        if player.DisplayName and player.DisplayName ~= player.Name then
+            buttonText = player.DisplayName .. " (" .. player.Name .. ")"
+        end
+        playerButton.Text = buttonText
+        
+        playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        playerButton.TextScaled = true
+        playerButton.Font = Enum.Font.Gotham
+        playerButton.BorderSizePixel = 0
+        playerButton.LayoutOrder = i
+        playerButton.Parent = playerList
+        
+        local playerBtnCorner = Instance.new("UICorner")
+        playerBtnCorner.CornerRadius = UDim.new(0, 2)
+        playerBtnCorner.Parent = playerButton
+        
+        playerButton.MouseButton1Click:Connect(function()
+            selectedPlayer = player.Name
+            updatePlayerList() -- Aktualisiere Liste um Auswahl zu zeigen
+        end)
+    end
+    
+    -- Update canvas size
+    playerList.CanvasSize = UDim2.new(0, 0, 0, #matchedPlayers * 27)
 end
 
 playerSearchBox:GetPropertyChangedSignal("Text"):Connect(updatePlayerList)
@@ -911,26 +1031,32 @@ espHighlightButton.MouseButton1Click:Connect(function()
     if isESPEnabled then
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
-                local highlight = createESPHighlight(player.Character)
-                espHighlights[player] = highlight
+                -- ESP Highlight erstellen
+                if not espHighlights[player] or not espHighlights[player].Parent then
+                    local highlight = createESPHighlight(player.Character)
+                    espHighlights[player] = highlight
+                end
                 
-                local healthbar = createHealthbar(player.Character)
-                healthbars[player] = healthbar
+                -- Healthbar erstellen
+                if not healthbars[player] or not healthbars[player].Parent then
+                    local healthbar = createHealthbar(player.Character)
+                    healthbars[player] = healthbar
+                end
             end
         end
     else
         for player, highlight in pairs(espHighlights) do
-            if highlight then
+            if highlight and highlight.Parent then
                 highlight:Destroy()
             end
+            espHighlights[player] = nil
         end
         for player, healthbar in pairs(healthbars) do
-            if healthbar then
+            if healthbar and healthbar.Parent then
                 healthbar:Destroy()
             end
+            healthbars[player] = nil
         end
-        espHighlights = {}
-        healthbars = {}
     end
 end)
 
@@ -985,34 +1111,54 @@ Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         wait(1) -- Wait for character to fully load
         
-        if isESPEnabled then
-            local highlight = createESPHighlight(character)
-            espHighlights[player] = highlight
+        if isESPEnabled and player ~= LocalPlayer then
+            -- ESP Highlight erstellen
+            if not espHighlights[player] or not espHighlights[player].Parent then
+                local highlight = createESPHighlight(character)
+                espHighlights[player] = highlight
+            end
             
-            local healthbar = createHealthbar(character)
-            healthbars[player] = healthbar
+            -- Healthbar erstellen
+            if not healthbars[player] or not healthbars[player].Parent then
+                local healthbar = createHealthbar(character)
+                healthbars[player] = healthbar
+            end
         end
         
-        if nametagsEnabled then
-            local nametag = createNametag(character, player.Name)
-            nametags[player] = nametag
+        if nametagsEnabled and player ~= LocalPlayer then
+            if not nametags[player] or not nametags[player].Parent then
+                local nametag = createNametag(character, player.Name)
+                nametags[player] = nametag
+            end
         end
+        
+        -- Player list update
+        updatePlayerList()
     end)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
     if espHighlights[player] then
-        espHighlights[player]:Destroy()
+        if espHighlights[player].Parent then
+            espHighlights[player]:Destroy()
+        end
         espHighlights[player] = nil
     end
     if nametags[player] then
-        nametags[player]:Destroy()
+        if nametags[player].Parent then
+            nametags[player]:Destroy()
+        end
         nametags[player] = nil
     end
     if healthbars[player] then
-        healthbars[player]:Destroy()
+        if healthbars[player].Parent then
+            healthbars[player]:Destroy()
+        end
         healthbars[player] = nil
     end
+    
+    -- Player list update
+    updatePlayerList()
 end)
 
 -- Character Respawn Events
@@ -1022,23 +1168,29 @@ for _, player in pairs(Players:GetPlayers()) do
             wait(1)
             
             if isESPEnabled then
-                if espHighlights[player] then
+                -- Cleanup old highlights
+                if espHighlights[player] and espHighlights[player].Parent then
                     espHighlights[player]:Destroy()
                 end
+                if healthbars[player] and healthbars[player].Parent then
+                    healthbars[player]:Destroy()
+                end
+                
+                -- Create new highlights
                 local highlight = createESPHighlight(character)
                 espHighlights[player] = highlight
                 
-                if healthbars[player] then
-                    healthbars[player]:Destroy()
-                end
                 local healthbar = createHealthbar(character)
                 healthbars[player] = healthbar
             end
             
             if nametagsEnabled then
-                if nametags[player] then
+                -- Cleanup old nametag
+                if nametags[player] and nametags[player].Parent then
                     nametags[player]:Destroy()
                 end
+                
+                -- Create new nametag
                 local nametag = createNametag(character, player.Name)
                 nametags[player] = nametag
             end
@@ -1093,37 +1245,61 @@ end)
 wait(0.1)
 
 local function hideLoadScreen()
-    local fadeOutTween = TweenService:Create(LoadScreen, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-    local textFadeTween = TweenService:Create(LoadText, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
-    local topFadeTween = TweenService:Create(topEffect, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-    local bottomFadeTween = TweenService:Create(bottomEffect, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-    local leftFadeTween = TweenService:Create(leftEffect, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-    local rightFadeTween = TweenService:Create(rightEffect, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+    -- Load Bar Animation
+    local loadBarTween = TweenService:Create(LoadBar, TweenInfo.new(4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
+    loadBarTween:Play()
+    
+    -- Text Updates
+    spawn(function()
+        wait(1)
+        LoadSubText.Text = "Loading components..."
+        wait(1)
+        LoadSubText.Text = "Initializing features..."
+        wait(1)
+        LoadSubText.Text = "Almost ready..."
+        wait(1)
+        LoadSubText.Text = "Ready!"
+    end)
+    
+    wait(5) -- Total wait time
+    
+    local fadeOutTween = TweenService:Create(LoadScreen, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+    local textFadeTween = TweenService:Create(LoadText, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
+    local subTextFadeTween = TweenService:Create(LoadSubText, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
+    local strokeFadeTween = TweenService:Create(LoadStroke, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 1})
+    local barBgFadeTween = TweenService:Create(LoadBarBackground, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+    local barFadeTween = TweenService:Create(LoadBar, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
     
     fadeOutTween:Play()
     textFadeTween:Play()
-    topFadeTween:Play()
-    bottomFadeTween:Play()
-    leftFadeTween:Play()
-    rightFadeTween:Play()
+    subTextFadeTween:Play()
+    strokeFadeTween:Play()
+    barBgFadeTween:Play()
+    barFadeTween:Play()
+    
+    -- Fade out bubbles
+    for _, bubble in pairs(bubbles) do
+        local bubbleFadeTween = TweenService:Create(bubble, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+        bubbleFadeTween:Play()
+    end
     
     fadeOutTween.Completed:Connect(function()
         LoadScreen:Destroy()
-        topEffect:Destroy()
-        bottomEffect:Destroy()
-        leftEffect:Destroy()
-        rightEffect:Destroy()
+        for _, bubble in pairs(bubbles) do
+            if bubble and bubble.Parent then
+                bubble:Destroy()
+            end
+        end
         
         MainRahmen.Visible = true
         MainFrame.Visible = true
         
-        local showTween = TweenService:Create(MainRahmen, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -350, 0.3, -15)})
+        local showTween = TweenService:Create(MainRahmen, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -350, 0.3, -15)})
         showTween:Play()
     end)
 end
 
 -- Load Screen Timer
-wait(5)
 hideLoadScreen()
 
 print("Vyrxis Menu loaded successfully!")
