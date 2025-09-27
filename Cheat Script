@@ -226,14 +226,7 @@ local MinimizeCorner = Instance.new("UICorner")
 MinimizeCorner.CornerRadius = UDim.new(0, 8)
 MinimizeCorner.Parent = MinimizeButton
 
--- Gradient für Minimize Button
-local MinimizeGradient = Instance.new("UIGradient")
-MinimizeGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-MinimizeGradient.Rotation = 45
-MinimizeGradient.Parent = MinimizeButton
+-- KEIN Gradient für Minimize Button - damit Text weiß bleibt
 
 -- Stroke für Minimize Button
 local MinimizeStroke = Instance.new("UIStroke")
@@ -257,14 +250,7 @@ local SettingsCorner = Instance.new("UICorner")
 SettingsCorner.CornerRadius = UDim.new(0, 8)
 SettingsCorner.Parent = SettingsButton
 
--- Gradient für Settings Button
-local SettingsGradient = Instance.new("UIGradient")
-SettingsGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-SettingsGradient.Rotation = 45
-SettingsGradient.Parent = SettingsButton
+-- KEIN Gradient für Settings Button - damit Text weiß bleibt
 
 -- Stroke für Settings Button
 local SettingsStroke = Instance.new("UIStroke")
