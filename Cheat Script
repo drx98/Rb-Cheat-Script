@@ -1178,7 +1178,8 @@ end)
 spawn(function()
     createLoadScreen()
     wait(5.5)
-    createMainFrame()
+    local mainFrame, mainRahmen = createMainFrame()
+    print("Menu created successfully!")
 end)
 
 -- Cleanup on GUI removal
