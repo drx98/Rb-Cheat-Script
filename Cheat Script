@@ -141,6 +141,8 @@ end
 
 -- Haupt-Menü erstellen
 local function createMainMenu()
+    print("Creating main menu...") -- Debug
+    
     -- MainRahmen (Titelleiste)
     MainRahmen = Instance.new("Frame")
     MainRahmen.Name = "MainRahmen"
@@ -150,7 +152,9 @@ local function createMainMenu()
     MainRahmen.Position = UDim2.new(0.5, -300, 0.5, -225)
     MainRahmen.Size = UDim2.new(0, 600, 0, 30)
     MainRahmen.Active = true
-    MainRahmen.Draggable = true
+    MainRahmen.Draggable = false
+    MainRahmen.Visible = true
+    MainRahmen.ZIndex = 10
     
     local rahmenCorner = Instance.new("UICorner")
     rahmenCorner.CornerRadius = UDim.new(0, 8)
@@ -165,8 +169,9 @@ local function createMainMenu()
     titleLabel.Font = Enum.Font.GothamBold
     titleLabel.Text = "Vyrxis Menu"
     titleLabel.TextColor3 = Color3.fromRGB(0, 206, 209)
-    titleLabel.TextScaled = true
+    titleLabel.TextSize = 14
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.ZIndex = 11
     
     -- Minimize Button
     local minimizeBtn = Instance.new("TextButton")
@@ -178,7 +183,8 @@ local function createMainMenu()
     minimizeBtn.Font = Enum.Font.GothamBold
     minimizeBtn.Text = "-"
     minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    minimizeBtn.TextScaled = true
+    minimizeBtn.TextSize = 16
+    minimizeBtn.ZIndex = 11
     
     local minCorner = Instance.new("UICorner")
     minCorner.CornerRadius = UDim.new(0, 4)
@@ -194,7 +200,8 @@ local function createMainMenu()
     settingsBtn.Font = Enum.Font.GothamBold
     settingsBtn.Text = "⚙"
     settingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    settingsBtn.TextScaled = true
+    settingsBtn.TextSize = 12
+    settingsBtn.ZIndex = 11
     
     local setCorner = Instance.new("UICorner")
     setCorner.CornerRadius = UDim.new(0, 4)
@@ -208,6 +215,8 @@ local function createMainMenu()
     MainFrame.BorderSizePixel = 0
     MainFrame.Position = UDim2.new(0.5, -300, 0.5, -195)
     MainFrame.Size = UDim2.new(0, 600, 0, 390)
+    MainFrame.Visible = true
+    MainFrame.ZIndex = 10
     
     local mainCorner = Instance.new("UICorner")
     mainCorner.CornerRadius = UDim.new(0, 8)
@@ -223,6 +232,8 @@ local function createMainMenu()
     Liste.Size = UDim2.new(0, 140, 1, -20)
     Liste.ScrollBarThickness = 6
     Liste.ScrollBarImageColor3 = Color3.fromRGB(0, 206, 209)
+    Liste.ZIndex = 11
+    Liste.CanvasSize = UDim2.new(0, 0, 0, 0)
     
     local listeCorner = Instance.new("UICorner")
     listeCorner.CornerRadius = UDim.new(0, 6)
@@ -244,35 +255,48 @@ local function createMainMenu()
         categoryBtn.Font = Enum.Font.Gotham
         categoryBtn.Text = category
         categoryBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-        categoryBtn.TextScaled = true
+        categoryBtn.TextSize = 14
         categoryBtn.LayoutOrder = i
+        categoryBtn.ZIndex = 12
         
         local catCorner = Instance.new("UICorner")
         catCorner.CornerRadius = UDim.new(0, 4)
         catCorner.Parent = categoryBtn
         
         categoryBtn.MouseButton1Click:Connect(function()
+            print("Category button clicked: " .. category) -- Debug
             openCategory(category)
         end)
     end
     
+    -- Canvas Size für Liste aktualisieren
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Liste.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+    end)
     Liste.CanvasSize = UDim2.new(0, 0, 0, (#categories * 45))
     
     -- Event-Handler
     minimizeBtn.MouseButton1Click:Connect(function()
+        print("Minimize button clicked") -- Debug
         MainFrame.Visible = not MainFrame.Visible
     end)
     
     settingsBtn.MouseButton1Click:Connect(function()
+        print("Settings button clicked") -- Debug
         openSettings()
     end)
     
-    -- Dragging für MainFrame
+    -- Dragging System
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
     MainRahmen.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
             startPos = MainRahmen.Position
+            print("Started dragging") -- Debug
         end
     end)
     
@@ -287,8 +311,19 @@ local function createMainMenu()
     
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if dragging then
+                print("Stopped dragging") -- Debug
+            end
             dragging = false
         end
+    end)
+    
+    print("Main menu created successfully!") -- Debug
+    
+    -- Öffne standardmäßig die Fly-Kategorie
+    spawn(function()
+        wait(0.1)
+        openCategory("Fly")
     end)
 end
 
