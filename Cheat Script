@@ -116,8 +116,7 @@ local function createLoadScreen()
     local loadFrame = Instance.new("Frame")
     loadFrame.Size = UDim2.new(1, 0, 1, 0)
     loadFrame.Position = UDim2.new(0, 0, 0, 0)
-    loadFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    loadFrame.BackgroundTransparency = 0.3
+    loadFrame.BackgroundTransparency = 1  -- Komplett transparent
     loadFrame.Parent = loadGui
     
     local loadContainer = Instance.new("Frame")
@@ -563,6 +562,7 @@ local function createModernButton(parent, text, callback, style)
                           COLORS.SURFACE_LIGHT
     btn.Text = ""
     btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false  -- Schnellere Reaktion
     btn.Parent = parent
     
     createCorner(btn, 8)
@@ -587,28 +587,26 @@ local function createModernButton(parent, text, callback, style)
     indicator.Parent = btn
     createCorner(indicator, 4)
     
-    -- Hover effects
+    -- Sofortige Hover-Effekte
     btn.MouseEnter:Connect(function()
-        createTween(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = Color3.new(
-                btn.BackgroundColor3.R + 0.05,
-                btn.BackgroundColor3.G + 0.05,
-                btn.BackgroundColor3.B + 0.05
-            )
-        })
+        btn.BackgroundColor3 = Color3.new(
+            math.min(1, btn.BackgroundColor3.R + 0.1),
+            math.min(1, btn.BackgroundColor3.G + 0.1),
+            math.min(1, btn.BackgroundColor3.B + 0.1)
+        )
     end)
     
     btn.MouseLeave:Connect(function()
-        createTween(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = style == "success" and COLORS.SUCCESS or 
+        btn.BackgroundColor3 = style == "success" and COLORS.SUCCESS or 
                               style == "danger" and COLORS.DANGER or 
                               style == "primary" and COLORS.PRIMARY or
                               COLORS.SURFACE_LIGHT
-        })
     end)
     
     if callback then
-        btn.MouseButton1Click:Connect(callback)
+        btn.MouseButton1Click:Connect(function()
+            callback()
+        end)
     end
     
     return btn, label, indicator
@@ -831,24 +829,18 @@ local function createCategoryButton(name, callback, icon)
     
     -- Hover effects
     btn.MouseEnter:Connect(function()
-        createTween(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = COLORS.PRIMARY
-        })
-        createTween(iconLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            TextColor3 = COLORS.TEXT_PRIMARY
-        })
+        btn.BackgroundColor3 = COLORS.PRIMARY
+        iconLabel.TextColor3 = COLORS.TEXT_PRIMARY
     end)
     
     btn.MouseLeave:Connect(function()
-        createTween(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            BackgroundColor3 = COLORS.SURFACE_LIGHT
-        })
-        createTween(iconLabel, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-            TextColor3 = COLORS.ACCENT
-        })
+        btn.BackgroundColor3 = COLORS.SURFACE_LIGHT
+        iconLabel.TextColor3 = COLORS.ACCENT
     end)
     
-    btn.MouseButton1Click:Connect(callback)
+    btn.MouseButton1Click:Connect(function()
+        callback()
+    end)
     
     Liste.CanvasSize = UDim2.new(0, 0, 0, (#Liste:GetChildren() - 2) * 58 + 20)
 end
@@ -1338,9 +1330,9 @@ end
 local function createPlayerFrame()
     local frame = createCategoryFrame("Player")
     
-    -- Player List Container
+    -- Kleines ScrollingFrame für Player-Auswahl
     local playerContainer = Instance.new("Frame")
-    playerContainer.Size = UDim2.new(1, -20, 0, 250)
+    playerContainer.Size = UDim2.new(1, -20, 0, 200)
     playerContainer.BackgroundColor3 = COLORS.SURFACE
     playerContainer.BorderSizePixel = 0
     playerContainer.Parent = frame
@@ -1348,12 +1340,12 @@ local function createPlayerFrame()
     createStroke(playerContainer, COLORS.BORDER)
     
     local containerPadding = Instance.new("UIPadding")
-    containerPadding.PaddingAll = UDim.new(0, 10)
+    containerPadding.PaddingAll = UDim.new(0, 8)
     containerPadding.Parent = playerContainer
     
-    -- Search Box
+    -- Suchleiste mit Vorschlägen
     local searchBox = Instance.new("TextBox")
-    searchBox.Size = UDim2.new(1, 0, 0, 35)
+    searchBox.Size = UDim2.new(1, 0, 0, 30)
     searchBox.Position = UDim2.new(0, 0, 0, 0)
     searchBox.BackgroundColor3 = COLORS.BACKGROUND
     searchBox.PlaceholderText = "Search players..."
@@ -1367,63 +1359,60 @@ local function createPlayerFrame()
     createCorner(searchBox, 6)
     createStroke(searchBox, COLORS.BORDER)
     
-    -- Player List
-    local playerList = Instance.new("ScrollingFrame")
-    playerList.Size = UDim2.new(1, 0, 0, 150)
-    playerList.Position = UDim2.new(0, 0, 0, 45)
-    playerList.BackgroundColor3 = COLORS.BACKGROUND
-    playerList.BorderSizePixel = 0
-    playerList.ScrollBarThickness = 4
-    playerList.ScrollBarImageColor3 = COLORS.ACCENT
-    playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
-    playerList.Parent = playerContainer
-    createCorner(playerList, 6)
-    createStroke(playerList, COLORS.BORDER)
+    -- Kleines Player ScrollingFrame
+    local playerScrollFrame = Instance.new("ScrollingFrame")
+    playerScrollFrame.Size = UDim2.new(1, 0, 0, 120)
+    playerScrollFrame.Position = UDim2.new(0, 0, 0, 38)
+    playerScrollFrame.BackgroundColor3 = COLORS.BACKGROUND
+    playerScrollFrame.BorderSizePixel = 0
+    playerScrollFrame.ScrollBarThickness = 4
+    playerScrollFrame.ScrollBarImageColor3 = COLORS.ACCENT
+    playerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    playerScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    playerScrollFrame.Parent = playerContainer
+    createCorner(playerScrollFrame, 6)
+    createStroke(playerScrollFrame, COLORS.BORDER)
     
     local listLayout = Instance.new("UIListLayout")
-    listLayout.Padding = UDim.new(0, 5)
-    listLayout.Parent = playerList
+    listLayout.Padding = UDim.new(0, 2)
+    listLayout.Parent = playerScrollFrame
     
     local listPadding = Instance.new("UIPadding")
-    listPadding.PaddingAll = UDim.new(0, 5)
-    listPadding.Parent = playerList
+    listPadding.PaddingAll = UDim.new(0, 4)
+    listPadding.Parent = playerScrollFrame
     
-    -- Control Buttons
-    local buttonContainer = Instance.new("Frame")
-    buttonContainer.Size = UDim2.new(1, 0, 0, 40)
-    buttonContainer.Position = UDim2.new(0, 0, 0, 205)
-    buttonContainer.BackgroundTransparency = 1
-    buttonContainer.Parent = playerContainer
-    
+    -- Buttons unter dem Container
     local viewBtn = Instance.new("TextButton")
-    viewBtn.Size = UDim2.new(0.48, 0, 1, 0)
-    viewBtn.Position = UDim2.new(0, 0, 0, 0)
+    viewBtn.Size = UDim2.new(0, 120, 0, 35)
+    viewBtn.Position = UDim2.new(0, 0, 0, 220)
     viewBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
     viewBtn.Text = "View: OFF"
     viewBtn.TextColor3 = COLORS.TEXT_PRIMARY
     viewBtn.TextScaled = true
     viewBtn.Font = Enum.Font.GothamSemibold
     viewBtn.BorderSizePixel = 0
-    viewBtn.Parent = buttonContainer
+    viewBtn.AutoButtonColor = false
+    viewBtn.Parent = frame
     createCorner(viewBtn, 6)
     createStroke(viewBtn, COLORS.BORDER)
     
     local gotoBtn = Instance.new("TextButton")
-    gotoBtn.Size = UDim2.new(0.48, 0, 1, 0)
-    gotoBtn.Position = UDim2.new(0.52, 0, 0, 0)
+    gotoBtn.Size = UDim2.new(0, 100, 0, 35)
+    gotoBtn.Position = UDim2.new(0, 140, 0, 220)
     gotoBtn.BackgroundColor3 = COLORS.PRIMARY
-    gotoBtn.Text = "Teleport"
+    gotoBtn.Text = "Goto"
     gotoBtn.TextColor3 = COLORS.TEXT_PRIMARY
     gotoBtn.TextScaled = true
     gotoBtn.Font = Enum.Font.GothamSemibold
     gotoBtn.BorderSizePixel = 0
-    gotoBtn.Parent = buttonContainer
+    gotoBtn.AutoButtonColor = false
+    gotoBtn.Parent = frame
     createCorner(gotoBtn, 6)
     
     -- Selected Player Label
     local selectedLabel = Instance.new("TextLabel")
-    selectedLabel.Size = UDim2.new(1, -20, 0, 30)
-    selectedLabel.Position = UDim2.new(0, 0, 0, 265)
+    selectedLabel.Size = UDim2.new(1, -20, 0, 25)
+    selectedLabel.Position = UDim2.new(0, 0, 0, 270)
     selectedLabel.BackgroundTransparency = 1
     selectedLabel.Text = "Selected: None"
     selectedLabel.TextColor3 = COLORS.TEXT_SECONDARY
@@ -1432,73 +1421,95 @@ local function createPlayerFrame()
     selectedLabel.TextXAlignment = Enum.TextXAlignment.Left
     selectedLabel.Parent = frame
     
-    local function updatePlayerList(filter)
-        for _, child in ipairs(playerList:GetChildren()) do
+    -- Funktionen
+    local function getSimilarPlayers(input)
+        local players = getAllPlayers()
+        local similar = {}
+        
+        for _, player in ipairs(players) do
+            local name = player.Name:lower()
+            local search = input:lower()
+            
+            if string.find(name, search, 1, true) then
+                table.insert(similar, player)
+            end
+        end
+        
+        -- Sortiere nach Ähnlichkeit (beginnt mit Suchtext zuerst)
+        table.sort(similar, function(a, b)
+            local aStarts = string.sub(a.Name:lower(), 1, #input) == input:lower()
+            local bStarts = string.sub(b.Name:lower(), 1, #input) == input:lower()
+            
+            if aStarts and not bStarts then
+                return true
+            elseif bStarts and not aStarts then
+                return false
+            else
+                return a.Name < b.Name
+            end
+        end)
+        
+        return similar
+    end
+    
+    local function updatePlayerList(searchText)
+        -- Lösche alle bestehenden Player-Buttons
+        for _, child in ipairs(playerScrollFrame:GetChildren()) do
             if child:IsA("TextButton") then
                 child:Destroy()
             end
         end
         
-        local players = getAllPlayers()
-        local filteredPlayers = {}
+        local playersToShow = searchText and #searchText > 0 and getSimilarPlayers(searchText) or getAllPlayers()
         
-        for _, player in ipairs(players) do
-            if not filter or string.find(player.Name:lower(), filter:lower()) then
-                table.insert(filteredPlayers, player)
-            end
-        end
-        
-        for _, player in ipairs(filteredPlayers) do
+        for _, player in ipairs(playersToShow) do
             local playerBtn = Instance.new("TextButton")
-            playerBtn.Size = UDim2.new(1, -10, 0, 30)
+            playerBtn.Size = UDim2.new(1, -8, 0, 25)
             playerBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
             playerBtn.Text = player.Name
             playerBtn.TextColor3 = COLORS.TEXT_PRIMARY
             playerBtn.TextScaled = true
             playerBtn.Font = Enum.Font.Gotham
             playerBtn.BorderSizePixel = 0
-            playerBtn.Parent = playerList
+            playerBtn.AutoButtonColor = false
+            playerBtn.Parent = playerScrollFrame
             createCorner(playerBtn, 4)
-            createStroke(playerBtn, COLORS.BORDER)
             
+            -- Hover-Effekt
             playerBtn.MouseEnter:Connect(function()
                 if settings.selectedPlayer ~= player then
-                    createTween(playerBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                        BackgroundColor3 = COLORS.PRIMARY
-                    })
+                    playerBtn.BackgroundColor3 = COLORS.PRIMARY
                 end
             end)
             
             playerBtn.MouseLeave:Connect(function()
                 if settings.selectedPlayer ~= player then
-                    createTween(playerBtn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                        BackgroundColor3 = COLORS.SURFACE_LIGHT
-                    })
+                    playerBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
                 end
             end)
             
+            -- Auswahl-Funktion
             playerBtn.MouseButton1Click:Connect(function()
-                settings.selectedPlayer = player
-                selectedLabel.Text = "Selected: " .. player.Name
-                
-                for _, btn in ipairs(playerList:GetChildren()) do
-                    if btn:IsA("TextButton") then
+                -- Deselektiere alle anderen
+                for _, btn in ipairs(playerScrollFrame:GetChildren()) do
+                    if btn:IsA("TextButton") and btn ~= playerBtn then
                         btn.BackgroundColor3 = COLORS.SURFACE_LIGHT
                     end
                 end
+                
+                settings.selectedPlayer = player
+                selectedLabel.Text = "Selected: " .. player.Name
                 playerBtn.BackgroundColor3 = COLORS.ACCENT
             end)
         end
-        
-        playerList.CanvasSize = UDim2.new(0, 0, 0, #filteredPlayers * 35 + 10)
     end
     
-    searchBox.Changed:Connect(function(property)
-        if property == "Text" then
-            updatePlayerList(searchBox.Text ~= "" and searchBox.Text or nil)
-        end
+    -- Suchfunktion mit Vorschlägen
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        updatePlayerList(searchBox.Text)
     end)
     
+    -- View Button Toggle-Funktionalität
     local function updateViewButton(viewing)
         if viewing then
             viewBtn.Text = "View: ON"
@@ -1516,29 +1527,60 @@ local function createPlayerFrame()
         end
     end)
     
+    -- Goto Button Funktionalität
     gotoBtn.MouseButton1Click:Connect(function()
         if settings.selectedPlayer then
             teleportToPlayer(settings.selectedPlayer)
         end
     end)
     
-    updatePlayerList()
-    
-    Players.PlayerAdded:Connect(function()
-        wait(0.1)
-        updatePlayerList(searchBox.Text ~= "" and searchBox.Text or nil)
+    -- Button Hover-Effekte
+    viewBtn.MouseEnter:Connect(function()
+        if viewBtn.BackgroundColor3 ~= COLORS.SUCCESS then
+            viewBtn.BackgroundColor3 = Color3.new(
+                math.min(1, viewBtn.BackgroundColor3.R + 0.1),
+                math.min(1, viewBtn.BackgroundColor3.G + 0.1),
+                math.min(1, viewBtn.BackgroundColor3.B + 0.1)
+            )
+        end
     end)
     
-    Players.PlayerRemoving:Connect(function(player)
+    viewBtn.MouseLeave:Connect(function()
+        if viewBtn.Text == "View: OFF" then
+            viewBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
+        end
+    end)
+    
+    gotoBtn.MouseEnter:Connect(function()
+        gotoBtn.BackgroundColor3 = COLORS.PRIMARY_HOVER
+    end)
+    
+    gotoBtn.MouseLeave:Connect(function()
+        gotoBtn.BackgroundColor3 = COLORS.PRIMARY
+    end)
+    
+    -- Events für Player Join/Leave
+    local function onPlayerAdded()
+        wait(0.1)
+        updatePlayerList(searchBox.Text)
+    end
+    
+    local function onPlayerRemoving(player)
         if settings.selectedPlayer == player then
             settings.selectedPlayer = nil
             selectedLabel.Text = "Selected: None"
             updateViewButton(false)
         end
-        updatePlayerList(searchBox.Text ~= "" and searchBox.Text or nil)
-    end)
+        updatePlayerList(searchBox.Text)
+    end
     
-    frame.CanvasSize = UDim2.new(0, 0, 0, 320)
+    Players.PlayerAdded:Connect(onPlayerAdded)
+    Players.PlayerRemoving:Connect(onPlayerRemoving)
+    
+    -- Initiale Player-Liste
+    updatePlayerList()
+    
+    frame.CanvasSize = UDim2.new(0, 0, 0, 310)
 end
 
 local function createESPFrame()
