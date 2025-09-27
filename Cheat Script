@@ -15,7 +15,6 @@ local MainFrame = nil
 local MainRahmen = nil
 local SettingsFrame = nil
 local Liste = nil
-local ContentFrame = nil
 local currentCategoryFrame = nil
 local loadScreenShown = false
 
@@ -28,8 +27,8 @@ local settings = {
     jumpHeight = 50,
     noclipEnabled = false,
     espEnabled = false,
-    espColor = Color3.fromRGB(255, 0, 0),
-    espTransparency = 0.5,
+    espColor = Color3.fromRGB(0, 255, 255),
+    espTransparency = 0.3,
     nametagsEnabled = false,
     nametagColor = Color3.fromRGB(255, 255, 255),
     nametagSize = 20,
@@ -44,21 +43,23 @@ local nametagObjects = {}
 local viewConnection = nil
 local viewingPlayer = false
 
--- Design Constants
+-- Design Constants - Professional Dark Theme
 local COLORS = {
-    BACKGROUND = Color3.fromRGB(25, 25, 30),
-    SURFACE = Color3.fromRGB(35, 35, 42),
-    SURFACE_LIGHT = Color3.fromRGB(45, 45, 55),
-    PRIMARY = Color3.fromRGB(88, 101, 242),
-    PRIMARY_HOVER = Color3.fromRGB(78, 91, 232),
-    SUCCESS = Color3.fromRGB(87, 242, 135),
-    DANGER = Color3.fromRGB(237, 66, 69),
-    WARNING = Color3.fromRGB(255, 193, 7),
+    BACKGROUND = Color3.fromRGB(20, 22, 28),
+    SURFACE = Color3.fromRGB(32, 35, 42),
+    SURFACE_LIGHT = Color3.fromRGB(45, 48, 55),
+    SURFACE_HOVER = Color3.fromRGB(55, 58, 65),
+    PRIMARY = Color3.fromRGB(0, 255, 255),
+    PRIMARY_DARK = Color3.fromRGB(0, 200, 200),
+    SUCCESS = Color3.fromRGB(34, 197, 94),
+    DANGER = Color3.fromRGB(239, 68, 68),
+    WARNING = Color3.fromRGB(245, 158, 11),
     TEXT_PRIMARY = Color3.fromRGB(255, 255, 255),
-    TEXT_SECONDARY = Color3.fromRGB(185, 187, 190),
-    TEXT_MUTED = Color3.fromRGB(114, 118, 125),
-    ACCENT = Color3.fromRGB(64, 224, 208),
-    BORDER = Color3.fromRGB(60, 63, 65)
+    TEXT_SECONDARY = Color3.fromRGB(156, 163, 175),
+    TEXT_MUTED = Color3.fromRGB(107, 114, 128),
+    ACCENT = Color3.fromRGB(0, 255, 255),
+    BORDER = Color3.fromRGB(75, 85, 99),
+    SHADOW = Color3.fromRGB(0, 0, 0)
 }
 
 -- Utility Functions
@@ -75,7 +76,7 @@ end
 
 local function createCorner(parent, radius)
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius or 8)
+    corner.CornerRadius = UDim.new(0, radius or 12)
     corner.Parent = parent
     return corner
 end
@@ -84,26 +85,37 @@ local function createStroke(parent, color, thickness)
     local stroke = Instance.new("UIStroke")
     stroke.Color = color or COLORS.BORDER
     stroke.Thickness = thickness or 1
+    stroke.Transparency = 0.3
     stroke.Parent = parent
     return stroke
 end
 
-local function createShadow(parent)
-    local shadow = Instance.new("Frame")
-    shadow.Name = "Shadow"
-    shadow.Size = UDim2.new(1, 8, 1, 8)
-    shadow.Position = UDim2.new(0, -4, 0, -4)
-    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.BackgroundTransparency = 0.8
-    shadow.BorderSizePixel = 0
+local function createGradient(parent, color1, color2, rotation)
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, color1 or COLORS.SURFACE),
+        ColorSequenceKeypoint.new(1, color2 or COLORS.SURFACE_LIGHT)
+    })
+    gradient.Rotation = rotation or 90
+    gradient.Parent = parent
+    return gradient
+end
+
+local function createShadow(parent, intensity)
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "DropShadow"
+    shadow.Size = UDim2.new(1, 30, 1, 30)
+    shadow.Position = UDim2.new(0, -15, 0, -15)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxasset://textures/ui/Controls/DropShadow.png"
+    shadow.ImageColor3 = COLORS.SHADOW
+    shadow.ImageTransparency = intensity or 0.5
     shadow.ZIndex = parent.ZIndex - 1
     shadow.Parent = parent.Parent
-    
-    createCorner(shadow, 12)
     return shadow
 end
 
--- Load Screen (FIXED: 100% transparent background)
+-- Professional Load Screen
 local function createLoadScreen()
     if loadScreenShown then return end
     loadScreenShown = true
@@ -113,34 +125,47 @@ local function createLoadScreen()
     loadGui.Parent = PlayerGui
     loadGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
+    -- Full transparent background
     local loadFrame = Instance.new("Frame")
     loadFrame.Size = UDim2.new(1, 0, 1, 0)
     loadFrame.Position = UDim2.new(0, 0, 0, 0)
-    loadFrame.BackgroundTransparency = 1  -- 100% transparent
+    loadFrame.BackgroundTransparency = 1
     loadFrame.Parent = loadGui
     
+    -- Load container with modern design
     local loadContainer = Instance.new("Frame")
-    loadContainer.Size = UDim2.new(0, 500, 0, 300)
-    loadContainer.Position = UDim2.new(0.5, -250, 0.5, -150)
+    loadContainer.Size = UDim2.new(0, 400, 0, 250)
+    loadContainer.Position = UDim2.new(0.5, -200, 0.5, -125)
     loadContainer.BackgroundColor3 = COLORS.BACKGROUND
     loadContainer.BorderSizePixel = 0
     loadContainer.Parent = loadFrame
     
     createCorner(loadContainer, 16)
     createStroke(loadContainer, COLORS.ACCENT, 2)
+    createShadow(loadContainer, 0.7)
+    createGradient(loadContainer, COLORS.BACKGROUND, Color3.fromRGB(25, 28, 35))
+    
+    -- Logo with glow effect
+    local logoFrame = Instance.new("Frame")
+    logoFrame.Size = UDim2.new(1, -40, 0, 80)
+    logoFrame.Position = UDim2.new(0, 20, 0, 30)
+    logoFrame.BackgroundTransparency = 1
+    logoFrame.Parent = loadContainer
     
     local logo = Instance.new("TextLabel")
-    logo.Size = UDim2.new(1, -40, 0, 80)
-    logo.Position = UDim2.new(0, 20, 0, 40)
+    logo.Size = UDim2.new(1, 0, 1, 0)
     logo.BackgroundTransparency = 1
     logo.Text = "VYRXIS"
     logo.TextColor3 = COLORS.ACCENT
     logo.TextScaled = true
     logo.Font = Enum.Font.GothamBold
-    logo.Parent = loadContainer
+    logo.TextStrokeTransparency = 0
+    logo.TextStrokeColor3 = Color3.fromRGB(0, 100, 100)
+    logo.Parent = logoFrame
     
+    -- Animated subtitle
     local subtitle = Instance.new("TextLabel")
-    subtitle.Size = UDim2.new(1, -40, 0, 30)
+    subtitle.Size = UDim2.new(1, -40, 0, 25)
     subtitle.Position = UDim2.new(0, 20, 0, 120)
     subtitle.BackgroundTransparency = 1
     subtitle.Text = "Advanced Game Enhancement Suite"
@@ -149,257 +174,302 @@ local function createLoadScreen()
     subtitle.Font = Enum.Font.Gotham
     subtitle.Parent = loadContainer
     
+    -- Status text
     local statusText = Instance.new("TextLabel")
-    statusText.Size = UDim2.new(1, -40, 0, 25)
-    statusText.Position = UDim2.new(0, 20, 0, 180)
+    statusText.Size = UDim2.new(1, -40, 0, 20)
+    statusText.Position = UDim2.new(0, 20, 0, 160)
     statusText.BackgroundTransparency = 1
-    statusText.Text = "Initializing components..."
+    statusText.Text = "Vyrxis Menu Starting..."
     statusText.TextColor3 = COLORS.TEXT_MUTED
     statusText.TextScaled = true
     statusText.Font = Enum.Font.Gotham
     statusText.Parent = loadContainer
     
-    -- Progress Bar
+    -- Modern progress bar
     local progressBg = Instance.new("Frame")
-    progressBg.Size = UDim2.new(1, -40, 0, 6)
-    progressBg.Position = UDim2.new(0, 20, 0, 220)
+    progressBg.Size = UDim2.new(1, -40, 0, 4)
+    progressBg.Position = UDim2.new(0, 20, 0, 190)
     progressBg.BackgroundColor3 = COLORS.SURFACE
     progressBg.BorderSizePixel = 0
     progressBg.Parent = loadContainer
-    createCorner(progressBg, 3)
+    createCorner(progressBg, 2)
     
     local progressBar = Instance.new("Frame")
     progressBar.Size = UDim2.new(0, 0, 1, 0)
-    progressBar.Position = UDim2.new(0, 0, 0, 0)
     progressBar.BackgroundColor3 = COLORS.ACCENT
     progressBar.BorderSizePixel = 0
     progressBar.Parent = progressBg
-    createCorner(progressBar, 3)
+    createCorner(progressBar, 2)
+    createGradient(progressBar, COLORS.ACCENT, Color3.fromRGB(0, 200, 255))
     
-    -- Animated effects
-    for i = 1, 6 do
+    -- Türkise Randeffekte
+    for i = 1, 8 do
         local particle = Instance.new("Frame")
-        particle.Size = UDim2.new(0, 8, 0, 8)
+        particle.Size = UDim2.new(0, math.random(6, 12), 0, math.random(6, 12))
         particle.BackgroundColor3 = COLORS.ACCENT
-        particle.BackgroundTransparency = 0.5
+        particle.BackgroundTransparency = 0.3
         particle.BorderSizePixel = 0
-        particle.Position = UDim2.new(math.random(10, 90)/100, 0, math.random(10, 90)/100, 0)
+        particle.Position = UDim2.new(
+            math.random() > 0.5 and math.random(0, 10)/100 or math.random(90, 100)/100,
+            0, 
+            math.random(10, 90)/100, 
+            0
+        )
         particle.Parent = loadFrame
-        createCorner(particle, 4)
+        createCorner(particle, math.random(3, 6))
         
         -- Floating animation
         spawn(function()
             while particle.Parent do
-                createTween(particle, TweenInfo.new(2 + math.random()/2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    Position = UDim2.new(math.random(10, 90)/100, 0, math.random(10, 90)/100, 0),
-                    BackgroundTransparency = 0.2 + math.random() * 0.6
+                createTween(particle, TweenInfo.new(
+                    3 + math.random() * 2, 
+                    Enum.EasingStyle.Sine, 
+                    Enum.EasingDirection.InOut,
+                    -1,
+                    true
+                ), {
+                    Position = UDim2.new(
+                        particle.Position.X.Scale + (math.random(-20, 20)/100),
+                        0,
+                        particle.Position.Y.Scale + (math.random(-10, 10)/100),
+                        0
+                    ),
+                    BackgroundTransparency = 0.1 + math.random() * 0.7
                 })
-                wait(2 + math.random())
+                wait(3 + math.random() * 2)
             end
         end)
     end
     
     -- Loading sequence
-    local loadingSteps = {
-        "Loading user interface...",
-        "Connecting to game services...",
-        "Initializing features...",
-        "Preparing environment...",
-        "Starting Vyrxis Menu..."
-    }
-    
     spawn(function()
-        for i, step in ipairs(loadingSteps) do
-            statusText.Text = step
-            createTween(progressBar, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Size = UDim2.new(i / #loadingSteps, 0, 1, 0)
+        local steps = {"Initializing", "Loading Assets", "Starting Systems", "Ready"}
+        
+        for i, step in ipairs(steps) do
+            statusText.Text = step .. "..."
+            createTween(progressBar, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.new(i / #steps, 0, 1, 0)
             })
-            wait(0.8)
+            wait(1.2)
         end
         
         wait(0.5)
-        createTween(loadFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-            BackgroundTransparency = 1
-        })
-        createTween(loadContainer, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0)
+        statusText.Text = "Welcome to Vyrxis!"
+        wait(0.8)
+        
+        -- Fade out animation
+        createTween(loadContainer, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
         })
         
-        wait(0.5)
+        for _, particle in ipairs(loadFrame:GetChildren()) do
+            if particle.Name ~= "DropShadow" then
+                createTween(particle, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {
+                    BackgroundTransparency = 1
+                })
+            end
+        end
+        
+        wait(0.8)
         loadGui:Destroy()
     end)
 end
 
--- Enhanced UI Creation
+-- Professional Main UI
 local function createMainUI()
     VyrxisGui = Instance.new("ScreenGui")
     VyrxisGui.Name = "VyrxisMenu"
     VyrxisGui.Parent = PlayerGui
     VyrxisGui.ResetOnSpawn = false
     VyrxisGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    VyrxisGui.Enabled = true
     
-    -- MainRahmen (Title Bar)
+    -- MainRahmen (Draggable Header)
     MainRahmen = Instance.new("Frame")
     MainRahmen.Name = "MainRahmen"
-    MainRahmen.Size = UDim2.new(0, 800, 0, 50)
-    MainRahmen.Position = UDim2.new(0.5, -400, 0.5, -250)
+    MainRahmen.Size = UDim2.new(0, 900, 0, 60)
+    MainRahmen.Position = UDim2.new(0.5, -450, 0.5, -300)
     MainRahmen.BackgroundColor3 = COLORS.SURFACE
     MainRahmen.BorderSizePixel = 0
     MainRahmen.ZIndex = 10
     MainRahmen.Parent = VyrxisGui
     
-    createCorner(MainRahmen, 12)
+    createCorner(MainRahmen, 16)
     createStroke(MainRahmen, COLORS.ACCENT, 2)
-    createShadow(MainRahmen)
+    createShadow(MainRahmen, 0.6)
+    createGradient(MainRahmen, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
     
-    -- Title with icon
-    local titleContainer = Instance.new("Frame")
-    titleContainer.Size = UDim2.new(0, 300, 1, 0)
-    titleContainer.Position = UDim2.new(0, 15, 0, 0)
-    titleContainer.BackgroundTransparency = 1
-    titleContainer.Parent = MainRahmen
+    -- Title section
+    local titleFrame = Instance.new("Frame")
+    titleFrame.Size = UDim2.new(0, 350, 1, 0)
+    titleFrame.Position = UDim2.new(0, 20, 0, 0)
+    titleFrame.BackgroundTransparency = 1
+    titleFrame.Parent = MainRahmen
     
-    local icon = Instance.new("TextLabel")
-    icon.Size = UDim2.new(0, 30, 0, 30)
-    icon.Position = UDim2.new(0, 0, 0, 10)
-    icon.BackgroundTransparency = 1
-    icon.Text = "⚡"
-    icon.TextColor3 = COLORS.ACCENT
-    icon.TextScaled = true
-    icon.Font = Enum.Font.GothamBold
-    icon.Parent = titleContainer
+    local logoIcon = Instance.new("TextLabel")
+    logoIcon.Size = UDim2.new(0, 40, 0, 40)
+    logoIcon.Position = UDim2.new(0, 0, 0, 10)
+    logoIcon.BackgroundTransparency = 1
+    logoIcon.Text = "⚡"
+    logoIcon.TextColor3 = COLORS.ACCENT
+    logoIcon.TextScaled = true
+    logoIcon.Font = Enum.Font.GothamBold
+    logoIcon.TextStrokeTransparency = 0.5
+    logoIcon.TextStrokeColor3 = Color3.fromRGB(0, 100, 100)
+    logoIcon.Parent = titleFrame
     
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(0, 200, 1, 0)
-    title.Position = UDim2.new(0, 40, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "Vyrxis Menu"
-    title.TextColor3 = COLORS.TEXT_PRIMARY
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = titleContainer
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(0, 200, 0, 35)
+    titleLabel.Position = UDim2.new(0, 50, 0, 5)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Vyrxis Menu"
+    titleLabel.TextColor3 = COLORS.TEXT_PRIMARY
+    titleLabel.TextSize = 24
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = titleFrame
     
-    local version = Instance.new("TextLabel")
-    version.Size = UDim2.new(0, 60, 0, 15)
-    version.Position = UDim2.new(0, 240, 0, 18)
-    version.BackgroundTransparency = 1
-    version.Text = "v2.0"
-    version.TextColor3 = COLORS.TEXT_MUTED
-    version.TextScaled = true
-    version.Font = Enum.Font.Gotham
-    version.Parent = titleContainer
+    local versionLabel = Instance.new("TextLabel")
+    versionLabel.Size = UDim2.new(0, 100, 0, 18)
+    versionLabel.Position = UDim2.new(0, 50, 0, 35)
+    versionLabel.BackgroundTransparency = 1
+    versionLabel.Text = "v3.0 Professional"
+    versionLabel.TextColor3 = COLORS.TEXT_MUTED
+    versionLabel.TextSize = 12
+    versionLabel.Font = Enum.Font.Gotham
+    versionLabel.TextXAlignment = Enum.TextXAlignment.Left
+    versionLabel.Parent = titleFrame
     
     -- Control buttons
-    local controlsContainer = Instance.new("Frame")
-    controlsContainer.Size = UDim2.new(0, 150, 1, 0)
-    controlsContainer.Position = UDim2.new(1, -165, 0, 0)
-    controlsContainer.BackgroundTransparency = 1
-    controlsContainer.Parent = MainRahmen
+    local controlFrame = Instance.new("Frame")
+    controlFrame.Size = UDim2.new(0, 180, 0, 40)
+    controlFrame.Position = UDim2.new(1, -200, 0, 10)
+    controlFrame.BackgroundTransparency = 1
+    controlFrame.Parent = MainRahmen
     
     local minimizeBtn = Instance.new("TextButton")
-    minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
-    minimizeBtn.Position = UDim2.new(0, 0, 0, 7.5)
+    minimizeBtn.Size = UDim2.new(0, 40, 0, 40)
+    minimizeBtn.Position = UDim2.new(0, 0, 0, 0)
     minimizeBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
     minimizeBtn.Text = "−"
     minimizeBtn.TextColor3 = COLORS.TEXT_PRIMARY
-    minimizeBtn.TextScaled = true
+    minimizeBtn.TextSize = 20
     minimizeBtn.Font = Enum.Font.GothamBold
     minimizeBtn.BorderSizePixel = 0
-    minimizeBtn.AutoButtonColor = false  -- Instant response
-    minimizeBtn.Parent = controlsContainer
-    createCorner(minimizeBtn, 6)
+    minimizeBtn.AutoButtonColor = false
+    minimizeBtn.Parent = controlFrame
+    createCorner(minimizeBtn, 10)
     createStroke(minimizeBtn, COLORS.BORDER)
+    createGradient(minimizeBtn, COLORS.SURFACE_LIGHT, COLORS.SURFACE_HOVER)
     
     local settingsBtn = Instance.new("TextButton")
-    settingsBtn.Size = UDim2.new(0, 80, 0, 35)
-    settingsBtn.Position = UDim2.new(0, 45, 0, 7.5)
+    settingsBtn.Size = UDim2.new(0, 120, 0, 40)
+    settingsBtn.Position = UDim2.new(0, 60, 0, 0)
     settingsBtn.BackgroundColor3 = COLORS.PRIMARY
     settingsBtn.Text = "Settings"
     settingsBtn.TextColor3 = COLORS.TEXT_PRIMARY
-    settingsBtn.TextScaled = true
+    settingsBtn.TextSize = 14
     settingsBtn.Font = Enum.Font.GothamSemibold
     settingsBtn.BorderSizePixel = 0
-    settingsBtn.AutoButtonColor = false  -- Instant response
-    settingsBtn.Parent = controlsContainer
-    createCorner(settingsBtn, 6)
+    settingsBtn.AutoButtonColor = false
+    settingsBtn.Parent = controlFrame
+    createCorner(settingsBtn, 10)
+    createGradient(settingsBtn, COLORS.PRIMARY, COLORS.PRIMARY_DARK)
     
-    -- MainFrame (Content Area)
+    -- MainFrame (Tablet-shaped content area)
     MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 800, 0, 450)
-    MainFrame.Position = UDim2.new(0, 0, 1, 5)
+    MainFrame.Size = UDim2.new(0, 900, 0, 520)
+    MainFrame.Position = UDim2.new(0, 0, 1, 10)
     MainFrame.BackgroundColor3 = COLORS.BACKGROUND
     MainFrame.BorderSizePixel = 0
     MainFrame.ZIndex = 9
     MainFrame.Parent = MainRahmen
     
-    createCorner(MainFrame, 12)
+    createCorner(MainFrame, 16)
     createStroke(MainFrame, COLORS.BORDER)
-    createShadow(MainFrame)
+    createShadow(MainFrame, 0.4)
+    createGradient(MainFrame, COLORS.BACKGROUND, Color3.fromRGB(25, 28, 35))
     
-    -- Sidebar (Categories)
+    -- Sidebar (Categories Liste)
     Liste = Instance.new("ScrollingFrame")
     Liste.Name = "Liste"
-    Liste.Size = UDim2.new(0, 200, 1, -20)
-    Liste.Position = UDim2.new(0, 10, 0, 10)
+    Liste.Size = UDim2.new(0, 220, 1, -40)
+    Liste.Position = UDim2.new(0, 20, 0, 20)
     Liste.BackgroundColor3 = COLORS.SURFACE
     Liste.BorderSizePixel = 0
-    Liste.ScrollBarThickness = 6
+    Liste.ScrollBarThickness = 8
     Liste.ScrollBarImageColor3 = COLORS.ACCENT
+    Liste.ScrollBarImageTransparency = 0.3
     Liste.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Liste.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Liste.Parent = MainFrame
     
-    createCorner(Liste, 8)
+    createCorner(Liste, 12)
     createStroke(Liste, COLORS.BORDER)
+    createGradient(Liste, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
     
     local listeLayout = Instance.new("UIListLayout")
-    listeLayout.Padding = UDim.new(0, 8)
+    listeLayout.Padding = UDim.new(0, 12)
     listeLayout.Parent = Liste
     
     local listePadding = Instance.new("UIPadding")
-    listePadding.PaddingTop = UDim.new(0, 10)
-    listePadding.PaddingBottom = UDim.new(0, 10)
-    listePadding.PaddingLeft = UDim.new(0, 10)
-    listePadding.PaddingRight = UDim.new(0, 10)
+    listePadding.PaddingAll = UDim.new(0, 16)
     listePadding.Parent = Liste
     
-    -- Content Frame
-    ContentFrame = Instance.new("Frame")
-    ContentFrame.Name = "ContentFrame"
-    ContentFrame.Size = UDim2.new(0, 570, 1, -20)
-    ContentFrame.Position = UDim2.new(0, 220, 0, 10)
-    ContentFrame.BackgroundColor3 = COLORS.SURFACE
-    ContentFrame.BorderSizePixel = 0
-    ContentFrame.Parent = MainFrame
+    -- Content Area
+    local contentArea = Instance.new("Frame")
+    contentArea.Size = UDim2.new(0, 640, 1, -40)
+    contentArea.Position = UDim2.new(0, 260, 0, 20)
+    contentArea.BackgroundColor3 = COLORS.SURFACE
+    contentArea.BorderSizePixel = 0
+    contentArea.Parent = MainFrame
     
-    createCorner(ContentFrame, 8)
-    createStroke(ContentFrame, COLORS.BORDER)
+    createCorner(contentArea, 12)
+    createStroke(contentArea, COLORS.BORDER)
+    createGradient(contentArea, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
     
-    -- Welcome message
-    local welcomeText = Instance.new("TextLabel")
-    welcomeText.Size = UDim2.new(1, -40, 0, 100)
-    welcomeText.Position = UDim2.new(0, 20, 0, 20)
-    welcomeText.BackgroundTransparency = 1
-    welcomeText.Text = "Welcome to Vyrxis Menu\nSelect a category to get started"
-    welcomeText.TextColor3 = COLORS.TEXT_SECONDARY
-    welcomeText.TextScaled = true
-    welcomeText.Font = Enum.Font.Gotham
-    welcomeText.Parent = ContentFrame
+    -- Welcome screen
+    local welcomeFrame = Instance.new("Frame")
+    welcomeFrame.Size = UDim2.new(1, -40, 1, -40)
+    welcomeFrame.Position = UDim2.new(0, 20, 0, 20)
+    welcomeFrame.BackgroundTransparency = 1
+    welcomeFrame.Parent = contentArea
     
-    -- Button hover effects - IMMEDIATE RESPONSE
+    local welcomeTitle = Instance.new("TextLabel")
+    welcomeTitle.Size = UDim2.new(1, 0, 0, 60)
+    welcomeTitle.Position = UDim2.new(0, 0, 0.3, 0)
+    welcomeTitle.BackgroundTransparency = 1
+    welcomeTitle.Text = "Welcome to Vyrxis"
+    welcomeTitle.TextColor3 = COLORS.ACCENT
+    welcomeTitle.TextSize = 32
+    welcomeTitle.Font = Enum.Font.GothamBold
+    welcomeTitle.Parent = welcomeFrame
+    
+    local welcomeSubtitle = Instance.new("TextLabel")
+    welcomeSubtitle.Size = UDim2.new(1, 0, 0, 40)
+    welcomeSubtitle.Position = UDim2.new(0, 0, 0.45, 0)
+    welcomeSubtitle.BackgroundTransparency = 1
+    welcomeSubtitle.Text = "Select a category to get started"
+    welcomeSubtitle.TextColor3 = COLORS.TEXT_SECONDARY
+    welcomeSubtitle.TextSize = 18
+    welcomeSubtitle.Font = Enum.Font.Gotham
+    welcomeSubtitle.Parent = welcomeFrame
+    
+    -- Button hover effects
     minimizeBtn.MouseEnter:Connect(function()
-        minimizeBtn.BackgroundColor3 = COLORS.DANGER
+        createTween(minimizeBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.DANGER})
     end)
     minimizeBtn.MouseLeave:Connect(function()
-        minimizeBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
+        createTween(minimizeBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.SURFACE_LIGHT})
     end)
     
     settingsBtn.MouseEnter:Connect(function()
-        settingsBtn.BackgroundColor3 = COLORS.PRIMARY_HOVER
+        createTween(settingsBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY_DARK})
     end)
     settingsBtn.MouseLeave:Connect(function()
-        settingsBtn.BackgroundColor3 = COLORS.PRIMARY
+        createTween(settingsBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY})
     end)
     
     -- Drag functionality
@@ -431,16 +501,16 @@ local function createMainUI()
     -- Minimize functionality
     minimizeBtn.MouseButton1Click:Connect(function()
         if MainFrame.Visible then
-            createTween(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                Size = UDim2.new(0, 800, 0, 0)
+            createTween(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 900, 0, 0)
             })
-            wait(0.3)
+            wait(0.4)
             MainFrame.Visible = false
         else
             MainFrame.Visible = true
-            MainFrame.Size = UDim2.new(0, 800, 0, 0)
-            createTween(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                Size = UDim2.new(0, 800, 0, 450)
+            MainFrame.Size = UDim2.new(0, 900, 0, 0)
+            createTween(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 900, 0, 520)
             })
         end
     end)
@@ -451,91 +521,116 @@ local function createMainUI()
             SettingsFrame.Visible = true
         end
     end)
+    
+    return contentArea
 end
 
--- Enhanced Settings Frame
+-- Professional Settings Frame
 local function createSettingsFrame()
     SettingsFrame = Instance.new("Frame")
     SettingsFrame.Name = "SettingsFrame"
-    SettingsFrame.Size = UDim2.new(0, 400, 0, 300)
-    SettingsFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+    SettingsFrame.Size = UDim2.new(0, 450, 0, 350)
+    SettingsFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
     SettingsFrame.BackgroundColor3 = COLORS.BACKGROUND
     SettingsFrame.BorderSizePixel = 0
     SettingsFrame.Visible = false
-    SettingsFrame.ZIndex = 20
+    SettingsFrame.ZIndex = 25
     SettingsFrame.Parent = VyrxisGui
     
-    createCorner(SettingsFrame, 12)
+    createCorner(SettingsFrame, 16)
     createStroke(SettingsFrame, COLORS.ACCENT, 2)
-    createShadow(SettingsFrame)
+    createShadow(SettingsFrame, 0.8)
+    createGradient(SettingsFrame, COLORS.BACKGROUND, Color3.fromRGB(28, 32, 40))
     
     -- Header
     local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, 60)
-    header.Position = UDim2.new(0, 0, 0, 0)
+    header.Size = UDim2.new(1, 0, 0, 70)
     header.BackgroundColor3 = COLORS.SURFACE
     header.BorderSizePixel = 0
     header.Parent = SettingsFrame
-    createCorner(header, 12)
+    createCorner(header, 16)
+    createGradient(header, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
     
     local headerTitle = Instance.new("TextLabel")
-    headerTitle.Size = UDim2.new(1, -60, 1, 0)
-    headerTitle.Position = UDim2.new(0, 20, 0, 0)
+    headerTitle.Size = UDim2.new(1, -80, 1, 0)
+    headerTitle.Position = UDim2.new(0, 25, 0, 0)
     headerTitle.BackgroundTransparency = 1
     headerTitle.Text = "Settings"
     headerTitle.TextColor3 = COLORS.TEXT_PRIMARY
-    headerTitle.TextScaled = true
+    headerTitle.TextSize = 24
     headerTitle.Font = Enum.Font.GothamBold
     headerTitle.TextXAlignment = Enum.TextXAlignment.Left
     headerTitle.Parent = header
     
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 35, 0, 35)
-    closeBtn.Position = UDim2.new(1, -50, 0, 12.5)
+    closeBtn.Size = UDim2.new(0, 45, 0, 45)
+    closeBtn.Position = UDim2.new(1, -60, 0, 12.5)
     closeBtn.BackgroundColor3 = COLORS.DANGER
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = COLORS.TEXT_PRIMARY
-    closeBtn.TextScaled = true
+    closeBtn.TextSize = 16
     closeBtn.Font = Enum.Font.GothamBold
     closeBtn.BorderSizePixel = 0
     closeBtn.AutoButtonColor = false
     closeBtn.Parent = header
-    createCorner(closeBtn, 6)
+    createCorner(closeBtn, 10)
+    createGradient(closeBtn, COLORS.DANGER, Color3.fromRGB(200, 50, 50))
     
-    -- Content
+    -- Content area
     local content = Instance.new("Frame")
-    content.Size = UDim2.new(1, -40, 1, -100)
-    content.Position = UDim2.new(0, 20, 0, 80)
+    content.Size = UDim2.new(1, -50, 1, -120)
+    content.Position = UDim2.new(0, 25, 0, 90)
     content.BackgroundTransparency = 1
     content.Parent = SettingsFrame
     
+    -- Keybind section
+    local keybindFrame = Instance.new("Frame")
+    keybindFrame.Size = UDim2.new(1, 0, 0, 80)
+    keybindFrame.BackgroundColor3 = COLORS.SURFACE
+    keybindFrame.BorderSizePixel = 0
+    keybindFrame.Parent = content
+    createCorner(keybindFrame, 12)
+    createStroke(keybindFrame, COLORS.BORDER)
+    createGradient(keybindFrame, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
+    
+    local keybindPadding = Instance.new("UIPadding")
+    keybindPadding.PaddingAll = UDim.new(0, 20)
+    keybindPadding.Parent = keybindFrame
+    
     local keybindLabel = Instance.new("TextLabel")
-    keybindLabel.Size = UDim2.new(1, 0, 0, 30)
-    keybindLabel.Position = UDim2.new(0, 0, 0, 0)
+    keybindLabel.Size = UDim2.new(1, 0, 0, 25)
     keybindLabel.BackgroundTransparency = 1
-    keybindLabel.Text = "Toggle Key: " .. settings.menuKey.Name
+    keybindLabel.Text = "Toggle Menu Key: " .. settings.menuKey.Name
     keybindLabel.TextColor3 = COLORS.TEXT_PRIMARY
-    keybindLabel.TextScaled = true
+    keybindLabel.TextSize = 16
     keybindLabel.Font = Enum.Font.GothamSemibold
     keybindLabel.TextXAlignment = Enum.TextXAlignment.Left
-    keybindLabel.Parent = content
+    keybindLabel.Parent = keybindFrame
     
     local keybindBtn = Instance.new("TextButton")
-    keybindBtn.Size = UDim2.new(0, 150, 0, 40)
-    keybindBtn.Position = UDim2.new(0, 0, 0, 40)
+    keybindBtn.Size = UDim2.new(0, 180, 0, 35)
+    keybindBtn.Position = UDim2.new(0, 0, 1, -35)
     keybindBtn.BackgroundColor3 = COLORS.PRIMARY
     keybindBtn.Text = "Change Key"
     keybindBtn.TextColor3 = COLORS.TEXT_PRIMARY
-    keybindBtn.TextScaled = true
+    keybindBtn.TextSize = 14
     keybindBtn.Font = Enum.Font.GothamSemibold
     keybindBtn.BorderSizePixel = 0
     keybindBtn.AutoButtonColor = false
-    keybindBtn.Parent = content
+    keybindBtn.Parent = keybindFrame
     createCorner(keybindBtn, 8)
+    createGradient(keybindBtn, COLORS.PRIMARY, COLORS.PRIMARY_DARK)
     
     -- Button events
     closeBtn.MouseButton1Click:Connect(function()
+        createTween(SettingsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        })
+        wait(0.3)
         SettingsFrame.Visible = false
+        SettingsFrame.Size = UDim2.new(0, 450, 0, 350)
+        SettingsFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
     end)
     
     keybindBtn.MouseButton1Click:Connect(function()
@@ -545,66 +640,112 @@ local function createSettingsFrame()
         connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
                 settings.menuKey = input.KeyCode
-                keybindLabel.Text = "Toggle Key: " .. settings.menuKey.Name
+                keybindLabel.Text = "Toggle Menu Key: " .. settings.menuKey.Name
                 keybindBtn.Text = "Change Key"
                 keybindBtn.BackgroundColor3 = COLORS.PRIMARY
                 connection:Disconnect()
             end
         end)
     end)
+    
+    -- Hover effects
+    closeBtn.MouseEnter:Connect(function()
+        createTween(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 60, 60)})
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        createTween(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.DANGER})
+    end)
+    
+    keybindBtn.MouseEnter:Connect(function()
+        createTween(keybindBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY_DARK})
+    end)
+    keybindBtn.MouseLeave:Connect(function()
+        if keybindBtn.BackgroundColor3 ~= COLORS.WARNING then
+            createTween(keybindBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY})
+        end
+    end)
 end
 
--- Enhanced UI Elements - FIXED BUTTON RESPONSIVENESS
-local function createModernButton(parent, text, callback, style)
+-- Modern UI Elements
+local function createModernButton(parent, text, callback, style, icon)
     style = style or "default"
     
+    local btnFrame = Instance.new("Frame")
+    btnFrame.Size = UDim2.new(1, -20, 0, 55)
+    btnFrame.BackgroundTransparency = 1
+    btnFrame.Parent = parent
+    
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 45)
+    btn.Size = UDim2.new(1, 0, 1, 0)
     btn.BackgroundColor3 = style == "success" and COLORS.SUCCESS or 
                           style == "danger" and COLORS.DANGER or 
                           style == "primary" and COLORS.PRIMARY or
                           COLORS.SURFACE_LIGHT
     btn.Text = ""
     btn.BorderSizePixel = 0
-    btn.AutoButtonColor = false  -- FIXED: Instant response
-    btn.Parent = parent
+    btn.AutoButtonColor = false
+    btn.Parent = btnFrame
     
-    createCorner(btn, 8)
+    createCorner(btn, 12)
     createStroke(btn, COLORS.BORDER)
+    createGradient(btn, btn.BackgroundColor3, Color3.new(
+        math.min(1, btn.BackgroundColor3.R + 0.1),
+        math.min(1, btn.BackgroundColor3.G + 0.1),
+        math.min(1, btn.BackgroundColor3.B + 0.1)
+    ))
+    
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, -30, 1, 0)
+    contentFrame.Position = UDim2.new(0, 15, 0, 0)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = btn
+    
+    local iconLabel = nil
+    if icon then
+        iconLabel = Instance.new("TextLabel")
+        iconLabel.Size = UDim2.new(0, 25, 0, 25)
+        iconLabel.Position = UDim2.new(0, 0, 0, 15)
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.Text = icon
+        iconLabel.TextColor3 = COLORS.TEXT_PRIMARY
+        iconLabel.TextSize = 18
+        iconLabel.Font = Enum.Font.GothamBold
+        iconLabel.Parent = contentFrame
+    end
     
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
+    label.Size = UDim2.new(1, icon and -35 or -50, 1, 0)
+    label.Position = UDim2.new(0, icon and 35 or 0, 0, 0)
     label.BackgroundTransparency = 1
     label.Text = text
     label.TextColor3 = COLORS.TEXT_PRIMARY
-    label.TextScaled = true
+    label.TextSize = 16
     label.Font = Enum.Font.GothamSemibold
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = btn
+    label.Parent = contentFrame
     
     local indicator = Instance.new("Frame")
-    indicator.Size = UDim2.new(0, 8, 0, 8)
-    indicator.Position = UDim2.new(1, -20, 0.5, -4)
+    indicator.Size = UDim2.new(0, 12, 0, 12)
+    indicator.Position = UDim2.new(1, -12, 0.5, -6)
     indicator.BackgroundColor3 = COLORS.DANGER
     indicator.BorderSizePixel = 0
-    indicator.Parent = btn
-    createCorner(indicator, 4)
+    indicator.Parent = contentFrame
+    createCorner(indicator, 6)
     
-    -- FIXED: Instant hover effects without tweens
+    local originalColor = btn.BackgroundColor3
+    
     btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.new(
-            math.min(1, btn.BackgroundColor3.R + 0.1),
-            math.min(1, btn.BackgroundColor3.G + 0.1),
-            math.min(1, btn.BackgroundColor3.B + 0.1)
-        )
+        createTween(btn, TweenInfo.new(0.2), {
+            BackgroundColor3 = Color3.new(
+                math.min(1, originalColor.R + 0.1),
+                math.min(1, originalColor.G + 0.1),
+                math.min(1, originalColor.B + 0.1)
+            )
+        })
     end)
     
     btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = style == "success" and COLORS.SUCCESS or 
-                              style == "danger" and COLORS.DANGER or 
-                              style == "primary" and COLORS.PRIMARY or
-                              COLORS.SURFACE_LIGHT
+        createTween(btn, TweenInfo.new(0.2), {BackgroundColor3 = originalColor})
     end)
     
     if callback then
@@ -613,51 +754,77 @@ local function createModernButton(parent, text, callback, style)
         end)
     end
     
-    return btn, label, indicator
+    return btnFrame, label, indicator, btn
 end
 
-local function createModernSlider(parent, text, min, max, current, callback)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -20, 0, 80)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
+local function createModernSlider(parent, text, min, max, current, callback, icon)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(1, -20, 0, 90)
+    sliderFrame.BackgroundColor3 = COLORS.SURFACE
+    sliderFrame.BorderSizePixel = 0
+    sliderFrame.Parent = parent
+    createCorner(sliderFrame, 12)
+    createStroke(sliderFrame, COLORS.BORDER)
+    createGradient(sliderFrame, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
+    
+    local padding = Instance.new("UIPadding")
+    padding.PaddingAll = UDim.new(0, 20)
+    padding.Parent = sliderFrame
+    
+    local headerFrame = Instance.new("Frame")
+    headerFrame.Size = UDim2.new(1, 0, 0, 25)
+    headerFrame.BackgroundTransparency = 1
+    headerFrame.Parent = sliderFrame
+    
+    if icon then
+        local iconLabel = Instance.new("TextLabel")
+        iconLabel.Size = UDim2.new(0, 20, 0, 20)
+        iconLabel.Position = UDim2.new(0, 0, 0, 2.5)
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.Text = icon
+        iconLabel.TextColor3 = COLORS.ACCENT
+        iconLabel.TextSize = 16
+        iconLabel.Font = Enum.Font.GothamBold
+        iconLabel.Parent = headerFrame
+    end
     
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 25)
-    label.Position = UDim2.new(0, 0, 0, 0)
+    label.Size = UDim2.new(1, icon and -25 or 0, 1, 0)
+    label.Position = UDim2.new(0, icon and 25 or 0, 0, 0)
     label.BackgroundTransparency = 1
-    label.Text = text .. ": " .. current
+    label.Text = text .. ": " .. round(current, 1)
     label.TextColor3 = COLORS.TEXT_PRIMARY
-    label.TextScaled = true
+    label.TextSize = 14
     label.Font = Enum.Font.GothamSemibold
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = container
+    label.Parent = headerFrame
     
     local sliderBg = Instance.new("Frame")
-    sliderBg.Size = UDim2.new(1, 0, 0, 25)
+    sliderBg.Size = UDim2.new(1, 0, 0, 8)
     sliderBg.Position = UDim2.new(0, 0, 0, 35)
-    sliderBg.BackgroundColor3 = COLORS.SURFACE
+    sliderBg.BackgroundColor3 = COLORS.BACKGROUND
     sliderBg.BorderSizePixel = 0
-    sliderBg.Parent = container
-    createCorner(sliderBg, 12)
+    sliderBg.Parent = sliderFrame
+    createCorner(sliderBg, 4)
     createStroke(sliderBg, COLORS.BORDER)
     
     local sliderFill = Instance.new("Frame")
     sliderFill.Size = UDim2.new((current - min) / (max - min), 0, 1, 0)
-    sliderFill.Position = UDim2.new(0, 0, 0, 0)
     sliderFill.BackgroundColor3 = COLORS.ACCENT
     sliderFill.BorderSizePixel = 0
     sliderFill.Parent = sliderBg
-    createCorner(sliderFill, 12)
+    createCorner(sliderFill, 4)
+    createGradient(sliderFill, COLORS.ACCENT, COLORS.PRIMARY_DARK)
     
     local handle = Instance.new("Frame")
-    handle.Size = UDim2.new(0, 20, 0, 30)
-    handle.Position = UDim2.new((current - min) / (max - min), -10, 0, -2.5)
+    handle.Size = UDim2.new(0, 20, 0, 20)
+    handle.Position = UDim2.new((current - min) / (max - min), -10, 0, -6)
     handle.BackgroundColor3 = COLORS.TEXT_PRIMARY
     handle.BorderSizePixel = 0
     handle.Parent = sliderBg
     createCorner(handle, 10)
     createStroke(handle, COLORS.ACCENT, 2)
+    createShadow(handle, 0.3)
     
     local dragging = false
     
@@ -673,7 +840,7 @@ local function createModernSlider(parent, text, min, max, current, callback)
             local value = min + (max - min) * pos
             
             sliderFill.Size = UDim2.new(pos, 0, 1, 0)
-            handle.Position = UDim2.new(pos, -10, 0, -2.5)
+            handle.Position = UDim2.new(pos, -10, 0, -6)
             label.Text = text .. ": " .. round(value, 1)
             callback(value)
         end
@@ -685,170 +852,230 @@ local function createModernSlider(parent, text, min, max, current, callback)
         end
     end)
     
-    return container
+    return sliderFrame
 end
 
-local function createModernColorPicker(parent, text, currentColor, callback)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -20, 0, 60)
-    container.BackgroundTransparency = 1
-    container.Parent = parent
+local function createModernColorPicker(parent, text, currentColor, callback, icon)
+    local colorFrame = Instance.new("Frame")
+    colorFrame.Size = UDim2.new(1, -20, 0, 80)
+    colorFrame.BackgroundColor3 = COLORS.SURFACE
+    colorFrame.BorderSizePixel = 0
+    colorFrame.Parent = parent
+    createCorner(colorFrame, 12)
+    createStroke(colorFrame, COLORS.BORDER)
+    createGradient(colorFrame, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
+    
+    local padding = Instance.new("UIPadding")
+    padding.PaddingAll = UDim.new(0, 15)
+    padding.Parent = colorFrame
+    
+    local headerFrame = Instance.new("Frame")
+    headerFrame.Size = UDim2.new(1, 0, 0, 25)
+    headerFrame.BackgroundTransparency = 1
+    headerFrame.Parent = colorFrame
+    
+    if icon then
+        local iconLabel = Instance.new("TextLabel")
+        iconLabel.Size = UDim2.new(0, 20, 0, 20)
+        iconLabel.Position = UDim2.new(0, 0, 0, 2.5)
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.Text = icon
+        iconLabel.TextColor3 = COLORS.ACCENT
+        iconLabel.TextSize = 16
+        iconLabel.Font = Enum.Font.GothamBold
+        iconLabel.Parent = headerFrame
+    end
     
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0, 120, 0, 25)
-    label.Position = UDim2.new(0, 0, 0, 0)
+    label.Size = UDim2.new(0, 120, 1, 0)
+    label.Position = UDim2.new(0, icon and 25 or 0, 0, 0)
     label.BackgroundTransparency = 1
     label.Text = text .. ":"
     label.TextColor3 = COLORS.TEXT_PRIMARY
-    label.TextScaled = true
+    label.TextSize = 14
     label.Font = Enum.Font.GothamSemibold
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = container
+    label.Parent = headerFrame
     
-    local colors = {
+    local colorsData = {
         {Color3.fromRGB(255, 92, 92), "Red"},
         {Color3.fromRGB(92, 255, 92), "Green"},
         {Color3.fromRGB(92, 92, 255), "Blue"},
         {Color3.fromRGB(255, 255, 92), "Yellow"},
         {Color3.fromRGB(255, 92, 255), "Magenta"},
-        {Color3.fromRGB(92, 255, 255), "Cyan"},
+        {Color3.fromRGB(0, 255, 255), "Cyan"},
         {Color3.fromRGB(255, 255, 255), "White"},
         {Color3.fromRGB(50, 50, 50), "Black"}
     }
     
-    for i, colorData in ipairs(colors) do
+    local colorContainer = Instance.new("Frame")
+    colorContainer.Size = UDim2.new(1, -130, 0, 35)
+    colorContainer.Position = UDim2.new(0, 130, 0, 25)
+    colorContainer.BackgroundTransparency = 1
+    colorContainer.Parent = colorFrame
+    
+    for i, colorData in ipairs(colorsData) do
         local colorBtn = Instance.new("TextButton")
-        colorBtn.Size = UDim2.new(0, 35, 0, 35)
-        colorBtn.Position = UDim2.new(0, 130 + (i-1) * 42, 0, 15)
+        colorBtn.Size = UDim2.new(0, 32, 0, 32)
+        colorBtn.Position = UDim2.new(0, (i-1) * 37, 0, 0)
         colorBtn.BackgroundColor3 = colorData[1]
         colorBtn.Text = ""
         colorBtn.BorderSizePixel = 0
         colorBtn.AutoButtonColor = false
-        colorBtn.Parent = container
+        colorBtn.Parent = colorContainer
+        createCorner(colorBtn, 8)
         
-        createCorner(colorBtn, 6)
-        
-        local selected = Instance.new("Frame")
-        selected.Size = UDim2.new(1, 8, 1, 8)
-        selected.Position = UDim2.new(0, -4, 0, -4)
-        selected.BackgroundTransparency = 1
-        selected.BorderSizePixel = 0
+        local selected = Instance.new("UIStroke")
+        selected.Color = COLORS.ACCENT
+        selected.Thickness = 3
+        selected.Transparency = currentColor == colorData[1] and 0 or 1
         selected.Parent = colorBtn
-        createCorner(selected, 8)
-        createStroke(selected, COLORS.ACCENT, 3)
         
-        selected.Visible = currentColor == colorData[1]
+        colorBtn.MouseEnter:Connect(function()
+            createTween(colorBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, 35, 0, 35)})
+        end)
+        colorBtn.MouseLeave:Connect(function()
+            createTween(colorBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, 32, 0, 32)})
+        end)
         
         colorBtn.MouseButton1Click:Connect(function()
-            for _, child in ipairs(container:GetChildren()) do
+            for _, child in ipairs(colorContainer:GetChildren()) do
                 if child:IsA("TextButton") and child ~= colorBtn then
-                    child.Frame.Visible = false
+                    createTween(child.UIStroke, TweenInfo.new(0.2), {Transparency = 1})
                 end
             end
-            selected.Visible = true
+            createTween(selected, TweenInfo.new(0.2), {Transparency = 0})
             callback(colorData[1])
         end)
     end
     
-    return container
+    return colorFrame
 end
 
 -- Category System
 local function closeCategoryFrame()
     if currentCategoryFrame then
+        createTween(currentCategoryFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 0, 0, 0)
+        })
+        wait(0.3)
         currentCategoryFrame:Destroy()
         currentCategoryFrame = nil
     end
 end
 
-local function createCategoryFrame(name)
+local function createCategoryFrame(name, contentArea)
     closeCategoryFrame()
     
     currentCategoryFrame = Instance.new("ScrollingFrame")
     currentCategoryFrame.Name = name .. "Frame"
-    currentCategoryFrame.Size = UDim2.new(1, -20, 1, -20)
-    currentCategoryFrame.Position = UDim2.new(0, 10, 0, 10)
+    currentCategoryFrame.Size = UDim2.new(1, -40, 1, -40)
+    currentCategoryFrame.Position = UDim2.new(1, 0, 0, 20)
     currentCategoryFrame.BackgroundTransparency = 1
     currentCategoryFrame.BorderSizePixel = 0
-    currentCategoryFrame.ScrollBarThickness = 6
+    currentCategoryFrame.ScrollBarThickness = 8
     currentCategoryFrame.ScrollBarImageColor3 = COLORS.ACCENT
+    currentCategoryFrame.ScrollBarImageTransparency = 0.3
     currentCategoryFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    currentCategoryFrame.Parent = ContentFrame
+    currentCategoryFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    currentCategoryFrame.Parent = contentArea
     
     local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 15)
+    layout.Padding = UDim.new(0, 20)
     layout.Parent = currentCategoryFrame
     
     local padding = Instance.new("UIPadding")
-    padding.PaddingTop = UDim.new(0, 10)
-    padding.PaddingBottom = UDim.new(0, 10)
-    padding.PaddingLeft = UDim.new(0, 10)
-    padding.PaddingRight = UDim.new(0, 20)
+    padding.PaddingAll = UDim.new(0, 20)
     padding.Parent = currentCategoryFrame
     
-    -- Category title
+    -- Category header
+    local headerFrame = Instance.new("Frame")
+    headerFrame.Size = UDim2.new(1, -20, 0, 60)
+    headerFrame.BackgroundColor3 = COLORS.SURFACE_LIGHT
+    headerFrame.BorderSizePixel = 0
+    headerFrame.Parent = currentCategoryFrame
+    createCorner(headerFrame, 12)
+    createStroke(headerFrame, COLORS.ACCENT, 2)
+    createGradient(headerFrame, COLORS.SURFACE_LIGHT, COLORS.SURFACE_HOVER)
+    
+    local headerPadding = Instance.new("UIPadding")
+    headerPadding.PaddingAll = UDim.new(0, 20)
+    headerPadding.Parent = headerFrame
+    
     local categoryTitle = Instance.new("TextLabel")
-    categoryTitle.Size = UDim2.new(1, -20, 0, 40)
+    categoryTitle.Size = UDim2.new(1, 0, 1, 0)
     categoryTitle.BackgroundTransparency = 1
     categoryTitle.Text = name .. " Settings"
     categoryTitle.TextColor3 = COLORS.ACCENT
-    categoryTitle.TextScaled = true
+    categoryTitle.TextSize = 22
     categoryTitle.Font = Enum.Font.GothamBold
     categoryTitle.TextXAlignment = Enum.TextXAlignment.Left
-    categoryTitle.Parent = currentCategoryFrame
+    categoryTitle.Parent = headerFrame
+    
+    -- Slide in animation
+    createTween(currentCategoryFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0, 20, 0, 20)
+    })
     
     return currentCategoryFrame
 end
 
-local function createCategoryButton(name, callback, icon)
+local function createCategoryButton(name, callback, icon, contentArea)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 50)
+    btn.Size = UDim2.new(1, -20, 0, 65)
     btn.BackgroundColor3 = COLORS.SURFACE_LIGHT
     btn.Text = ""
     btn.BorderSizePixel = 0
-    btn.AutoButtonColor = false  -- FIXED: Instant response
+    btn.AutoButtonColor = false
     btn.Parent = Liste
     
-    createCorner(btn, 8)
+    createCorner(btn, 12)
     createStroke(btn, COLORS.BORDER)
+    createGradient(btn, COLORS.SURFACE_LIGHT, COLORS.SURFACE_HOVER)
+    
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, -30, 1, 0)
+    contentFrame.Position = UDim2.new(0, 15, 0, 0)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = btn
     
     local iconLabel = Instance.new("TextLabel")
-    iconLabel.Size = UDim2.new(0, 30, 0, 30)
-    iconLabel.Position = UDim2.new(0, 15, 0, 10)
+    iconLabel.Size = UDim2.new(0, 35, 0, 35)
+    iconLabel.Position = UDim2.new(0, 0, 0, 15)
     iconLabel.BackgroundTransparency = 1
     iconLabel.Text = icon or "⚪"
     iconLabel.TextColor3 = COLORS.ACCENT
-    iconLabel.TextScaled = true
+    iconLabel.TextSize = 20
     iconLabel.Font = Enum.Font.GothamBold
-    iconLabel.Parent = btn
+    iconLabel.Parent = contentFrame
     
     local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, -60, 1, 0)
-    nameLabel.Position = UDim2.new(0, 55, 0, 0)
+    nameLabel.Size = UDim2.new(1, -45, 1, 0)
+    nameLabel.Position = UDim2.new(0, 45, 0, 0)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = name
     nameLabel.TextColor3 = COLORS.TEXT_PRIMARY
-    nameLabel.TextScaled = true
+    nameLabel.TextSize = 16
     nameLabel.Font = Enum.Font.GothamSemibold
     nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.Parent = btn
+    nameLabel.Parent = contentFrame
     
-    -- FIXED: Instant hover effects
+    -- Hover effects
     btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = COLORS.PRIMARY
-        iconLabel.TextColor3 = COLORS.TEXT_PRIMARY
+        createTween(btn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY})
+        createTween(iconLabel, TweenInfo.new(0.2), {TextColor3 = COLORS.TEXT_PRIMARY})
+        createTween(nameLabel, TweenInfo.new(0.2), {TextColor3 = COLORS.TEXT_PRIMARY})
     end)
     
     btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = COLORS.SURFACE_LIGHT
-        iconLabel.TextColor3 = COLORS.ACCENT
+        createTween(btn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.SURFACE_LIGHT})
+        createTween(iconLabel, TweenInfo.new(0.2), {TextColor3 = COLORS.ACCENT})
+        createTween(nameLabel, TweenInfo.new(0.2), {TextColor3 = COLORS.TEXT_PRIMARY})
     end)
     
     btn.MouseButton1Click:Connect(function()
-        callback()
+        callback(contentArea)
     end)
-    
-    Liste.CanvasSize = UDim2.new(0, 0, 0, (#Liste:GetChildren() - 2) * 58 + 20)
 end
 
 -- Fly Functions
@@ -960,7 +1187,7 @@ local function createHealthBar(player)
     if not humanoidRootPart or not humanoid then return end
     
     local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Size = UDim2.new(0, 8, 0, 100)
+    billboardGui.Size = UDim2.new(0, 10, 0, 100)
     billboardGui.StudsOffset = Vector3.new(3, 0, 0)
     billboardGui.AlwaysOnTop = true
     billboardGui.LightInfluence = 0
@@ -968,11 +1195,10 @@ local function createHealthBar(player)
     
     local backgroundFrame = Instance.new("Frame")
     backgroundFrame.Size = UDim2.new(1, 0, 1, 0)
-    backgroundFrame.Position = UDim2.new(0, 0, 0, 0)
     backgroundFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    backgroundFrame.BorderSizePixel = 1
-    backgroundFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    backgroundFrame.BorderSizePixel = 0
     backgroundFrame.Parent = billboardGui
+    createCorner(backgroundFrame, 2)
     
     local healthFrame = Instance.new("Frame")
     healthFrame.Size = UDim2.new(1, 0, humanoid.Health / humanoid.MaxHealth, 0)
@@ -980,13 +1206,14 @@ local function createHealthBar(player)
     healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
     healthFrame.BorderSizePixel = 0
     healthFrame.Parent = backgroundFrame
+    createCorner(healthFrame, 2)
     
     local sizeConnection = RunService.Heartbeat:Connect(function()
         if humanoidRootPart.Parent then
             local camera = Workspace.CurrentCamera
             local distance = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
-            local scale = math.max(0.3, math.min(1, 30 / distance))
-            billboardGui.Size = UDim2.new(0, 8 * scale, 0, 100 * scale)
+            local scale = math.max(0.4, math.min(1.2, 40 / distance))
+            billboardGui.Size = UDim2.new(0, 10 * scale, 0, 100 * scale)
         end
     end)
     
@@ -1065,14 +1292,8 @@ local function updateESP()
         end
     else
         for player, objects in pairs(espObjects) do
-            if objects.highlight then objects.highlight:Destroy() end
-            if objects.healthBar then
-                if objects.healthBar.gui then objects.healthBar.gui:Destroy() end
-                if objects.healthBar.sizeConnection then objects.healthBar.sizeConnection:Disconnect() end
-                if objects.healthBar.healthConnection then objects.healthBar.healthConnection:Disconnect() end
-            end
+            removeHighlight(player)
         end
-        espObjects = {}
     end
 end
 
@@ -1085,11 +1306,20 @@ local function createNametag(player)
     if not humanoidRootPart then return end
     
     local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Size = UDim2.new(0, settings.nametagSize * 10, 0, settings.nametagSize * 2)
+    billboardGui.Size = UDim2.new(0, settings.nametagSize * 8, 0, settings.nametagSize * 2)
     billboardGui.StudsOffset = Vector3.new(0, -3, 0)
     billboardGui.AlwaysOnTop = true
     billboardGui.LightInfluence = 0
     billboardGui.Parent = humanoidRootPart
+    
+    local nameFrame = Instance.new("Frame")
+    nameFrame.Size = UDim2.new(1, 10, 1, 6)
+    nameFrame.Position = UDim2.new(0, -5, 0, -3)
+    nameFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    nameFrame.BackgroundTransparency = 0.3
+    nameFrame.BorderSizePixel = 0
+    nameFrame.Parent = billboardGui
+    createCorner(nameFrame, 4)
     
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -1098,16 +1328,16 @@ local function createNametag(player)
     textLabel.TextColor3 = settings.nametagColor
     textLabel.TextScaled = true
     textLabel.Font = Enum.Font.GothamBold
-    textLabel.TextStrokeTransparency = 0
+    textLabel.TextStrokeTransparency = 0.5
     textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    textLabel.Parent = billboardGui
+    textLabel.Parent = nameFrame
     
     local sizeConnection = RunService.Heartbeat:Connect(function()
         if humanoidRootPart.Parent then
             local camera = Workspace.CurrentCamera
             local distance = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
-            local scale = math.max(0.5, math.min(2, 50 / distance))
-            billboardGui.Size = UDim2.new(0, settings.nametagSize * 10 * scale, 0, settings.nametagSize * 2 * scale)
+            local scale = math.max(0.6, math.min(2.5, 60 / distance))
+            billboardGui.Size = UDim2.new(0, settings.nametagSize * 8 * scale, 0, settings.nametagSize * 2 * scale)
         end
     end)
     
@@ -1144,10 +1374,8 @@ local function updateNametags()
         end
     else
         for player, objects in pairs(nametagObjects) do
-            if objects.connection then objects.connection:Disconnect() end
-            if objects.gui then objects.gui:Destroy() end
+            removeNametag(player)
         end
-        nametagObjects = {}
     end
 end
 
@@ -1226,8 +1454,12 @@ local function giveAllItems()
             end
             
             if not hasItem then
-                local newTool = obj:Clone()
-                newTool.Parent = backpack
+                local success, newTool = pcall(function()
+                    return obj:Clone()
+                end)
+                if success then
+                    newTool.Parent = backpack
+                end
             end
         end
     end
@@ -1243,20 +1475,23 @@ local function giveAllItems()
             end
             
             if not hasItem then
-                local newTool = obj:Clone()
-                newTool.Parent = backpack
+                local success, newTool = pcall(function()
+                    return obj:Clone()
+                end)
+                if success then
+                    newTool.Parent = backpack
+                end
             end
         end
     end
 end
 
 -- Category Frames
-local function createFlyFrame()
-    local frame = createCategoryFrame("Flight")
+local function createFlyFrame(contentArea)
+    local frame = createCategoryFrame("Flight", contentArea)
     
-    local flyBtn, flyLabel, flyIndicator = createModernButton(frame, "Flight Mode", function()
+    local flyFrame, flyLabel, flyIndicator, flyBtn = createModernButton(frame, "Flight Mode", function()
         settings.flyEnabled = not settings.flyEnabled
-        flyLabel.Text = "Flight Mode"
         
         if settings.flyEnabled then
             flyBtn.BackgroundColor3 = COLORS.SUCCESS
@@ -1267,26 +1502,61 @@ local function createFlyFrame()
             flyIndicator.BackgroundColor3 = COLORS.DANGER
             disableFly()
         end
-    end, settings.flyEnabled and "success" or "default")
+    end, settings.flyEnabled and "success" or "default", "✈️")
     
     if settings.flyEnabled then
+        flyBtn.BackgroundColor3 = COLORS.SUCCESS
         flyIndicator.BackgroundColor3 = COLORS.SUCCESS
         enableFly()
     end
     
     createModernSlider(frame, "Flight Speed", 10, 200, settings.flySpeed, function(value)
         settings.flySpeed = value
-    end)
+    end, "⚡")
     
-    frame.CanvasSize = UDim2.new(0, 0, 0, 200)
+    -- Controls info
+    local infoFrame = Instance.new("Frame")
+    infoFrame.Size = UDim2.new(1, -20, 0, 100)
+    infoFrame.BackgroundColor3 = COLORS.SURFACE
+    infoFrame.BorderSizePixel = 0
+    infoFrame.Parent = frame
+    createCorner(infoFrame, 12)
+    createStroke(infoFrame, COLORS.BORDER)
+    createGradient(infoFrame, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
+    
+    local infoPadding = Instance.new("UIPadding")
+    infoPadding.PaddingAll = UDim.new(0, 15)
+    infoPadding.Parent = infoFrame
+    
+    local infoTitle = Instance.new("TextLabel")
+    infoTitle.Size = UDim2.new(1, 0, 0, 25)
+    infoTitle.BackgroundTransparency = 1
+    infoTitle.Text = "🎮 Flight Controls"
+    infoTitle.TextColor3 = COLORS.ACCENT
+    infoTitle.TextSize = 16
+    infoTitle.Font = Enum.Font.GothamBold
+    infoTitle.TextXAlignment = Enum.TextXAlignment.Left
+    infoTitle.Parent = infoFrame
+    
+    local controlsText = Instance.new("TextLabel")
+    controlsText.Size = UDim2.new(1, 0, 1, -30)
+    controlsText.Position = UDim2.new(0, 0, 0, 30)
+    controlsText.BackgroundTransparency = 1
+    controlsText.Text = "W - Forward • S - Backward\nA - Left • D - Right\nFlight direction follows camera view"
+    controlsText.TextColor3 = COLORS.TEXT_SECONDARY
+    controlsText.TextSize = 12
+    controlsText.Font = Enum.Font.Gotham
+    controlsText.TextXAlignment = Enum.TextXAlignment.Left
+    controlsText.TextYAlignment = Enum.TextYAlignment.Top
+    controlsText.Parent = infoFrame
 end
 
-local function createMeFrame()
-    local frame = createCategoryFrame("Character")
+local function createMeFrame(contentArea)
+    local frame = createCategoryFrame("Character", contentArea)
     
     createModernButton(frame, "Give All Items", function()
         giveAllItems()
-    end, "primary")
+    end, "primary", "🎒")
     
     createModernSlider(frame, "Walk Speed", 16, 100, settings.walkSpeed, function(value)
         settings.walkSpeed = value
@@ -1297,7 +1567,7 @@ local function createMeFrame()
                 humanoid.WalkSpeed = value
             end
         end
-    end)
+    end, "🏃")
     
     createModernSlider(frame, "Jump Height", 50, 200, settings.jumpHeight, function(value)
         settings.jumpHeight = value
@@ -1308,11 +1578,10 @@ local function createMeFrame()
                 humanoid.JumpPower = value
             end
         end
-    end)
+    end, "⬆️")
     
-    local noclipBtn, noclipLabel, noclipIndicator = createModernButton(frame, "No Clip", function()
+    local noclipFrame, noclipLabel, noclipIndicator, noclipBtn = createModernButton(frame, "No Clip", function()
         settings.noclipEnabled = not settings.noclipEnabled
-        noclipLabel.Text = "No Clip"
         
         if settings.noclipEnabled then
             noclipBtn.BackgroundColor3 = COLORS.SUCCESS
@@ -1323,112 +1592,151 @@ local function createMeFrame()
             noclipIndicator.BackgroundColor3 = COLORS.DANGER
             disableNoclip()
         end
-    end, settings.noclipEnabled and "success" or "default")
+    end, settings.noclipEnabled and "success" or "default", "👻")
     
     if settings.noclipEnabled then
+        noclipBtn.BackgroundColor3 = COLORS.SUCCESS
         noclipIndicator.BackgroundColor3 = COLORS.SUCCESS
         enableNoclip()
     end
-    
-    frame.CanvasSize = UDim2.new(0, 0, 0, 350)
 end
 
--- FIXED PLAYER FRAME - Complete implementation
-local function createPlayerFrame()
-    local frame = createCategoryFrame("Player")
+local function createPlayerFrame(contentArea)
+    local frame = createCategoryFrame("Player", contentArea)
     
     -- Player selection container
     local playerContainer = Instance.new("Frame")
-    playerContainer.Size = UDim2.new(1, -20, 0, 200)
+    playerContainer.Size = UDim2.new(1, -20, 0, 220)
     playerContainer.BackgroundColor3 = COLORS.SURFACE
     playerContainer.BorderSizePixel = 0
     playerContainer.Parent = frame
-    createCorner(playerContainer, 8)
+    createCorner(playerContainer, 12)
     createStroke(playerContainer, COLORS.BORDER)
+    createGradient(playerContainer, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
     
     local containerPadding = Instance.new("UIPadding")
-    containerPadding.PaddingAll = UDim.new(0, 8)
+    containerPadding.PaddingAll = UDim.new(0, 15)
     containerPadding.Parent = playerContainer
     
-    -- Search bar with suggestions
+    -- Header
+    local headerFrame = Instance.new("Frame")
+    headerFrame.Size = UDim2.new(1, 0, 0, 30)
+    headerFrame.BackgroundTransparency = 1
+    headerFrame.Parent = playerContainer
+    
+    local headerTitle = Instance.new("TextLabel")
+    headerTitle.Size = UDim2.new(1, 0, 1, 0)
+    headerTitle.BackgroundTransparency = 1
+    headerTitle.Text = "👥 Player Selection"
+    headerTitle.TextColor3 = COLORS.ACCENT
+    headerTitle.TextSize = 16
+    headerTitle.Font = Enum.Font.GothamBold
+    headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+    headerTitle.Parent = headerFrame
+    
+    -- Search bar
     local searchBox = Instance.new("TextBox")
-    searchBox.Size = UDim2.new(1, 0, 0, 30)
-    searchBox.Position = UDim2.new(0, 0, 0, 0)
+    searchBox.Size = UDim2.new(1, 0, 0, 35)
+    searchBox.Position = UDim2.new(0, 0, 0, 40)
     searchBox.BackgroundColor3 = COLORS.BACKGROUND
-    searchBox.PlaceholderText = "Search players..."
+    searchBox.PlaceholderText = "🔍 Search players..."
     searchBox.Text = ""
     searchBox.TextColor3 = COLORS.TEXT_PRIMARY
     searchBox.PlaceholderColor3 = COLORS.TEXT_MUTED
-    searchBox.TextScaled = true
+    searchBox.TextSize = 14
     searchBox.Font = Enum.Font.Gotham
     searchBox.BorderSizePixel = 0
     searchBox.Parent = playerContainer
-    createCorner(searchBox, 6)
+    createCorner(searchBox, 8)
     createStroke(searchBox, COLORS.BORDER)
     
-    -- Small player ScrollingFrame
+    local searchPadding = Instance.new("UIPadding")
+    searchPadding.PaddingLeft = UDim.new(0, 12)
+    searchPadding.Parent = searchBox
+    
+    -- Player list
     local playerScrollFrame = Instance.new("ScrollingFrame")
-    playerScrollFrame.Size = UDim2.new(1, 0, 0, 120)
-    playerScrollFrame.Position = UDim2.new(0, 0, 0, 38)
+    playerScrollFrame.Size = UDim2.new(1, 0, 0, 100)
+    playerScrollFrame.Position = UDim2.new(0, 0, 0, 85)
     playerScrollFrame.BackgroundColor3 = COLORS.BACKGROUND
     playerScrollFrame.BorderSizePixel = 0
-    playerScrollFrame.ScrollBarThickness = 4
+    playerScrollFrame.ScrollBarThickness = 6
     playerScrollFrame.ScrollBarImageColor3 = COLORS.ACCENT
+    playerScrollFrame.ScrollBarImageTransparency = 0.5
     playerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     playerScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     playerScrollFrame.Parent = playerContainer
-    createCorner(playerScrollFrame, 6)
+    createCorner(playerScrollFrame, 8)
     createStroke(playerScrollFrame, COLORS.BORDER)
     
     local listLayout = Instance.new("UIListLayout")
-    listLayout.Padding = UDim.new(0, 2)
+    listLayout.Padding = UDim.new(0, 3)
     listLayout.Parent = playerScrollFrame
     
     local listPadding = Instance.new("UIPadding")
-    listPadding.PaddingAll = UDim.new(0, 4)
+    listPadding.PaddingAll = UDim.new(0, 8)
     listPadding.Parent = playerScrollFrame
     
-    -- Control buttons under container
+    -- Control buttons
+    local buttonFrame = Instance.new("Frame")
+    buttonFrame.Size = UDim2.new(1, 0, 0, 40)
+    buttonFrame.Position = UDim2.new(0, 0, 0, 195)
+    buttonFrame.BackgroundTransparency = 1
+    buttonFrame.Parent = playerContainer
+    
     local viewBtn = Instance.new("TextButton")
-    viewBtn.Size = UDim2.new(0, 120, 0, 35)
-    viewBtn.Position = UDim2.new(0, 0, 0, 220)
+    viewBtn.Size = UDim2.new(0, 130, 0, 40)
     viewBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
-    viewBtn.Text = "View: OFF"
+    viewBtn.Text = "👁️ View: OFF"
     viewBtn.TextColor3 = COLORS.TEXT_PRIMARY
-    viewBtn.TextScaled = true
+    viewBtn.TextSize = 14
     viewBtn.Font = Enum.Font.GothamSemibold
     viewBtn.BorderSizePixel = 0
     viewBtn.AutoButtonColor = false
-    viewBtn.Parent = frame
-    createCorner(viewBtn, 6)
+    viewBtn.Parent = buttonFrame
+    createCorner(viewBtn, 8)
     createStroke(viewBtn, COLORS.BORDER)
+    createGradient(viewBtn, COLORS.SURFACE_LIGHT, COLORS.SURFACE_HOVER)
     
     local gotoBtn = Instance.new("TextButton")
-    gotoBtn.Size = UDim2.new(0, 100, 0, 35)
-    gotoBtn.Position = UDim2.new(0, 140, 0, 220)
+    gotoBtn.Size = UDim2.new(0, 110, 0, 40)
+    gotoBtn.Position = UDim2.new(1, -110, 0, 0)
     gotoBtn.BackgroundColor3 = COLORS.PRIMARY
-    gotoBtn.Text = "Goto"
+    gotoBtn.Text = "🚀 Goto"
     gotoBtn.TextColor3 = COLORS.TEXT_PRIMARY
-    gotoBtn.TextScaled = true
+    gotoBtn.TextSize = 14
     gotoBtn.Font = Enum.Font.GothamSemibold
     gotoBtn.BorderSizePixel = 0
     gotoBtn.AutoButtonColor = false
-    gotoBtn.Parent = frame
-    createCorner(gotoBtn, 6)
+    gotoBtn.Parent = buttonFrame
+    createCorner(gotoBtn, 8)
+    createGradient(gotoBtn, COLORS.PRIMARY, COLORS.PRIMARY_DARK)
     
-    -- Selected Player Label
+    -- Selected player info
+    local selectedFrame = Instance.new("Frame")
+    selectedFrame.Size = UDim2.new(1, -20, 0, 60)
+    selectedFrame.BackgroundColor3 = COLORS.SURFACE
+    selectedFrame.BorderSizePixel = 0
+    selectedFrame.Parent = frame
+    createCorner(selectedFrame, 12)
+    createStroke(selectedFrame, COLORS.BORDER)
+    createGradient(selectedFrame, COLORS.SURFACE, COLORS.SURFACE_LIGHT)
+    
+    local selectedPadding = Instance.new("UIPadding")
+    selectedPadding.PaddingAll = UDim.new(0, 15)
+    selectedPadding.Parent = selectedFrame
+    
     local selectedLabel = Instance.new("TextLabel")
-    selectedLabel.Size = UDim2.new(1, -20, 0, 25)
-    selectedLabel.Position = UDim2.new(0, 0, 0, 270)
+    selectedLabel.Size = UDim2.new(1, 0, 1, 0)
     selectedLabel.BackgroundTransparency = 1
-    selectedLabel.Text = "Selected: None"
+    selectedLabel.Text = "🎯 Selected Player: None"
     selectedLabel.TextColor3 = COLORS.TEXT_SECONDARY
-    selectedLabel.TextScaled = true
-    selectedLabel.Font = Enum.Font.Gotham
+    selectedLabel.TextSize = 16
+    selectedLabel.Font = Enum.Font.GothamSemibold
     selectedLabel.TextXAlignment = Enum.TextXAlignment.Left
-    selectedLabel.Parent = frame
+    selectedLabel.Parent = selectedFrame
     
-    -- Functions for player search and suggestions
+    -- Functions
     local function getSimilarPlayers(input)
         local players = getAllPlayers()
         local similar = {}
@@ -1442,7 +1750,6 @@ local function createPlayerFrame()
             end
         end
         
-        -- Sort by similarity (starts with search text first)
         table.sort(similar, function(a, b)
             local aStarts = string.sub(a.Name:lower(), 1, #input) == input:lower()
             local bStarts = string.sub(b.Name:lower(), 1, #input) == input:lower()
@@ -1460,7 +1767,6 @@ local function createPlayerFrame()
     end
     
     local function updatePlayerList(searchText)
-        -- Delete all existing player buttons
         for _, child in ipairs(playerScrollFrame:GetChildren()) do
             if child:IsA("TextButton") then
                 child:Destroy()
@@ -1471,33 +1777,30 @@ local function createPlayerFrame()
         
         for _, player in ipairs(playersToShow) do
             local playerBtn = Instance.new("TextButton")
-            playerBtn.Size = UDim2.new(1, -8, 0, 25)
+            playerBtn.Size = UDim2.new(1, -12, 0, 28)
             playerBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
-            playerBtn.Text = player.Name
+            playerBtn.Text = "👤 " .. player.Name
             playerBtn.TextColor3 = COLORS.TEXT_PRIMARY
-            playerBtn.TextScaled = true
+            playerBtn.TextSize = 12
             playerBtn.Font = Enum.Font.Gotham
             playerBtn.BorderSizePixel = 0
             playerBtn.AutoButtonColor = false
             playerBtn.Parent = playerScrollFrame
-            createCorner(playerBtn, 4)
+            createCorner(playerBtn, 6)
             
-            -- Instant hover effect
             playerBtn.MouseEnter:Connect(function()
                 if settings.selectedPlayer ~= player then
-                    playerBtn.BackgroundColor3 = COLORS.PRIMARY
+                    createTween(playerBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY})
                 end
             end)
             
             playerBtn.MouseLeave:Connect(function()
                 if settings.selectedPlayer ~= player then
-                    playerBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
+                    createTween(playerBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.SURFACE_LIGHT})
                 end
             end)
             
-            -- Selection function
             playerBtn.MouseButton1Click:Connect(function()
-                -- Deselect all others
                 for _, btn in ipairs(playerScrollFrame:GetChildren()) do
                     if btn:IsA("TextButton") and btn ~= playerBtn then
                         btn.BackgroundColor3 = COLORS.SURFACE_LIGHT
@@ -1505,24 +1808,22 @@ local function createPlayerFrame()
                 end
                 
                 settings.selectedPlayer = player
-                selectedLabel.Text = "Selected: " .. player.Name
+                selectedLabel.Text = "🎯 Selected Player: " .. player.Name
                 playerBtn.BackgroundColor3 = COLORS.ACCENT
             end)
         end
     end
     
-    -- Search function with suggestions
     searchBox:GetPropertyChangedSignal("Text"):Connect(function()
         updatePlayerList(searchBox.Text)
     end)
     
-    -- View Button Toggle functionality
     local function updateViewButton(viewing)
         if viewing then
-            viewBtn.Text = "View: ON"
+            viewBtn.Text = "👁️ View: ON"
             viewBtn.BackgroundColor3 = COLORS.SUCCESS
         else
-            viewBtn.Text = "View: OFF"
+            viewBtn.Text = "👁️ View: OFF"
             viewBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
         end
     end
@@ -1534,39 +1835,34 @@ local function createPlayerFrame()
         end
     end)
     
-    -- Goto Button functionality
     gotoBtn.MouseButton1Click:Connect(function()
         if settings.selectedPlayer then
             teleportToPlayer(settings.selectedPlayer)
         end
     end)
     
-    -- Button Hover effects - INSTANT
+    -- Button hover effects
     viewBtn.MouseEnter:Connect(function()
         if viewBtn.BackgroundColor3 ~= COLORS.SUCCESS then
-            viewBtn.BackgroundColor3 = Color3.new(
-                math.min(1, viewBtn.BackgroundColor3.R + 0.1),
-                math.min(1, viewBtn.BackgroundColor3.G + 0.1),
-                math.min(1, viewBtn.BackgroundColor3.B + 0.1)
-            )
+            createTween(viewBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.SURFACE_HOVER})
         end
     end)
     
     viewBtn.MouseLeave:Connect(function()
-        if viewBtn.Text == "View: OFF" then
-            viewBtn.BackgroundColor3 = COLORS.SURFACE_LIGHT
+        if viewBtn.Text == "👁️ View: OFF" then
+            createTween(viewBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.SURFACE_LIGHT})
         end
     end)
     
     gotoBtn.MouseEnter:Connect(function()
-        gotoBtn.BackgroundColor3 = COLORS.PRIMARY_HOVER
+        createTween(gotoBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY_DARK})
     end)
     
     gotoBtn.MouseLeave:Connect(function()
-        gotoBtn.BackgroundColor3 = COLORS.PRIMARY
+        createTween(gotoBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.PRIMARY})
     end)
     
-    -- Events for Player Join/Leave
+    -- Event handlers
     local function onPlayerAdded()
         wait(0.1)
         updatePlayerList(searchBox.Text)
@@ -1575,7 +1871,7 @@ local function createPlayerFrame()
     local function onPlayerRemoving(player)
         if settings.selectedPlayer == player then
             settings.selectedPlayer = nil
-            selectedLabel.Text = "Selected: None"
+            selectedLabel.Text = "🎯 Selected Player: None"
             updateViewButton(false)
         end
         updatePlayerList(searchBox.Text)
@@ -1584,18 +1880,14 @@ local function createPlayerFrame()
     Players.PlayerAdded:Connect(onPlayerAdded)
     Players.PlayerRemoving:Connect(onPlayerRemoving)
     
-    -- Initial player list
     updatePlayerList()
-    
-    frame.CanvasSize = UDim2.new(0, 0, 0, 310)
 end
 
-local function createESPFrame()
-    local frame = createCategoryFrame("ESP")
+local function createESPFrame(contentArea)
+    local frame = createCategoryFrame("ESP", contentArea)
     
-    local espBtn, espLabel, espIndicator = createModernButton(frame, "ESP Highlight", function()
+    local espFrame, espLabel, espIndicator, espBtn = createModernButton(frame, "ESP Highlight", function()
         settings.espEnabled = not settings.espEnabled
-        espLabel.Text = "ESP Highlight"
         
         if settings.espEnabled then
             espBtn.BackgroundColor3 = COLORS.SUCCESS
@@ -1606,9 +1898,10 @@ local function createESPFrame()
         end
         
         updateESP()
-    end, settings.espEnabled and "success" or "default")
+    end, settings.espEnabled and "success" or "default", "👁️")
     
     if settings.espEnabled then
+        espBtn.BackgroundColor3 = COLORS.SUCCESS
         espIndicator.BackgroundColor3 = COLORS.SUCCESS
         updateESP()
     end
@@ -1621,7 +1914,7 @@ local function createESPFrame()
                 objects.highlight.OutlineColor = color
             end
         end
-    end)
+    end, "🎨")
     
     createModernSlider(frame, "Highlight Transparency", 0, 1, settings.espTransparency, function(value)
         settings.espTransparency = value
@@ -1630,11 +1923,10 @@ local function createESPFrame()
                 objects.highlight.FillTransparency = value
             end
         end
-    end)
+    end, "👻")
     
-    local nametagBtn, nametagLabel, nametagIndicator = createModernButton(frame, "Player Nametags", function()
+    local nametagFrame, nametagLabel, nametagIndicator, nametagBtn = createModernButton(frame, "Player Nametags", function()
         settings.nametagsEnabled = not settings.nametagsEnabled
-        nametagLabel.Text = "Player Nametags"
         
         if settings.nametagsEnabled then
             nametagBtn.BackgroundColor3 = COLORS.SUCCESS
@@ -1645,9 +1937,10 @@ local function createESPFrame()
         end
         
         updateNametags()
-    end, settings.nametagsEnabled and "success" or "default")
+    end, settings.nametagsEnabled and "success" or "default", "🏷️")
     
     if settings.nametagsEnabled then
+        nametagBtn.BackgroundColor3 = COLORS.SUCCESS
         nametagIndicator.BackgroundColor3 = COLORS.SUCCESS
         updateNametags()
     end
@@ -1655,13 +1948,13 @@ local function createESPFrame()
     createModernColorPicker(frame, "Nametag Color", settings.nametagColor, function(color)
         settings.nametagColor = color
         for player, objects in pairs(nametagObjects) do
-            if objects.gui and objects.gui:FindFirstChild("TextLabel") then
-                objects.gui.TextLabel.TextColor3 = color
+            if objects.gui and objects.gui:FindFirstChild("Frame") and objects.gui.Frame:FindFirstChild("TextLabel") then
+                objects.gui.Frame.TextLabel.TextColor3 = color
             end
         end
-    end)
+    end, "🎨")
     
-    createModernSlider(frame, "Nametag Size", 1, 50, settings.nametagSize, function(value)
+    createModernSlider(frame, "Nametag Size", 5, 50, settings.nametagSize, function(value)
         settings.nametagSize = value
         for player, objects in pairs(nametagObjects) do
             if objects.gui then
@@ -1669,22 +1962,20 @@ local function createESPFrame()
                 local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if camera and humanoidRootPart then
                     local distance = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
-                    local scale = math.max(0.5, math.min(2, 50 / distance))
-                    objects.gui.Size = UDim2.new(0, value * 10 * scale, 0, value * 2 * scale)
+                    local scale = math.max(0.6, math.min(2.5, 60 / distance))
+                    objects.gui.Size = UDim2.new(0, value * 8 * scale, 0, value * 2 * scale)
                 end
             end
         end
-    end)
-    
-    frame.CanvasSize = UDim2.new(0, 0, 0, 500)
+    end, "📏")
 end
 
 -- Initialize Categories
-local function initializeCategories()
-    createCategoryButton("Flight", createFlyFrame, "✈️")
-    createCategoryButton("Character", createMeFrame, "👤")
-    createCategoryButton("Players", createPlayerFrame, "👥")
-    createCategoryButton("ESP", createESPFrame, "👁️")
+local function initializeCategories(contentArea)
+    createCategoryButton("Flight", function() createFlyFrame(contentArea) end, "✈️", contentArea)
+    createCategoryButton("Character", function() createMeFrame(contentArea) end, "👤", contentArea)
+    createCategoryButton("Players", function() createPlayerFrame(contentArea) end, "👥", contentArea)
+    createCategoryButton("ESP", function() createESPFrame(contentArea) end, "👁️", contentArea)
 end
 
 -- Event Handlers
@@ -1737,6 +2028,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == settings.menuKey then
         if VyrxisGui then
             VyrxisGui.Enabled = not VyrxisGui.Enabled
+            
+-- Menu Toggle
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == settings.menuKey then
+        if VyrxisGui then
+            VyrxisGui.Enabled = not VyrxisGui.Enabled
+            
+            if VyrxisGui.Enabled then
+                createTween(MainRahmen, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Position = UDim2.new(0.5, -450, 0.5, -300)
+                })
+            end
         end
     end
 end)
@@ -1747,25 +2050,24 @@ game.Players.PlayerRemoving:Connect(function(player)
         disableFly()
         disableNoclip()
         for p, objects in pairs(espObjects) do
-            if objects.highlight then objects.highlight:Destroy() end
-            if objects.healthBar then
-                if objects.healthBar.gui then objects.healthBar.gui:Destroy() end
-                if objects.healthBar.sizeConnection then objects.healthBar.sizeConnection:Disconnect() end
-                if objects.healthBar.healthConnection then objects.healthBar.healthConnection:Disconnect() end
-            end
+            removeHighlight(p)
         end
         for p, objects in pairs(nametagObjects) do
-            if objects.connection then objects.connection:Disconnect() end
-            if objects.gui then objects.gui:Destroy() end
+            removeNametag(p)
         end
     end
 end)
 
--- Initialize
+-- Initialize System
 spawn(function()
     createLoadScreen()
     wait(5.5)
-    createMainUI()
+    local contentArea = createMainUI()
     createSettingsFrame()
-    initializeCategories()
+    initializeCategories(contentArea)
+    
+    -- Show welcome animation
+    createTween(MainRahmen, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -450, 0.5, -300)
+    })
 end)
