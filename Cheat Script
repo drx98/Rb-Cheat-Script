@@ -693,7 +693,7 @@ local function createHealthBar(player)
     local billboardGui = Instance.new("BillboardGui")
     billboardGui.Size = UDim2.new(0, 8, 0, 100) -- Feste Größe
     billboardGui.StudsOffset = Vector3.new(3, 0, 0)
-    billboardGui.AlwaysOnTop = false
+    billboardGui.AlwaysOnTop = true -- Durch Charaktere sichtbar
     billboardGui.LightInfluence = 0
     billboardGui.Parent = humanoidRootPart
     
@@ -1223,10 +1223,10 @@ local function createPlayerFrame()
             updateViewButton(viewing)
         end
     end)
-    viewBtn.Position = UDim2.new(0, 0, 0, 195)
+    viewBtn.Position = UDim2.new(0, 0, 0, 225)
     
     local gotoBtn = createButton(frame, "Goto Player", nil)
-    gotoBtn.Position = UDim2.new(0, 210, 0, 195)
+    gotoBtn.Position = UDim2.new(0, 210, 0, 225)
     
     gotoBtn.MouseButton1Click:Connect(function()
         if settings.selectedPlayer then
@@ -1253,7 +1253,7 @@ local function createPlayerFrame()
         updatePlayerList(searchBox.Text ~= "Search players..." and searchBox.Text or nil)
     end)
     
-    frame.CanvasSize = UDim2.new(0, 0, 0, 280)
+    frame.CanvasSize = UDim2.new(0, 0, 0, 260)
 end
 
 local function createESPFrame()
