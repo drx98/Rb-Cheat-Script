@@ -1,4 +1,4 @@
--- Vyrxis Menu Script für Roblox
+-- Vyrxis Menu Script für Roblox - KORRIGIERT
 -- Alle Services laden
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -39,7 +39,7 @@ ScreenGui.Name = "VyrxisMenu"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = PlayerGui
 
--- Load Screen erstellen - Verbessert
+-- Load Screen erstellen
 local LoadScreen = Instance.new("Frame")
 LoadScreen.Name = "LoadScreen"
 LoadScreen.Size = UDim2.new(0, 500, 0, 300)
@@ -52,7 +52,6 @@ local LoadScreenCorner = Instance.new("UICorner")
 LoadScreenCorner.CornerRadius = UDim.new(0, 20)
 LoadScreenCorner.Parent = LoadScreen
 
--- Gradient für Load Screen
 local LoadGradient = Instance.new("UIGradient")
 LoadGradient.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
@@ -61,7 +60,6 @@ LoadGradient.Color = ColorSequence.new{
 LoadGradient.Rotation = 45
 LoadGradient.Parent = LoadScreen
 
--- Stroke für Load Screen
 local LoadStroke = Instance.new("UIStroke")
 LoadStroke.Color = Color3.fromRGB(0, 200, 255)
 LoadStroke.Thickness = 2
@@ -113,7 +111,6 @@ local LoadBarFillCorner = Instance.new("UICorner")
 LoadBarFillCorner.CornerRadius = UDim.new(0, 4)
 LoadBarFillCorner.Parent = LoadBar
 
--- Load Bar Gradient
 local LoadBarGradient = Instance.new("UIGradient")
 LoadBarGradient.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 150, 255)),
@@ -122,7 +119,7 @@ LoadBarGradient.Color = ColorSequence.new{
 LoadBarGradient.Rotation = 0
 LoadBarGradient.Parent = LoadBar
 
--- Türkisfarbene Bubble-Effekte für Load Screen
+-- Bubble-Effekte für Load Screen
 local bubbles = {}
 
 local function createBubble(parent, size, position, speed)
@@ -145,7 +142,6 @@ local function createBubble(parent, size, position, speed)
     }
     gradient.Parent = bubble
     
-    -- Bubble Animation
     local function animateBubble()
         local moveInfo = TweenInfo.new(speed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
         local moveTween = TweenService:Create(bubble, moveInfo, {
@@ -159,7 +155,7 @@ local function createBubble(parent, size, position, speed)
     return bubble
 end
 
--- Erstelle Bubbles um den Bildschirm
+-- Erstelle Bubbles
 for i = 1, 15 do
     local size = UDim2.new(0, math.random(20, 80), 0, math.random(20, 80))
     local position = UDim2.new(math.random(0, 100) / 100, 0, math.random(0, 100) / 100, 0)
@@ -298,7 +294,7 @@ local ChangeKeyCorner = Instance.new("UICorner")
 ChangeKeyCorner.CornerRadius = UDim.new(0, 4)
 ChangeKeyCorner.Parent = ChangeKeyButton
 
--- Kategorie Liste (Links)
+-- Kategorie Liste
 local Liste = Instance.new("ScrollingFrame")
 Liste.Name = "Liste"
 Liste.Size = UDim2.new(0, 150, 1, -10)
@@ -498,7 +494,6 @@ flyButton.MouseButton1Click:Connect(function()
 end)
 
 -- Fly Controls
-local flyConnection
 RunService.Heartbeat:Connect(function()
     if isFlying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and flyBodyVelocity then
         flySpeed = flySpeedSlider()
@@ -531,16 +526,12 @@ local jumpHeightSlider = createSlider(meFrame, "Jump Height", 50, 500, 50, 3)
 local noclipButton = createButton(meFrame, "Noclip: OFF", 4)
 
 giveItemsButton.MouseButton1Click:Connect(function()
-    -- Give All Items Funktion
     local character = LocalPlayer.Character
     if character then
         local backpack = LocalPlayer.Backpack
         local starterPack = game:GetService("StarterPack")
-        local starterGui = game:GetService("StarterGui")
-        local lighting = game:GetService("Lighting")
         local replicatedStorage = game:GetService("ReplicatedStorage")
         
-        -- Versuche Tools aus verschiedenen Quellen zu finden
         local toolSources = {starterPack, replicatedStorage}
         
         for _, source in pairs(toolSources) do
@@ -552,7 +543,6 @@ giveItemsButton.MouseButton1Click:Connect(function()
             end
         end
         
-        -- Versuche auch aus Workspace Tools zu klonen
         for _, item in pairs(Workspace:GetDescendants()) do
             if item:IsA("Tool") and not backpack:FindFirstChild(item.Name) then
                 local clonedTool = item:Clone()
@@ -560,7 +550,7 @@ giveItemsButton.MouseButton1Click:Connect(function()
             end
         end
         
-        print("Give All Items wurde ausgeführt - " .. #backpack:GetChildren() .. " Tools im Backpack")
+        print("Give All Items executed - " .. #backpack:GetChildren() .. " Tools in Backpack")
     end
 end)
 
@@ -588,7 +578,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Noclip - Schnellere Reaktion
+-- Noclip
 local noclipConnection
 noclipButton.MouseButton1Click:Connect(function()
     isNoclipEnabled = not isNoclipEnabled
@@ -596,7 +586,6 @@ noclipButton.MouseButton1Click:Connect(function()
     noclipButton.BackgroundColor3 = isNoclipEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
     
     if isNoclipEnabled then
-        -- Direkte Noclip-Schleife für schnellere Reaktion
         noclipConnection = RunService.Stepped:Connect(function()
             local character = LocalPlayer.Character
             if character then
@@ -608,7 +597,6 @@ noclipButton.MouseButton1Click:Connect(function()
             end
         end)
     else
-        -- Stoppe Noclip und stelle Collision wieder her
         if noclipConnection then
             noclipConnection:Disconnect()
             noclipConnection = nil
@@ -673,7 +661,7 @@ playerListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 playerListLayout.Padding = UDim.new(0, 2)
 playerListLayout.Parent = playerList
 
--- Player List Update - Verbesserte Suchfunktion
+-- Player List Update
 local function updatePlayerList()
     for _, child in pairs(playerList:GetChildren()) do
         if child:IsA("TextButton") then
@@ -684,13 +672,11 @@ local function updatePlayerList()
     local searchTerm = playerSearchBox.Text:lower()
     local matchedPlayers = {}
     
-    -- Sammle alle passenden Spieler
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local playerName = player.Name:lower()
             local displayName = (player.DisplayName and player.DisplayName ~= player.Name) and player.DisplayName:lower() or ""
             
-            -- Prüfe ob Suchbegriff am Anfang des Namens steht oder komplett enthalten ist
             if searchTerm == "" or 
                playerName:sub(1, #searchTerm) == searchTerm or 
                playerName:find(searchTerm) or
@@ -700,7 +686,6 @@ local function updatePlayerList()
         end
     end
     
-    -- Sortiere die Spieler: Zuerst die, die mit dem Suchbegriff beginnen
     table.sort(matchedPlayers, function(a, b)
         local aName = a.Name:lower()
         local bName = b.Name:lower()
@@ -716,13 +701,11 @@ local function updatePlayerList()
         end
     end)
     
-    -- Erstelle Buttons für gefundene Spieler
     for i, player in pairs(matchedPlayers) do
         local playerButton = Instance.new("TextButton")
         playerButton.Size = UDim2.new(1, -10, 0, 25)
         playerButton.BackgroundColor3 = (selectedPlayer == player.Name) and Color3.fromRGB(100, 100, 105) or Color3.fromRGB(70, 70, 75)
         
-        -- Zeige sowohl Name als auch DisplayName falls unterschiedlich
         local buttonText = player.Name
         if player.DisplayName and player.DisplayName ~= player.Name then
             buttonText = player.DisplayName .. " (" .. player.Name .. ")"
@@ -742,11 +725,10 @@ local function updatePlayerList()
         
         playerButton.MouseButton1Click:Connect(function()
             selectedPlayer = player.Name
-            updatePlayerList() -- Aktualisiere Liste um Auswahl zu zeigen
+            updatePlayerList()
         end)
     end
     
-    -- Update canvas size
     playerList.CanvasSize = UDim2.new(0, 0, 0, #matchedPlayers * 27)
 end
 
@@ -761,7 +743,6 @@ local gotoButton = createButton(playerFrame, "Goto Player", 3)
 -- View Player Camera
 local originalCameraCFrame = nil
 local originalCameraSubject = nil
-local viewCameraConnection = nil
 
 viewButton.MouseButton1Click:Connect(function()
     if selectedPlayer ~= "" then
@@ -773,18 +754,15 @@ viewButton.MouseButton1Click:Connect(function()
             
             if isViewingPlayer then
                 viewingPlayerName = selectedPlayer
-                -- Speichere ursprüngliche Kamera-Einstellungen
                 originalCameraCFrame = Camera.CFrame
                 originalCameraSubject = Camera.CameraSubject
                 
-                -- Setze Kamera auf den ausgewählten Spieler
                 if targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
                     Camera.CameraSubject = targetPlayer.Character.Humanoid
                     Camera.CameraType = Enum.CameraType.Custom
                 end
             else
                 viewingPlayerName = ""
-                -- Stelle ursprüngliche Kamera wieder her
                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                     Camera.CameraSubject = LocalPlayer.Character.Humanoid
                     Camera.CameraType = Enum.CameraType.Custom
@@ -806,9 +784,6 @@ gotoButton.MouseButton1Click:Connect(function()
         end
     end
 end)
-
--- Die alte View Player Camera Heartbeat-Verbindung entfernen
--- (Diese wird jetzt durch die neue viewCameraConnection ersetzt)
 
 -- ESP KATEGORIE
 local espFrame = categoryFrames["ESP"]
@@ -863,7 +838,6 @@ for i, colorData in pairs(espColors) do
     
     colorButton.MouseButton1Click:Connect(function()
         espColor = colorData[1]
-        -- Update existing ESP highlights
         for player, highlight in pairs(espHighlights) do
             if highlight then
                 highlight.FillColor = espColor
@@ -914,7 +888,6 @@ for i, colorData in pairs(espColors) do
     
     colorButton.MouseButton1Click:Connect(function()
         nametagColor = colorData[1]
-        -- Update existing nametags
         for player, nametag in pairs(nametags) do
             if nametag and nametag:FindFirstChild("TextLabel") then
                 nametag.TextLabel.TextColor3 = nametagColor
@@ -925,14 +898,12 @@ end
 
 local nametagSizeSlider = createSlider(espFrame, "Nametag Size", 8, 30, 14, 6)
 
--- ESP Highlight Funktion - Neu geschrieben
+-- ESP Funktionen - KORRIGIERT
 local function createESPHighlight(character)
     if not character or not character.Parent then 
-        print("ESP: Character ungültig")
         return nil 
     end
     
-    -- Entferne bereits vorhandene ESP Highlights
     for _, child in pairs(character:GetChildren()) do
         if child.Name == "VyrxisESP" then
             child:Destroy()
@@ -943,23 +914,99 @@ local function createESPHighlight(character)
     highlight.Name = "VyrxisESP"
     highlight.FillColor = espColor
     highlight.OutlineColor = espColor
-    highlight.FillTransparency = espTransparency / 100
+    highlight.FillTransparency = espTransparency
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = character
     
-    print("✅ ESP Highlight erstellt für: " .. character.Name)
     return highlight
 end
 
--- Nametag Funktion - Neu geschrieben
+-- KORRIGIERTE Healthbar Funktion - FEHLER BEHOBEN
+local function createHealthbar(character)
+    if not character or not character.Parent then 
+        return nil 
+    end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoidRootPart or not humanoid then 
+        return nil 
+    end
+    
+    for _, child in pairs(humanoidRootPart:GetChildren()) do
+        if child:IsA("BillboardGui") and child.Name == "VyrxisHealthbar" then
+            child:Destroy()
+        end
+    end
+    
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "VyrxisHealthbar"
+    billboardGui.Size = UDim2.new(0, 8, 0, 80)
+    billboardGui.StudsOffset = Vector3.new(2.5, 0, 0)
+    billboardGui.Parent = humanoidRootPart
+    billboardGui.AlwaysOnTop = true
+    billboardGui.LightInfluence = 0
+    
+    local background = Instance.new("Frame")
+    background.Size = UDim2.new(1, 0, 1, 0)
+    background.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    background.BorderSizePixel = 1
+    background.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    background.Parent = billboardGui
+    
+    local backgroundCorner = Instance.new("UICorner")
+    backgroundCorner.CornerRadius = UDim.new(0, 2)
+    backgroundCorner.Parent = background
+    
+    local currentHealthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05)
+    local healthBar = Instance.new("Frame")
+    healthBar.Size = UDim2.new(1, -2, currentHealthPercent, -2)
+    healthBar.Position = UDim2.new(0, 1, 1, -1)
+    healthBar.AnchorPoint = Vector2.new(0, 1)
+    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthBar.BorderSizePixel = 0
+    healthBar.Parent = background
+    
+    local healthBarCorner = Instance.new("UICorner")
+    healthBarCorner.CornerRadius = UDim.new(0, 1)
+    healthBarCorner.Parent = healthBar
+    
+    local healthConnection = humanoid.HealthChanged:Connect(function()
+        if healthBar and healthBar.Parent then
+            local healthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05)
+            healthBar.Size = UDim2.new(1, -2, healthPercent, -2)
+            
+            if healthPercent > 0.6 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+            elseif healthPercent > 0.3 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+            else
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            end
+        end
+    end)
+    
+    local ancestryConnection = character.AncestryChanged:Connect(function()
+        if not character.Parent then
+            if healthConnection then 
+                healthConnection:Disconnect()
+            end
+            if ancestryConnection then 
+                ancestryConnection:Disconnect() 
+            end
+        end
+    end)
+    
+    return billboardGui
+end
+
 local function createNametag(character, playerName)
     if not character or not character.Parent then return nil end
     
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return nil end
     
-    -- Entferne alte Nametags
     for _, child in pairs(humanoidRootPart:GetChildren()) do
         if child.Name == "VyrxisNametag" then
             child:Destroy()
@@ -985,254 +1032,13 @@ local function createNametag(character, playerName)
     textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     textLabel.Parent = billboardGui
     
-    print("✅ Nametag erstellt für: " .. playerName)
     return billboardGui
 end
 
--- Healthbar Funktion - Perfekt positioniert
-local function createHealthbar(character)
-    if not character or not character.Parent then return nil end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoidRootPart or not humanoid then return nil end
-    
-    -- Entferne alte Healthbars
-    for _, child in pairs(humanoidRootPart:GetChildren()) do
-        if child.Name == "VyrxisHealthbar" then
-            child:Destroy()
-        end
-    end
-    
-    -- Character-Größe berechnen für relative Positionierung
-    local characterHeight = 5 -- Standard Roblox Character Höhe
-    if character:FindFirstChild("Head") and character:FindFirstChild("HumanoidRootPart") then
-        local head = character.Head
-        local rootPart = character.HumanoidRootPart
-        characterHeight = math.abs(head.Position.Y - rootPart.Position.Y) + head.Size.Y/2 + rootPart.Size.Y/2
-    end
-    
-    local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Name = "VyrxisHealthbar"
-    -- Größe relativ zum Character - maximal so hoch wie der Character
-    billboardGui.Size = UDim2.new(0, 0, characterHeight * 0.8, 0) -- 80% der Character-Höhe
-    billboardGui.StudsOffset = Vector3.new(2.5, characterHeight * 0.1, 0) -- Rechts vom Character, leicht nach oben versetzt
-    billboardGui.Parent = humanoidRootPart
-    billboardGui.AlwaysOnTop = true
-    billboardGui.LightInfluence = 0
-    -- WICHTIG: Verhindert Größenänderung in der Entfernung
-    billboardGui.StudsOffsetWorldSpace = false
-    billboardGui.SizeOffset = Vector2.new(0, 0)
-    
-    -- Background Frame für die Healthbar
-    local background = Instance.new("Frame")
-    background.Size = UDim2.new(0, 4, 1, 0) -- Dünne Healthbar (4 Pixel breit)
-    background.Position = UDim2.new(0, 0, 0, 0)
-    background.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    background.BorderSizePixel = 1
-    background.BorderColor3 = Color3.fromRGB(200, 200, 200)
-    background.Parent = billboardGui
-    
-    -- Actual Health Bar
-    local currentHealth = math.max(humanoid.Health / humanoid.MaxHealth, 0.01)
-    local healthBar = Instance.new("Frame")
-    healthBar.Size = UDim2.new(1, -2, currentHealth, -2)
-    healthBar.Position = UDim2.new(0, 1, 1, -1)
-    healthBar.AnchorPoint = Vector2.new(0, 1)
-    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    healthBar.BorderSizePixel = 0
-    healthBar.Parent = background
-    
-    -- Health update connection
-    local connection
-    connection = humanoid.HealthChanged:Connect(function()
-        if healthBar and healthBar.Parent then
-            local healthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.01)
-            healthBar.Size = UDim2.new(1, -2, healthPercent, -2)
-            
-            -- Farbe basierend auf Gesundheit
-            if healthPercent > 0.6 then
-                healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Grün
-            elseif healthPercent > 0.3 then
-                healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Gelb
-            else
-                healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Rot
-            end
-        end
-    end)
-    
-    -- Cleanup when character is removed
-    character.AncestryChanged:Connect(function()
-        if not character.Parent and connection then
-            connection:Disconnect()
-        end
-    end)
-    
-    print("✅ Healthbar erstellt für: " .. character.Name)
-    return billboardGui
-end
-
--- ESP System - FINAL VERSION - Jeder Spieler bekommt ESP + Healthbar
-local espHighlights = {}
-local healthbars = {}
-
--- ESP Highlight erstellen - GARANTIERT funktionierend
-local function createESPHighlight(character)
-    if not character or not character.Parent then 
-        print("❌ Character ungültig für Highlight")
-        return nil 
-    end
-    
-    -- Entferne alte Highlights
-    for _, child in pairs(character:GetChildren()) do
-        if child:IsA("Highlight") and child.Name == "VyrxisESP" then
-            child:Destroy()
-        end
-    end
-    
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "VyrxisESP"
-    highlight.FillColor = espColor
-    highlight.OutlineColor = espColor
-    highlight.FillTransparency = espTransparency / 100
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = character
-    
-    print("✅ ESP Highlight erstellt für: " .. character.Name)
-    return highlight
-end
-
--- Healthbar erstellen - FEHLER BEHOBEN
-local function createHealthbar(character)
-    if not character or not character.Parent then 
-        print("❌ Character ungültig für Healthbar")
-        return nil 
-    end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoidRootPart or not humanoid then 
-        print("❌ HumanoidRootPart oder Humanoid fehlt für: " .. character.Name)
-        return nil 
-    end
-    
-    -- Entferne alte Healthbars
-    for _, child in pairs(humanoidRootPart:GetChildren()) do
-        if child:IsA("BillboardGui") and child.Name == "VyrxisHealthbar" then
-            child:Destroy()
-            print("🗑️ Alte Healthbar entfernt für: " .. character.Name)
-        end
-    end
-    
-    -- Erstelle BillboardGui für Healthbar
-    local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Name = "VyrxisHealthbar"
-    billboardGui.Size = UDim2.new(0, 10, 0, 100) -- 10 Pixel breit, 100 Pixel hoch - SEHR GUT SICHTBAR
-    billboardGui.StudsOffset = Vector3.new(3, 0, 0) -- 3 Studs rechts vom Character
-    billboardGui.Parent = humanoidRootPart
-    billboardGui.AlwaysOnTop = true
-    billboardGui.LightInfluence = 0
-    -- FEHLER BEHOBEN: StudsOffsetWorldSpace muss boolean sein
-    billboardGui.StudsOffsetWorldSpace = false
-    
-    -- Hintergrund Frame - GUT SICHTBAR
-    local background = Instance.new("Frame")
-    background.Size = UDim2.new(1, 0, 1, 0)
-    background.BackgroundColor3 = Color3.fromRGB(40, 40, 40) -- Dunkler Hintergrund
-    background.BorderSizePixel = 2
-    background.BorderColor3 = Color3.fromRGB(255, 255, 255) -- Weißer Rahmen
-    background.Parent = billboardGui
-    
-    -- Gesundheitsbalken - IMMER SICHTBAR
-    local currentHealthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05) -- Minimum 5%
-    local healthBar = Instance.new("Frame")
-    healthBar.Size = UDim2.new(1, -4, currentHealthPercent, -4)
-    healthBar.Position = UDim2.new(0, 2, 1, -2)
-    healthBar.AnchorPoint = Vector2.new(0, 1)
-    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Helles Grün
-    healthBar.BorderSizePixel = 0
-    healthBar.Parent = background
-    
-    -- Health Update Connection
-    local healthConnection = humanoid.HealthChanged:Connect(function()
-        if healthBar and healthBar.Parent then
-            local healthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05)
-            healthBar.Size = UDim2.new(1, -4, healthPercent, -4)
-            
-            -- Farbe basierend auf Gesundheit - LEUCHTENDE FARBEN
-            if healthPercent > 0.6 then
-                healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Helles Grün
-            elseif healthPercent > 0.3 then
-                healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Helles Gelb
-            else
-                healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Helles Rot
-            end
-            
-            print("💊 Health Update für " .. character.Name .. ": " .. math.floor(healthPercent * 100) .. "%")
-        end
-    end)
-    
-    -- Cleanup bei Character-Entfernung
-    local ancestryConnection = character.AncestryChanged:Connect(function()
-        if not character.Parent then
-            if healthConnection then 
-                healthConnection:Disconnect() 
-                print("🗑️ Health Connection getrennt für: " .. character.Name)
-            end
-            if ancestryConnection then 
-                ancestryConnection:Disconnect() 
-            end
-        end
-    end)
-    
-    print("✅ HEALTHBAR ERFOLGREICH ERSTELLT für: " .. character.Name .. " (HP: " .. math.floor(currentHealthPercent * 100) .. "%)")
-    return billboardGui
-end
-
--- ESP für einen Spieler aktivieren - ROBUST
-local function enableESPForPlayer(player)
-    if player == LocalPlayer then return end
-    if not player.Character or not player.Character.Parent then 
-        print("⚠️ Kein Character für: " .. player.Name)
-        return 
-    end
-    
-    print("🎯 ESP aktivieren für: " .. player.Name)
-    
-    -- Cleanup alte ESP Elemente
-    if espHighlights[player] and espHighlights[player].Parent then
-        espHighlights[player]:Destroy()
-    end
-    if healthbars[player] and healthbars[player].Parent then
-        healthbars[player]:Destroy()
-    end
-    
-    -- Erstelle Highlight
-    local highlight = createESPHighlight(player.Character)
-    if highlight then
-        espHighlights[player] = highlight
-        print("✅ Highlight gespeichert für: " .. player.Name)
-    else
-        print("❌ Highlight FEHLER für: " .. player.Name)
-    end
-    
-    -- Erstelle Healthbar
-    local healthbar = createHealthbar(player.Character)
-    if healthbar then
-        healthbars[player] = healthbar
-        print("✅ Healthbar gespeichert für: " .. player.Name)
-    else
-        print("❌ Healthbar FEHLER für: " .. player.Name)
-    end
-end
-
--- ESP für alle Spieler aktivieren - JEDER SPIELER GARANTIERT
+-- ESP für alle Spieler - KORRIGIERT
 local function enableESPForAllPlayers()
-    print("🔥🔥🔥 ESP für ALLE Spieler aktivieren...")
+    print("ESP für alle Spieler aktivieren...")
     
-    -- Zuerst alle alten ESP Elemente löschen
-    print("🗑️ Cleanup aller alten ESP Elemente...")
     for player, highlight in pairs(espHighlights) do
         if highlight and highlight.Parent then
             highlight:Destroy()
@@ -1246,155 +1052,36 @@ local function enableESPForAllPlayers()
     espHighlights = {}
     healthbars = {}
     
-    local allPlayers = Players:GetPlayers()
-    local totalPlayers = #allPlayers
-    local otherPlayers = totalPlayers - 1 -- Minus LocalPlayer
-    
-    print("📊 SPIELER ANALYSE:")
-    print("   Gesamt Spieler im Server: " .. totalPlayers)
-    print("   Andere Spieler (außer mir): " .. otherPlayers)
-    print("   LocalPlayer: " .. LocalPlayer.Name)
-    
-    local processed = 0
-    local highlightsCreated = 0
-    local healthbarsCreated = 0
-    local waitingForCharacter = 0
-    
-    -- Durchlaufe JEDEN einzelnen Spieler
-    for i, player in pairs(allPlayers) do
-        if player ~= LocalPlayer then
-            processed = processed + 1
-            print("")
-            print("🎮 SPIELER " .. processed .. "/" .. otherPlayers .. ": " .. player.Name)
-            print("   Player Display Name: " .. (player.DisplayName or "None"))
-            print("   Player UserID: " .. player.UserId)
-            
-            if player.Character and player.Character.Parent then
-                print("   ✅ Character vorhanden: " .. player.Character.Name)
-                
-                -- HIGHLIGHT ERSTELLEN
-                local highlight = createESPHighlight(player.Character)
-                if highlight then
-                    espHighlights[player] = highlight
-                    highlightsCreated = highlightsCreated + 1
-                    print("   🟡 HIGHLIGHT ERSTELLT #" .. highlightsCreated)
-                else
-                    print("   ❌ HIGHLIGHT FEHLER!")
-                end
-                
-                -- HEALTHBAR ERSTELLEN  
-                local healthbar = createHealthbar(player.Character)
-                if healthbar then
-                    healthbars[player] = healthbar
-                    healthbarsCreated = healthbarsCreated + 1
-                    print("   🟢 HEALTHBAR ERSTELLT #" .. healthbarsCreated)
-                else
-                    print("   ❌ HEALTHBAR FEHLER!")
-                end
-                
-            else
-                waitingForCharacter = waitingForCharacter + 1
-                print("   ⏳ KEIN CHARACTER - Status:")
-                print("     player.Character = " .. tostring(player.Character))
-                if player.Character then
-                    print("     player.Character.Parent = " .. tostring(player.Character.Parent))
-                end
-                
-                -- Spawn Thread für wartende Spieler
-                spawn(function()
-                    local attempts = 0
-                    local maxAttempts = 100 -- 20 Sekunden warten
-                    
-                    print("   🕐 Starte Warten für: " .. player.Name)
-                    
-                    while (not player.Character or not player.Character.Parent) and attempts < maxAttempts and isESPEnabled do
-                        wait(0.2)
-                        attempts = attempts + 1
-                        
-                        -- Alle 25 Versuche (5 Sekunden) Status ausgeben
-                        if attempts % 25 == 0 then
-                            print("   ⏰ Warten seit " .. (attempts * 0.2) .. "s für: " .. player.Name)
-                        end
-                    end
-                    
-                    if player.Character and player.Character.Parent and isESPEnabled then
-                        print("   🎉 CHARACTER GEFUNDEN für: " .. player.Name .. " nach " .. (attempts * 0.2) .. " Sekunden!")
-                        
-                        -- Highlight erstellen
-                        local lateHighlight = createESPHighlight(player.Character)
-                        if lateHighlight then
-                            espHighlights[player] = lateHighlight
-                            print("   🟡 SPÄTES HIGHLIGHT ERSTELLT für: " .. player.Name)
-                        end
-                        
-                        -- Healthbar erstellen
-                        local lateHealthbar = createHealthbar(player.Character)
-                        if lateHealthbar then
-                            healthbars[player] = lateHealthbar
-                            print("   🟢 SPÄTE HEALTHBAR ERSTELLT für: " .. player.Name)
-                        end
-                        
-                    elseif attempts >= maxAttempts then
-                        print("   ⏰ TIMEOUT nach 20s für: " .. player.Name)
-                    elseif not isESPEnabled then
-                        print("   🚫 ESP wurde deaktiviert während Warten")
-                    end
-                end)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character.Parent then
+            local highlight = createESPHighlight(player.Character)
+            if highlight then
+                espHighlights[player] = highlight
             end
-        else
-            print("🙋 Das bin ich (LocalPlayer): " .. player.Name)
+            
+            local healthbar = createHealthbar(player.Character)
+            if healthbar then
+                healthbars[player] = healthbar
+            end
         end
-    end
-    
-    print("")
-    print("📊 ESP AKTIVIERUNG ABGESCHLOSSEN:")
-    print("   ✅ Spieler verarbeitet: " .. processed .. "/" .. otherPlayers)
-    print("   🟡 Highlights sofort erstellt: " .. highlightsCreated)
-    print("   🟢 Healthbars sofort erstellt: " .. healthbarsCreated)
-    print("   ⏳ Warten auf Character: " .. waitingForCharacter)
-    print("")
-    print("🔍 AKTUELLE ESP ARRAYS:")
-    print("   espHighlights Einträge: " .. #espHighlights)
-    print("   healthbars Einträge: " .. #healthbars)
-    
-    -- Liste alle ESP Highlights auf
-    for player, highlight in pairs(espHighlights) do
-        print("   📍 ESP für: " .. player.Name .. " = " .. tostring(highlight))
-    end
-    
-    -- Liste alle Healthbars auf
-    for player, healthbar in pairs(healthbars) do
-        print("   💊 Healthbar für: " .. player.Name .. " = " .. tostring(healthbar))
     end
 end
 
--- ESP für alle deaktivieren
 local function disableESPForAllPlayers()
-    print("🚫 ESP deaktivieren...")
-    
-    local highlightsRemoved = 0
-    local healthbarsRemoved = 0
-    
     for player, highlight in pairs(espHighlights) do
         if highlight and highlight.Parent then
             highlight:Destroy()
-            highlightsRemoved = highlightsRemoved + 1
         end
     end
     
     for player, healthbar in pairs(healthbars) do
         if healthbar and healthbar.Parent then
             healthbar:Destroy()
-            healthbarsRemoved = healthbarsRemoved + 1
         end
     end
     
     espHighlights = {}
     healthbars = {}
-    
-    print("✅ ESP deaktiviert:")
-    print("   Highlights entfernt: " .. highlightsRemoved)
-    print("   Healthbars entfernt: " .. healthbarsRemoved)
 end
 
 -- ESP Toggle Button
@@ -1403,8 +1090,6 @@ espHighlightButton.MouseButton1Click:Connect(function()
     espHighlightButton.Text = isESPEnabled and "ESP Highlight: ON" or "ESP Highlight: OFF"
     espHighlightButton.BackgroundColor3 = isESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
     
-    print("🔄 ESP Toggle: " .. tostring(isESPEnabled))
-    
     if isESPEnabled then
         enableESPForAllPlayers()
     else
@@ -1412,41 +1097,37 @@ espHighlightButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Player Events - Automatisches ESP für neue/respawnende Spieler
+-- Player Events
 Players.PlayerAdded:Connect(function(player)
     if player == LocalPlayer then return end
     
-    print("➕ Neuer Spieler: " .. player.Name)
     updatePlayerList()
     
-    -- Character Added Event
     player.CharacterAdded:Connect(function(character)
-        wait(1) -- Warte bis Character vollständig geladen
-        print("🔄 Character Respawn: " .. player.Name)
+        wait(0.5)
         
         if isESPEnabled then
-            enableESPForPlayer(player)
+            local highlight = createESPHighlight(character)
+            if highlight then
+                espHighlights[player] = highlight
+            end
+            
+            local healthbar = createHealthbar(character)
+            if healthbar then
+                healthbars[player] = healthbar
+            end
         end
         
         if nametagsEnabled then
             local nametag = createNametag(character, player.Name)
-            if nametag then nametags[player] = nametag end
+            if nametag then 
+                nametags[player] = nametag 
+            end
         end
-        
-        updatePlayerList()
     end)
-    
-    -- Wenn bereits Character vorhanden
-    if player.Character and isESPEnabled then
-        wait(1)
-        enableESPForPlayer(player)
-    end
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-    print("➖ Spieler verlässt: " .. player.Name)
-    
-    -- Cleanup ESP
     if espHighlights[player] then
         espHighlights[player]:Destroy()
         espHighlights[player] = nil
@@ -1509,9 +1190,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Player Events - Vereinfacht (ersetzt die alte Version)
--- (Die neuen Player Events sind bereits oben im ESP System enthalten)
-
 -- GUI Controls
 MinimizeButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
@@ -1555,15 +1233,11 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Load Screen Animation und Startup
-wait(0.1)
-
+-- Load Screen Animation
 local function hideLoadScreen()
-    -- Load Bar Animation
     local loadBarTween = TweenService:Create(LoadBar, TweenInfo.new(4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
     loadBarTween:Play()
     
-    -- Text Updates
     spawn(function()
         wait(1)
         LoadSubText.Text = "Loading components..."
@@ -1575,7 +1249,7 @@ local function hideLoadScreen()
         LoadSubText.Text = "Ready!"
     end)
     
-    wait(5) -- Total wait time
+    wait(5)
     
     local fadeOutTween = TweenService:Create(LoadScreen, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
     local textFadeTween = TweenService:Create(LoadText, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
@@ -1591,7 +1265,6 @@ local function hideLoadScreen()
     barBgFadeTween:Play()
     barFadeTween:Play()
     
-    -- Fade out bubbles
     for _, bubble in pairs(bubbles) do
         local bubbleFadeTween = TweenService:Create(bubble, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
         bubbleFadeTween:Play()
@@ -1613,7 +1286,6 @@ local function hideLoadScreen()
     end)
 end
 
--- Load Screen Timer
 hideLoadScreen()
 
 print("Vyrxis Menu loaded successfully!")
