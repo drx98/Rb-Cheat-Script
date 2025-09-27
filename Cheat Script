@@ -1,3 +1,4 @@
+-- Vyrxis Menu Script
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -691,16 +692,18 @@ local function createHealthBar(player)
     if not humanoidRootPart or not humanoid then return end
     
     local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Size = UDim2.new(0, 50, 0, 200)
+    billboardGui.Size = UDim2.new(0, 8, 0, 100) -- Feste Größe
     billboardGui.StudsOffset = Vector3.new(3, 0, 0)
     billboardGui.AlwaysOnTop = false
+    billboardGui.LightInfluence = 0
     billboardGui.Parent = humanoidRootPart
     
     local backgroundFrame = Instance.new("Frame")
-    backgroundFrame.Size = UDim2.new(0, 8, 1, 0)
+    backgroundFrame.Size = UDim2.new(1, 0, 1, 0)
     backgroundFrame.Position = UDim2.new(0, 0, 0, 0)
     backgroundFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    backgroundFrame.BorderSizePixel = 0
+    backgroundFrame.BorderSizePixel = 1
+    backgroundFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
     backgroundFrame.Parent = billboardGui
     
     local healthFrame = Instance.new("Frame")
@@ -709,6 +712,17 @@ local function createHealthBar(player)
     healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
     healthFrame.BorderSizePixel = 0
     healthFrame.Parent = backgroundFrame
+    
+    -- Konstante Größe unabhängig von Entfernung
+    local camera = Workspace.CurrentCamera
+    local sizeConnection = RunService.Heartbeat:Connect(function()
+        if humanoidRootPart.Parent and camera then
+            local distance = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
+            -- Größe bleibt konstant, wird nicht größer als Spieler
+            local scale = math.max(0.3, math.min(1, 30 / distance))
+            billboardGui.Size = UDim2.new(0, 8 * scale, 0, 100 * scale)
+        end
+    end)
     
     -- Health update connection
     local healthConnection = humanoid.HealthChanged:Connect(function(health)
@@ -726,14 +740,19 @@ local function createHealthBar(player)
         end
     end)
     
-    -- Cleanup connection when GUI is destroyed
+    -- Cleanup connections when GUI is destroyed
     billboardGui.AncestryChanged:Connect(function()
         if not billboardGui.Parent then
             healthConnection:Disconnect()
+            sizeConnection:Disconnect()
         end
     end)
     
-    return billboardGui
+    return {
+        gui = billboardGui,
+        sizeConnection = sizeConnection,
+        healthConnection = healthConnection
+    }
 end
 
 local function createHighlight(player)
@@ -761,7 +780,15 @@ local function removeHighlight(player)
             espObjects[player].highlight:Destroy()
         end
         if espObjects[player].healthBar then
-            espObjects[player].healthBar:Destroy()
+            if espObjects[player].healthBar.gui then
+                espObjects[player].healthBar.gui:Destroy()
+            end
+            if espObjects[player].healthBar.sizeConnection then
+                espObjects[player].healthBar.sizeConnection:Disconnect()
+            end
+            if espObjects[player].healthBar.healthConnection then
+                espObjects[player].healthBar.healthConnection:Disconnect()
+            end
         end
         espObjects[player] = nil
     end
@@ -777,7 +804,11 @@ local function updateESP()
     else
         for player, objects in pairs(espObjects) do
             if objects.highlight then objects.highlight:Destroy() end
-            if objects.healthBar then objects.healthBar:Destroy() end
+            if objects.healthBar then
+                if objects.healthBar.gui then objects.healthBar.gui:Destroy() end
+                if objects.healthBar.sizeConnection then objects.healthBar.sizeConnection:Disconnect() end
+                if objects.healthBar.healthConnection then objects.healthBar.healthConnection:Disconnect() end
+            end
         end
         espObjects = {}
     end
@@ -1223,7 +1254,7 @@ local function createPlayerFrame()
         updatePlayerList(searchBox.Text ~= "Search players..." and searchBox.Text or nil)
     end)
     
-    frame.CanvasSize = UDim2.new(0, 0, 0, 240)
+    frame.CanvasSize = UDim2.new(0, 0, 0, 280)
 end
 
 local function createESPFrame()
@@ -1299,7 +1330,7 @@ local function createESPFrame()
         end
     end)
     
-    createSlider(frame, "Nametag Size", 10, 50, settings.nametagSize, function(value)
+    createSlider(frame, "Nametag Size", 1, 50, settings.nametagSize, function(value)
         settings.nametagSize = value
         for player, objects in pairs(nametagObjects) do
             if objects.gui then
