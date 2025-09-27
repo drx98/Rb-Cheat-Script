@@ -595,9 +595,6 @@ flyButton.MouseButton1Click:Connect(function()
 		local character = LocalPlayer.Character
 		if character and character:FindFirstChild("HumanoidRootPart") then
 			local humanoidRootPart = character.HumanoidRootPart
-
-			-- Speichere die aktuelle Kamera-Richtung beim Aktivieren des Fliegens
-			flyLookDirection = Camera.CFrame.LookVector
 			
 			flyBodyVelocity = Instance.new("BodyVelocity")
 			flyBodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
@@ -610,7 +607,6 @@ flyButton.MouseButton1Click:Connect(function()
 			flyBodyAngularVelocity.Parent = humanoidRootPart
 		end
 	else
-		flyLookDirection = nil -- Reset beim Deaktivieren
 		if flyBodyVelocity then
 			flyBodyVelocity:Destroy()
 			flyBodyVelocity = nil
@@ -622,7 +618,7 @@ flyButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FIXED: Character-Rotation beim Fliegen - Feste Blickrichtung wie Shift-Lock
+-- FIXED: Character-Rotation beim Fliegen - Vollständiges Shift-Lock Verhalten
 RunService.Heartbeat:Connect(function()
 	local camera = Workspace.CurrentCamera
 	local character = LocalPlayer.Character
@@ -630,19 +626,21 @@ RunService.Heartbeat:Connect(function()
 	if character and character:FindFirstChild("HumanoidRootPart") then
 		local humanoidRootPart = character.HumanoidRootPart
 
-		-- Character-Rotation beim Fliegen - verwendet gespeicherte Blickrichtung
-		if isFlying and flyLookDirection then
-			-- Character schaut immer in die ursprüngliche Richtung vom Fly-Start
-			local horizontalLook = Vector3.new(flyLookDirection.X, 0, flyLookDirection.Z).Unit
-			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + horizontalLook)
-			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.3)
+		-- Character-Rotation beim Fliegen - Folgt Kamera komplett (wie Shift-Lock)
+		if isFlying then
+			local lookDirection = camera.CFrame.LookVector
+			local upDirection = camera.CFrame.UpVector
+			-- Vollständige 3D-Rotation - Character folgt Kamera exakt
+			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + lookDirection, upDirection)
+			-- Schnelle und direkte Rotation
+			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.8)
 		end
 
-		-- Fly-Bewegung
+		-- Fly-Bewegung - Sofortige Geschwindigkeit, stabiles Fliegen
 		if isFlying and flyBodyVelocity then
 			flySpeed = flySpeedSlider()
 
-			-- Bewegungsvektor basierend auf aktueller Kamera-Richtung (für Bewegung)
+			-- Bewegungsvektor basierend auf Kamera-Richtung
 			local moveVector = Vector3.new(0, 0, 0)
 
 			if UserInputService:IsKeyDown(Enum.KeyCode.W) then
@@ -664,7 +662,16 @@ RunService.Heartbeat:Connect(function()
 				moveVector = moveVector - Vector3.new(0, 1, 0)
 			end
 
+			-- Normalisiere den Bewegungsvektor für gleichmäßige Geschwindigkeit in alle Richtungen
+			if moveVector.Magnitude > 0 then
+				moveVector = moveVector.Unit
+			end
+
+			-- Sofortige Geschwindigkeit ohne Beschleunigung
 			flyBodyVelocity.Velocity = moveVector * flySpeed
+			
+			-- Stabilisierung für gerades Fliegen
+			flyBodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
 		end
 	end
 end)
