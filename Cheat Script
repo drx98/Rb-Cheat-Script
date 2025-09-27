@@ -168,12 +168,12 @@ end
 local loadTween = TweenService:Create(LoadText, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1), {TextTransparency = 0.3})
 loadTween:Play()
 
--- Main GUI Frames
+-- Main GUI Frames - Verbessertes Design passend zum LoadScreen
 local MainRahmen = Instance.new("Frame")
 MainRahmen.Name = "MainRahmen"
 MainRahmen.Size = UDim2.new(0, 700, 0, 30)
 MainRahmen.Position = UDim2.new(0.5, -350, 0.3, -15)
-MainRahmen.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+MainRahmen.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 MainRahmen.BorderSizePixel = 0
 MainRahmen.Visible = false
 MainRahmen.Active = true
@@ -181,12 +181,28 @@ MainRahmen.Draggable = true
 MainRahmen.Parent = ScreenGui
 
 local RahmenCorner = Instance.new("UICorner")
-RahmenCorner.CornerRadius = UDim.new(0, 8)
+RahmenCorner.CornerRadius = UDim.new(0, 20)
 RahmenCorner.Parent = MainRahmen
+
+-- Gradient für MainRahmen
+local RahmenGradient = Instance.new("UIGradient")
+RahmenGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+RahmenGradient.Rotation = 45
+RahmenGradient.Parent = MainRahmen
+
+-- Stroke für MainRahmen
+local RahmenStroke = Instance.new("UIStroke")
+RahmenStroke.Color = Color3.fromRGB(0, 200, 255)
+RahmenStroke.Thickness = 2
+RahmenStroke.Transparency = 0.3
+RahmenStroke.Parent = MainRahmen
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(0, 200, 1, 0)
-TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Text = "Vyrxis Menu"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -198,7 +214,7 @@ TitleLabel.Parent = MainRahmen
 local MinimizeButton = Instance.new("TextButton")
 MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
 MinimizeButton.Position = UDim2.new(1, -55, 0, 2.5)
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 MinimizeButton.Text = "-"
 MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 MinimizeButton.TextScaled = true
@@ -207,13 +223,29 @@ MinimizeButton.BorderSizePixel = 0
 MinimizeButton.Parent = MainRahmen
 
 local MinimizeCorner = Instance.new("UICorner")
-MinimizeCorner.CornerRadius = UDim.new(0, 4)
+MinimizeCorner.CornerRadius = UDim.new(0, 8)
 MinimizeCorner.Parent = MinimizeButton
+
+-- Gradient für Minimize Button
+local MinimizeGradient = Instance.new("UIGradient")
+MinimizeGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+MinimizeGradient.Rotation = 45
+MinimizeGradient.Parent = MinimizeButton
+
+-- Stroke für Minimize Button
+local MinimizeStroke = Instance.new("UIStroke")
+MinimizeStroke.Color = Color3.fromRGB(0, 200, 255)
+MinimizeStroke.Thickness = 1
+MinimizeStroke.Transparency = 0.5
+MinimizeStroke.Parent = MinimizeButton
 
 local SettingsButton = Instance.new("TextButton")
 SettingsButton.Size = UDim2.new(0, 25, 0, 25)
 SettingsButton.Position = UDim2.new(1, -25, 0, 2.5)
-SettingsButton.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+SettingsButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 SettingsButton.Text = "⚙"
 SettingsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 SettingsButton.TextScaled = true
@@ -222,21 +254,53 @@ SettingsButton.BorderSizePixel = 0
 SettingsButton.Parent = MainRahmen
 
 local SettingsCorner = Instance.new("UICorner")
-SettingsCorner.CornerRadius = UDim.new(0, 4)
+SettingsCorner.CornerRadius = UDim.new(0, 8)
 SettingsCorner.Parent = SettingsButton
+
+-- Gradient für Settings Button
+local SettingsGradient = Instance.new("UIGradient")
+SettingsGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+SettingsGradient.Rotation = 45
+SettingsGradient.Parent = SettingsButton
+
+-- Stroke für Settings Button
+local SettingsStroke = Instance.new("UIStroke")
+SettingsStroke.Color = Color3.fromRGB(0, 200, 255)
+SettingsStroke.Thickness = 1
+SettingsStroke.Transparency = 0.5
+SettingsStroke.Parent = SettingsButton
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 700, 0, 400)
 MainFrame.Position = UDim2.new(0, 0, 1, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
 MainFrame.Parent = MainRahmen
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 8)
+MainCorner.CornerRadius = UDim.new(0, 20)
 MainCorner.Parent = MainFrame
+
+-- Gradient für MainFrame
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+MainGradient.Rotation = 45
+MainGradient.Parent = MainFrame
+
+-- Stroke für MainFrame
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(0, 200, 255)
+MainStroke.Thickness = 2
+MainStroke.Transparency = 0.3
+MainStroke.Parent = MainFrame
 
 -- Settings Frame
 local SettingsFrame = Instance.new("Frame")
@@ -294,19 +358,35 @@ local ChangeKeyCorner = Instance.new("UICorner")
 ChangeKeyCorner.CornerRadius = UDim.new(0, 4)
 ChangeKeyCorner.Parent = ChangeKeyButton
 
--- Kategorie Liste
+-- Kategorie Liste - Design Update
 local Liste = Instance.new("ScrollingFrame")
 Liste.Name = "Liste"
 Liste.Size = UDim2.new(0, 150, 1, -10)
 Liste.Position = UDim2.new(0, 5, 0, 5)
-Liste.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+Liste.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
 Liste.BorderSizePixel = 0
 Liste.ScrollBarThickness = 5
 Liste.Parent = MainFrame
 
 local ListeCorner = Instance.new("UICorner")
-ListeCorner.CornerRadius = UDim.new(0, 6)
+ListeCorner.CornerRadius = UDim.new(0, 15)
 ListeCorner.Parent = Liste
+
+-- Gradient für Liste
+local ListeGradient = Instance.new("UIGradient")
+ListeGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 25)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 12))
+}
+ListeGradient.Rotation = 45
+ListeGradient.Parent = Liste
+
+-- Stroke für Liste
+local ListeStroke = Instance.new("UIStroke")
+ListeStroke.Color = Color3.fromRGB(0, 150, 200)
+ListeStroke.Thickness = 1
+ListeStroke.Transparency = 0.6
+ListeStroke.Parent = Liste
 
 local ListLayout = Instance.new("UIListLayout")
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -320,33 +400,58 @@ local categoryFrames = {}
 for i, category in pairs(categories) do
     local categoryButton = Instance.new("TextButton")
     categoryButton.Size = UDim2.new(1, -10, 0, 40)
-    categoryButton.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    categoryButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     categoryButton.Text = category
     categoryButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     categoryButton.TextScaled = true
-    categoryButton.Font = Enum.Font.Gotham
+    categoryButton.Font = Enum.Font.GothamBold
     categoryButton.BorderSizePixel = 0
     categoryButton.LayoutOrder = i
     categoryButton.Parent = Liste
     
     local catCorner = Instance.new("UICorner")
-    catCorner.CornerRadius = UDim.new(0, 4)
+    catCorner.CornerRadius = UDim.new(0, 8)
     catCorner.Parent = categoryButton
+    
+    -- KEIN Gradient für Category Buttons - damit Text weiß bleibt
+    
+    -- Stroke für Category Buttons
+    local catStroke = Instance.new("UIStroke")
+    catStroke.Color = Color3.fromRGB(0, 200, 255)
+    catStroke.Thickness = 1
+    catStroke.Transparency = 0.6
+    catStroke.Parent = categoryButton
     
     -- Kategorie Frame erstellen
     local categoryFrame = Instance.new("ScrollingFrame")
     categoryFrame.Name = category .. "Frame"
     categoryFrame.Size = UDim2.new(0, 530, 1, -10)
     categoryFrame.Position = UDim2.new(0, 160, 0, 5)
-    categoryFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    categoryFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
     categoryFrame.BorderSizePixel = 0
     categoryFrame.ScrollBarThickness = 5
     categoryFrame.Visible = false
     categoryFrame.Parent = MainFrame
     
     local catFrameCorner = Instance.new("UICorner")
-    catFrameCorner.CornerRadius = UDim.new(0, 6)
+    catFrameCorner.CornerRadius = UDim.new(0, 15)
     catFrameCorner.Parent = categoryFrame
+    
+    -- Gradient für Category Frames
+    local catFrameGradient = Instance.new("UIGradient")
+    catFrameGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 25)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 12))
+    }
+    catFrameGradient.Rotation = 45
+    catFrameGradient.Parent = categoryFrame
+    
+    -- Stroke für Category Frames
+    local catFrameStroke = Instance.new("UIStroke")
+    catFrameStroke.Color = Color3.fromRGB(0, 150, 200)
+    catFrameStroke.Thickness = 1
+    catFrameStroke.Transparency = 0.6
+    catFrameStroke.Parent = categoryFrame
     
     local catLayout = Instance.new("UIListLayout")
     catLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -366,18 +471,27 @@ end
 local function createButton(parent, text, layoutOrder)
     local button = Instance.new("TextButton")
     button.Size = UDim2.new(1, -20, 0, 40)
-    button.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    button.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     button.Text = text
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.TextScaled = true
-    button.Font = Enum.Font.Gotham
+    button.Font = Enum.Font.GothamBold
     button.BorderSizePixel = 0
     button.LayoutOrder = layoutOrder
     button.Parent = parent
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 4)
+    corner.CornerRadius = UDim.new(0, 8)
     corner.Parent = button
+    
+    -- KEIN Gradient für Buttons - damit Text weiß bleibt
+    
+    -- Stroke für Buttons
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(0, 200, 255)
+    stroke.Thickness = 1
+    stroke.Transparency = 0.5
+    stroke.Parent = button
     
     return button
 end
@@ -385,14 +499,30 @@ end
 local function createSlider(parent, text, minVal, maxVal, defaultVal, layoutOrder)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, -20, 0, 60)
-    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
     frame.BorderSizePixel = 0
     frame.LayoutOrder = layoutOrder
     frame.Parent = parent
     
     local frameCorner = Instance.new("UICorner")
-    frameCorner.CornerRadius = UDim.new(0, 4)
+    frameCorner.CornerRadius = UDim.new(0, 8)
     frameCorner.Parent = frame
+    
+    -- Gradient für Slider Frame
+    local frameGradient = Instance.new("UIGradient")
+    frameGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+    }
+    frameGradient.Rotation = 45
+    frameGradient.Parent = frame
+    
+    -- Stroke für Slider Frame
+    local frameStroke = Instance.new("UIStroke")
+    frameStroke.Color = Color3.fromRGB(0, 150, 200)
+    frameStroke.Thickness = 1
+    frameStroke.Transparency = 0.6
+    frameStroke.Parent = frame
     
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 0, 25)
@@ -401,13 +531,13 @@ local function createSlider(parent, text, minVal, maxVal, defaultVal, layoutOrde
     label.Text = text .. ": " .. defaultVal
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.TextScaled = true
-    label.Font = Enum.Font.Gotham
+    label.Font = Enum.Font.GothamBold
     label.Parent = frame
     
     local slider = Instance.new("Frame")
     slider.Size = UDim2.new(1, -20, 0, 20)
     slider.Position = UDim2.new(0, 10, 0, 30)
-    slider.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
+    slider.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
     slider.BorderSizePixel = 0
     slider.Parent = frame
     
@@ -415,10 +545,17 @@ local function createSlider(parent, text, minVal, maxVal, defaultVal, layoutOrde
     sliderCorner.CornerRadius = UDim.new(0, 10)
     sliderCorner.Parent = slider
     
+    -- Stroke für Slider
+    local sliderStroke = Instance.new("UIStroke")
+    sliderStroke.Color = Color3.fromRGB(0, 200, 255)
+    sliderStroke.Thickness = 1
+    sliderStroke.Transparency = 0.7
+    sliderStroke.Parent = slider
+    
     local handle = Instance.new("TextButton")
     handle.Size = UDim2.new(0, 20, 1, 0)
     handle.Position = UDim2.new((defaultVal - minVal) / (maxVal - minVal), -10, 0, 0)
-    handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    handle.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
     handle.Text = ""
     handle.BorderSizePixel = 0
     handle.Parent = slider
@@ -426,6 +563,15 @@ local function createSlider(parent, text, minVal, maxVal, defaultVal, layoutOrde
     local handleCorner = Instance.new("UICorner")
     handleCorner.CornerRadius = UDim.new(1, 0)
     handleCorner.Parent = handle
+    
+    -- Gradient für Handle
+    local handleGradient = Instance.new("UIGradient")
+    handleGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 220, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 200))
+    }
+    handleGradient.Rotation = 45
+    handleGradient.Parent = handle
     
     local dragging = false
     local currentValue = defaultVal
@@ -619,42 +765,72 @@ local playerFrame = categoryFrames["Player"]
 -- Player Selection Frame
 local playerSelectionFrame = Instance.new("Frame")
 playerSelectionFrame.Size = UDim2.new(1, -20, 0, 150)
-playerSelectionFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+playerSelectionFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 playerSelectionFrame.BorderSizePixel = 0
 playerSelectionFrame.LayoutOrder = 1
 playerSelectionFrame.Parent = playerFrame
 
 local playerFrameCorner = Instance.new("UICorner")
-playerFrameCorner.CornerRadius = UDim.new(0, 4)
+playerFrameCorner.CornerRadius = UDim.new(0, 8)
 playerFrameCorner.Parent = playerSelectionFrame
+
+-- Gradient für Player Selection Frame
+local playerFrameGradient = Instance.new("UIGradient")
+playerFrameGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+playerFrameGradient.Rotation = 45
+playerFrameGradient.Parent = playerSelectionFrame
+
+-- Stroke für Player Selection Frame
+local playerFrameStroke = Instance.new("UIStroke")
+playerFrameStroke.Color = Color3.fromRGB(0, 150, 200)
+playerFrameStroke.Thickness = 1
+playerFrameStroke.Transparency = 0.6
+playerFrameStroke.Parent = playerSelectionFrame
 
 local playerSearchBox = Instance.new("TextBox")
 playerSearchBox.Size = UDim2.new(1, -20, 0, 30)
 playerSearchBox.Position = UDim2.new(0, 10, 0, 10)
-playerSearchBox.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
+playerSearchBox.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
 playerSearchBox.PlaceholderText = "Search players..."
 playerSearchBox.Text = ""
 playerSearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 playerSearchBox.TextScaled = true
-playerSearchBox.Font = Enum.Font.Gotham
+playerSearchBox.Font = Enum.Font.GothamBold
 playerSearchBox.BorderSizePixel = 0
 playerSearchBox.Parent = playerSelectionFrame
 
 local searchCorner = Instance.new("UICorner")
-searchCorner.CornerRadius = UDim.new(0, 4)
+searchCorner.CornerRadius = UDim.new(0, 8)
 searchCorner.Parent = playerSearchBox
+
+-- Stroke für Search Box
+local searchStroke = Instance.new("UIStroke")
+searchStroke.Color = Color3.fromRGB(0, 200, 255)
+searchStroke.Thickness = 1
+searchStroke.Transparency = 0.7
+searchStroke.Parent = playerSearchBox
 
 local playerList = Instance.new("ScrollingFrame")
 playerList.Size = UDim2.new(1, -20, 1, -50)
 playerList.Position = UDim2.new(0, 10, 0, 40)
-playerList.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+playerList.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
 playerList.BorderSizePixel = 0
 playerList.ScrollBarThickness = 5
 playerList.Parent = playerSelectionFrame
 
 local playerListCorner = Instance.new("UICorner")
-playerListCorner.CornerRadius = UDim.new(0, 4)
+playerListCorner.CornerRadius = UDim.new(0, 8)
 playerListCorner.Parent = playerList
+
+-- Stroke für Player List
+local playerListStroke = Instance.new("UIStroke")
+playerListStroke.Color = Color3.fromRGB(0, 200, 255)
+playerListStroke.Thickness = 1
+playerListStroke.Transparency = 0.7
+playerListStroke.Parent = playerList
 
 local playerListLayout = Instance.new("UIListLayout")
 playerListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -704,7 +880,7 @@ local function updatePlayerList()
     for i, player in pairs(matchedPlayers) do
         local playerButton = Instance.new("TextButton")
         playerButton.Size = UDim2.new(1, -10, 0, 25)
-        playerButton.BackgroundColor3 = (selectedPlayer == player.Name) and Color3.fromRGB(100, 100, 105) or Color3.fromRGB(70, 70, 75)
+        playerButton.BackgroundColor3 = (selectedPlayer == player.Name) and Color3.fromRGB(0, 180, 220) or Color3.fromRGB(15, 15, 20)
         
         local buttonText = player.Name
         if player.DisplayName and player.DisplayName ~= player.Name then
@@ -712,16 +888,28 @@ local function updatePlayerList()
         end
         playerButton.Text = buttonText
         
-        playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)  -- Weiß
         playerButton.TextScaled = true
-        playerButton.Font = Enum.Font.Gotham
+        playerButton.Font = Enum.Font.GothamBold
         playerButton.BorderSizePixel = 0
         playerButton.LayoutOrder = i
         playerButton.Parent = playerList
         
         local playerBtnCorner = Instance.new("UICorner")
-        playerBtnCorner.CornerRadius = UDim.new(0, 2)
+        playerBtnCorner.CornerRadius = UDim.new(0, 6)
         playerBtnCorner.Parent = playerButton
+        
+        -- Gradient für Player Buttons - NUR für ausgewählte Spieler
+        if selectedPlayer == player.Name then
+            local playerBtnGradient = Instance.new("UIGradient")
+            playerBtnGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 200, 240)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 140, 180))
+            }
+            playerBtnGradient.Rotation = 45
+            playerBtnGradient.Parent = playerButton
+        end
+        -- KEIN Gradient für normale Player Buttons - damit Text weiß bleibt
         
         playerButton.MouseButton1Click:Connect(function()
             selectedPlayer = player.Name
@@ -793,14 +981,30 @@ local espHighlightButton = createButton(espFrame, "ESP Highlight: OFF", 1)
 -- Color Selection für ESP
 local espColorFrame = Instance.new("Frame")
 espColorFrame.Size = UDim2.new(1, -20, 0, 80)
-espColorFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+espColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 espColorFrame.BorderSizePixel = 0
 espColorFrame.LayoutOrder = 2
 espColorFrame.Parent = espFrame
 
 local espColorCorner = Instance.new("UICorner")
-espColorCorner.CornerRadius = UDim.new(0, 4)
+espColorCorner.CornerRadius = UDim.new(0, 8)
 espColorCorner.Parent = espColorFrame
+
+-- Gradient für ESP Color Frame
+local espColorGradient = Instance.new("UIGradient")
+espColorGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+espColorGradient.Rotation = 45
+espColorGradient.Parent = espColorFrame
+
+-- Stroke für ESP Color Frame
+local espColorStroke = Instance.new("UIStroke")
+espColorStroke.Color = Color3.fromRGB(0, 150, 200)
+espColorStroke.Thickness = 1
+espColorStroke.Transparency = 0.6
+espColorStroke.Parent = espColorFrame
 
 local espColorLabel = Instance.new("TextLabel")
 espColorLabel.Size = UDim2.new(1, 0, 0, 25)
@@ -809,7 +1013,7 @@ espColorLabel.BackgroundTransparency = 1
 espColorLabel.Text = "ESP Color"
 espColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 espColorLabel.TextScaled = true
-espColorLabel.Font = Enum.Font.Gotham
+espColorLabel.Font = Enum.Font.GothamBold
 espColorLabel.Parent = espColorFrame
 
 local espColors = {
@@ -854,14 +1058,30 @@ local nametagsButton = createButton(espFrame, "Nametags: OFF", 4)
 -- Color Selection für Nametags
 local nametagColorFrame = Instance.new("Frame")
 nametagColorFrame.Size = UDim2.new(1, -20, 0, 80)
-nametagColorFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+nametagColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 nametagColorFrame.BorderSizePixel = 0
 nametagColorFrame.LayoutOrder = 5
 nametagColorFrame.Parent = espFrame
 
 local nametagColorCorner = Instance.new("UICorner")
-nametagColorCorner.CornerRadius = UDim.new(0, 4)
+nametagColorCorner.CornerRadius = UDim.new(0, 8)
 nametagColorCorner.Parent = nametagColorFrame
+
+-- Gradient für Nametag Color Frame
+local nametagColorGradient = Instance.new("UIGradient")
+nametagColorGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+nametagColorGradient.Rotation = 45
+nametagColorGradient.Parent = nametagColorFrame
+
+-- Stroke für Nametag Color Frame
+local nametagColorStroke = Instance.new("UIStroke")
+nametagColorStroke.Color = Color3.fromRGB(0, 150, 200)
+nametagColorStroke.Thickness = 1
+nametagColorStroke.Transparency = 0.6
+nametagColorStroke.Parent = nametagColorFrame
 
 local nametagColorLabel = Instance.new("TextLabel")
 nametagColorLabel.Size = UDim2.new(1, 0, 0, 25)
@@ -870,7 +1090,7 @@ nametagColorLabel.BackgroundTransparency = 1
 nametagColorLabel.Text = "Nametag Color"
 nametagColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 nametagColorLabel.TextScaled = true
-nametagColorLabel.Font = Enum.Font.Gotham
+nametagColorLabel.Font = Enum.Font.GothamBold
 nametagColorLabel.Parent = nametagColorFrame
 
 for i, colorData in pairs(espColors) do
