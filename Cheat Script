@@ -1,3 +1,4 @@
+-- Vyrxis Menu Script
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -682,6 +683,60 @@ local function disableNoclip()
 end
 
 -- ESP Functions
+local function createHealthBar(player)
+    if not player.Character then return end
+    
+    local character = player.Character
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChild("Humanoid")
+    if not humanoidRootPart or not humanoid then return end
+    
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Size = UDim2.new(0, 50, 0, 200)
+    billboardGui.StudsOffset = Vector3.new(3, 0, 0)
+    billboardGui.AlwaysOnTop = false
+    billboardGui.Parent = humanoidRootPart
+    
+    local backgroundFrame = Instance.new("Frame")
+    backgroundFrame.Size = UDim2.new(0, 8, 1, 0)
+    backgroundFrame.Position = UDim2.new(0, 0, 0, 0)
+    backgroundFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    backgroundFrame.BorderSizePixel = 0
+    backgroundFrame.Parent = billboardGui
+    
+    local healthFrame = Instance.new("Frame")
+    healthFrame.Size = UDim2.new(1, 0, humanoid.Health / humanoid.MaxHealth, 0)
+    healthFrame.Position = UDim2.new(0, 0, 1 - (humanoid.Health / humanoid.MaxHealth), 0)
+    healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthFrame.BorderSizePixel = 0
+    healthFrame.Parent = backgroundFrame
+    
+    -- Health update connection
+    local healthConnection = humanoid.HealthChanged:Connect(function(health)
+        local healthPercent = health / humanoid.MaxHealth
+        healthFrame.Size = UDim2.new(1, 0, healthPercent, 0)
+        healthFrame.Position = UDim2.new(0, 0, 1 - healthPercent, 0)
+        
+        -- Farbe basierend auf Gesundheit
+        if healthPercent > 0.6 then
+            healthFrame.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Grün
+        elseif healthPercent > 0.3 then
+            healthFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Gelb
+        else
+            healthFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Rot
+        end
+    end)
+    
+    -- Cleanup connection when GUI is destroyed
+    billboardGui.AncestryChanged:Connect(function()
+        if not billboardGui.Parent then
+            healthConnection:Disconnect()
+        end
+    end)
+    
+    return billboardGui
+end
+
 local function createHighlight(player)
     if espObjects[player] or not player.Character then return end
     
@@ -692,12 +747,23 @@ local function createHighlight(player)
     highlight.OutlineTransparency = 0
     highlight.Parent = player.Character
     
-    espObjects[player] = highlight
+    -- Erstelle Healthbar
+    local healthBar = createHealthBar(player)
+    
+    espObjects[player] = {
+        highlight = highlight,
+        healthBar = healthBar
+    }
 end
 
 local function removeHighlight(player)
     if espObjects[player] then
-        espObjects[player]:Destroy()
+        if espObjects[player].highlight then
+            espObjects[player].highlight:Destroy()
+        end
+        if espObjects[player].healthBar then
+            espObjects[player].healthBar:Destroy()
+        end
         espObjects[player] = nil
     end
 end
@@ -710,8 +776,9 @@ local function updateESP()
             end
         end
     else
-        for player, highlight in pairs(espObjects) do
-            highlight:Destroy()
+        for player, objects in pairs(espObjects) do
+            if objects.highlight then objects.highlight:Destroy() end
+            if objects.healthBar then objects.healthBar:Destroy() end
         end
         espObjects = {}
     end
@@ -726,9 +793,10 @@ local function createNametag(player)
     if not humanoidRootPart then return end
     
     local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Size = UDim2.new(0, 200, 0, 50)
+    billboardGui.Size = UDim2.new(0, settings.nametagSize * 10, 0, settings.nametagSize * 2)
     billboardGui.StudsOffset = Vector3.new(0, -3, 0)
     billboardGui.AlwaysOnTop = true
+    billboardGui.LightInfluence = 0
     billboardGui.Parent = humanoidRootPart
     
     local textLabel = Instance.new("TextLabel")
@@ -742,12 +810,37 @@ local function createNametag(player)
     textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     textLabel.Parent = billboardGui
     
-    nametagObjects[player] = billboardGui
+    -- Konstante Größe unabhängig von Entfernung
+    local camera = Workspace.CurrentCamera
+    local sizeConnection = RunService.Heartbeat:Connect(function()
+        if humanoidRootPart.Parent and camera then
+            local distance = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
+            local scale = math.max(0.5, math.min(2, 50 / distance)) -- Konstante Skalierung
+            billboardGui.Size = UDim2.new(0, settings.nametagSize * 10 * scale, 0, settings.nametagSize * 2 * scale)
+        end
+    end)
+    
+    -- Cleanup connection when GUI is destroyed
+    billboardGui.AncestryChanged:Connect(function()
+        if not billboardGui.Parent then
+            sizeConnection:Disconnect()
+        end
+    end)
+    
+    nametagObjects[player] = {
+        gui = billboardGui,
+        connection = sizeConnection
+    }
 end
 
 local function removeNametag(player)
     if nametagObjects[player] then
-        nametagObjects[player]:Destroy()
+        if nametagObjects[player].connection then
+            nametagObjects[player].connection:Disconnect()
+        end
+        if nametagObjects[player].gui then
+            nametagObjects[player].gui:Destroy()
+        end
         nametagObjects[player] = nil
     end
 end
@@ -760,8 +853,9 @@ local function updateNametags()
             end
         end
     else
-        for player, nametag in pairs(nametagObjects) do
-            nametag:Destroy()
+        for player, objects in pairs(nametagObjects) do
+            if objects.connection then objects.connection:Disconnect() end
+            if objects.gui then objects.gui:Destroy() end
         end
         nametagObjects = {}
     end
@@ -794,30 +888,38 @@ local function teleportToPlayer(targetPlayer)
     end
 end
 
+local viewingPlayer = false
+
 local function viewPlayer(targetPlayer)
     local camera = Workspace.CurrentCamera
     
-    if viewConnection then
-        viewConnection:Disconnect()
-        viewConnection = nil
-        camera.CameraSubject = LocalPlayer.Character.Humanoid
-        return false
-    end
-    
-    if not targetPlayer or not targetPlayer.Character then return false end
-    
-    originalCamera = camera.CameraSubject
-    camera.CameraSubject = targetPlayer.Character.Humanoid
-    
-    viewConnection = RunService.Heartbeat:Connect(function()
-        if not targetPlayer.Character or not targetPlayer.Character.Humanoid then
+    if viewingPlayer then
+        -- Zurück zur eigenen Kamera
+        if viewConnection then
             viewConnection:Disconnect()
             viewConnection = nil
-            camera.CameraSubject = LocalPlayer.Character.Humanoid
         end
-    end)
-    
-    return true
+        camera.CameraSubject = LocalPlayer.Character.Humanoid
+        viewingPlayer = false
+        return false
+    else
+        -- Zur Zielspielerkamera wechseln
+        if not targetPlayer or not targetPlayer.Character then return false end
+        
+        camera.CameraSubject = targetPlayer.Character.Humanoid
+        viewingPlayer = true
+        
+        viewConnection = RunService.Heartbeat:Connect(function()
+            if not targetPlayer.Character or not targetPlayer.Character.Humanoid then
+                viewConnection:Disconnect()
+                viewConnection = nil
+                camera.CameraSubject = LocalPlayer.Character.Humanoid
+                viewingPlayer = false
+            end
+        end)
+        
+        return true
+    end
 end
 
 -- Give All Items Function
@@ -1094,12 +1196,17 @@ local function createPlayerFrame()
     end)
     viewBtn.Position = UDim2.new(0, 0, 0, 195)
     
-    local gotoBtn = createButton(frame, "Goto Player", function()
+    local gotoBtn = createButton(frame, "Goto Player", nil)
+    gotoBtn.Position = UDim2.new(0, 210, 0, 195)
+    
+    gotoBtn.MouseButton1Click:Connect(function()
         if settings.selectedPlayer then
             teleportToPlayer(settings.selectedPlayer)
+            print("Teleported to:", settings.selectedPlayer.Name) -- Debug
+        else
+            print("No player selected!") -- Debug
         end
     end)
-    gotoBtn.Position = UDim2.new(0, 210, 0, 195)
     
     updatePlayerList()
     
@@ -1146,16 +1253,20 @@ local function createESPFrame()
     
     createColorPicker(frame, "Highlight Color", settings.espColor, function(color)
         settings.espColor = color
-        for player, highlight in pairs(espObjects) do
-            highlight.FillColor = color
-            highlight.OutlineColor = color
+        for player, objects in pairs(espObjects) do
+            if objects.highlight then
+                objects.highlight.FillColor = color
+                objects.highlight.OutlineColor = color
+            end
         end
     end)
     
     createSlider(frame, "Highlight Transparency", 0, 1, settings.espTransparency, function(value)
         settings.espTransparency = value
-        for player, highlight in pairs(espObjects) do
-            highlight.FillTransparency = value
+        for player, objects in pairs(espObjects) do
+            if objects.highlight then
+                objects.highlight.FillTransparency = value
+            end
         end
     end)
     
@@ -1182,15 +1293,25 @@ local function createESPFrame()
     
     createColorPicker(frame, "Nametag Color", settings.nametagColor, function(color)
         settings.nametagColor = color
-        for player, nametag in pairs(nametagObjects) do
-            nametag.TextLabel.TextColor3 = color
+        for player, objects in pairs(nametagObjects) do
+            if objects.gui and objects.gui:FindFirstChild("TextLabel") then
+                objects.gui.TextLabel.TextColor3 = color
+            end
         end
     end)
     
     createSlider(frame, "Nametag Size", 10, 50, settings.nametagSize, function(value)
         settings.nametagSize = value
-        for player, nametag in pairs(nametagObjects) do
-            nametag.Size = UDim2.new(0, value * 10, 0, value * 2)
+        for player, objects in pairs(nametagObjects) do
+            if objects.gui then
+                local camera = Workspace.CurrentCamera
+                local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if camera and humanoidRootPart then
+                    local distance = (camera.CFrame.Position - humanoidRootPart.Position).Magnitude
+                    local scale = math.max(0.5, math.min(2, 50 / distance))
+                    objects.gui.Size = UDim2.new(0, value * 10 * scale, 0, value * 2 * scale)
+                end
+            end
         end
     end)
     
