@@ -617,7 +617,7 @@ flyButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FIXED: Character-Rotation NUR beim Fliegen
+-- FIXED: Character-Rotation NUR beim Fliegen - Verbesserte Stabilität
 RunService.Heartbeat:Connect(function()
 	local camera = Workspace.CurrentCamera
 	local character = LocalPlayer.Character
@@ -625,42 +625,48 @@ RunService.Heartbeat:Connect(function()
 	if character and character:FindFirstChild("HumanoidRootPart") then
 		local humanoidRootPart = character.HumanoidRootPart
 
-		-- Character-Rotation NUR beim Fliegen
-		if isFlying then
-			local lookDirection = camera.CFrame.LookVector
-			-- BEIM FLIEGEN: Volle 3D-Rotation (auch vertikal)
-			local upDirection = camera.CFrame.UpVector
-			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + lookDirection, upDirection)
-			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.3)
-		end
-
 		-- Fly-Bewegung
 		if isFlying and flyBodyVelocity then
 			flySpeed = flySpeedSlider()
 
 			-- Bewegungsvektor basierend auf Kamera-Richtung
 			local moveVector = Vector3.new(0, 0, 0)
+			local isMoving = false
 
 			if UserInputService:IsKeyDown(Enum.KeyCode.W) then
 				moveVector = moveVector + camera.CFrame.LookVector
+				isMoving = true
 			end
 			if UserInputService:IsKeyDown(Enum.KeyCode.S) then
 				moveVector = moveVector - camera.CFrame.LookVector
+				isMoving = true
 			end
 			if UserInputService:IsKeyDown(Enum.KeyCode.A) then
 				moveVector = moveVector - camera.CFrame.RightVector
+				isMoving = true
 			end
 			if UserInputService:IsKeyDown(Enum.KeyCode.D) then
 				moveVector = moveVector + camera.CFrame.RightVector
+				isMoving = true
 			end
 			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
 				moveVector = moveVector + Vector3.new(0, 1, 0)
+				isMoving = true
 			end
 			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
 				moveVector = moveVector - Vector3.new(0, 1, 0)
+				isMoving = true
 			end
 
 			flyBodyVelocity.Velocity = moveVector * flySpeed
+
+			-- Character-Rotation NUR beim Fliegen UND nur wenn sich bewegt wird
+			if isMoving and moveVector.Magnitude > 0.1 then
+				local lookDirection = moveVector.Unit -- Verwende Bewegungsrichtung statt Kamera
+				-- Sanftere Rotation mit geringerem Lerp-Faktor
+				local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + lookDirection)
+				humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.15)
+			end
 		end
 	end
 end)
