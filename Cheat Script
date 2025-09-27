@@ -925,9 +925,19 @@ end
 
 local nametagSizeSlider = createSlider(espFrame, "Nametag Size", 8, 30, 14, 6)
 
--- ESP Highlight Funktion - Verbessert
+-- ESP Highlight Funktion - Neu geschrieben
 local function createESPHighlight(character)
-    if not character or not character.Parent then return nil end
+    if not character or not character.Parent then 
+        print("ESP: Character ungültig")
+        return nil 
+    end
+    
+    -- Entferne bereits vorhandene ESP Highlights
+    for _, child in pairs(character:GetChildren()) do
+        if child.Name == "VyrxisESP" then
+            child:Destroy()
+        end
+    end
     
     local highlight = Instance.new("Highlight")
     highlight.Name = "VyrxisESP"
@@ -938,24 +948,31 @@ local function createESPHighlight(character)
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = character
     
-    print("ESP Highlight erstellt für: " .. (character.Name or "Unknown"))
+    print("✅ ESP Highlight erstellt für: " .. character.Name)
     return highlight
 end
 
--- Nametag und Healthbar Funktion - Verbessert
+-- Nametag Funktion - Neu geschrieben
 local function createNametag(character, playerName)
     if not character or not character.Parent then return nil end
     
     local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     if not humanoidRootPart then return nil end
     
+    -- Entferne alte Nametags
+    for _, child in pairs(humanoidRootPart:GetChildren()) do
+        if child.Name == "VyrxisNametag" then
+            child:Destroy()
+        end
+    end
+    
     local billboardGui = Instance.new("BillboardGui")
     billboardGui.Name = "VyrxisNametag"
     billboardGui.Size = UDim2.new(0, 200, 0, 50)
-    billboardGui.StudsOffset = Vector3.new(0, -3, 0)
+    billboardGui.StudsOffset = Vector3.new(0, -4, 0)
     billboardGui.Parent = humanoidRootPart
-    billboardGui.Adornee = humanoidRootPart
     billboardGui.AlwaysOnTop = true
+    billboardGui.LightInfluence = 0
     
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -968,11 +985,11 @@ local function createNametag(character, playerName)
     textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     textLabel.Parent = billboardGui
     
-    print("Nametag erstellt für: " .. playerName)
+    print("✅ Nametag erstellt für: " .. playerName)
     return billboardGui
 end
 
--- Healthbar Funktion - Verbessert
+-- Healthbar Funktion - Perfekt positioniert
 local function createHealthbar(character)
     if not character or not character.Parent then return nil end
     
@@ -980,25 +997,46 @@ local function createHealthbar(character)
     local humanoid = character:FindFirstChild("Humanoid")
     if not humanoidRootPart or not humanoid then return nil end
     
+    -- Entferne alte Healthbars
+    for _, child in pairs(humanoidRootPart:GetChildren()) do
+        if child.Name == "VyrxisHealthbar" then
+            child:Destroy()
+        end
+    end
+    
+    -- Character-Größe berechnen für relative Positionierung
+    local characterHeight = 5 -- Standard Roblox Character Höhe
+    if character:FindFirstChild("Head") and character:FindFirstChild("HumanoidRootPart") then
+        local head = character.Head
+        local rootPart = character.HumanoidRootPart
+        characterHeight = math.abs(head.Position.Y - rootPart.Position.Y) + head.Size.Y/2 + rootPart.Size.Y/2
+    end
+    
     local billboardGui = Instance.new("BillboardGui")
     billboardGui.Name = "VyrxisHealthbar"
-    billboardGui.Size = UDim2.new(0, 6, 0, 60) -- Etwas breiter für bessere Sichtbarkeit
-    billboardGui.StudsOffset = Vector3.new(2, 0, 0)
+    -- Größe relativ zum Character - maximal so hoch wie der Character
+    billboardGui.Size = UDim2.new(0, 0, characterHeight * 0.8, 0) -- 80% der Character-Höhe
+    billboardGui.StudsOffset = Vector3.new(2.5, characterHeight * 0.1, 0) -- Rechts vom Character, leicht nach oben versetzt
     billboardGui.Parent = humanoidRootPart
-    billboardGui.Adornee = humanoidRootPart
     billboardGui.AlwaysOnTop = true
     billboardGui.LightInfluence = 0
+    -- WICHTIG: Verhindert Größenänderung in der Entfernung
     billboardGui.StudsOffsetWorldSpace = false
+    billboardGui.SizeOffset = Vector2.new(0, 0)
     
+    -- Background Frame für die Healthbar
     local background = Instance.new("Frame")
-    background.Size = UDim2.new(1, 0, 1, 0)
-    background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    background.Size = UDim2.new(0, 4, 1, 0) -- Dünne Healthbar (4 Pixel breit)
+    background.Position = UDim2.new(0, 0, 0, 0)
+    background.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     background.BorderSizePixel = 1
-    background.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    background.BorderColor3 = Color3.fromRGB(200, 200, 200)
     background.Parent = billboardGui
     
+    -- Actual Health Bar
+    local currentHealth = math.max(humanoid.Health / humanoid.MaxHealth, 0.01)
     local healthBar = Instance.new("Frame")
-    healthBar.Size = UDim2.new(1, -2, math.max(humanoid.Health / humanoid.MaxHealth, 0.01), -2)
+    healthBar.Size = UDim2.new(1, -2, currentHealth, -2)
     healthBar.Position = UDim2.new(0, 1, 1, -1)
     healthBar.AnchorPoint = Vector2.new(0, 1)
     healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
@@ -1012,132 +1050,150 @@ local function createHealthbar(character)
             local healthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.01)
             healthBar.Size = UDim2.new(1, -2, healthPercent, -2)
             
-            -- Color based on health
-            if healthPercent > 0.5 then
-                healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-            elseif healthPercent > 0.25 then
-                healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+            -- Farbe basierend auf Gesundheit
+            if healthPercent > 0.6 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Grün
+            elseif healthPercent > 0.3 then
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Gelb
             else
-                healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Rot
             end
         end
     end)
     
-    -- Cleanup connection when character is removed
+    -- Cleanup when character is removed
     character.AncestryChanged:Connect(function()
-        if not character.Parent then
+        if not character.Parent and connection then
             connection:Disconnect()
         end
     end)
     
-    print("Healthbar erstellt für: " .. (character.Name or "Unknown"))
+    print("✅ Healthbar erstellt für: " .. character.Name)
     return billboardGui
 end
 
--- ESP Toggle - Debug Version
+-- ESP Toggle - Komplett neu geschrieben für maximale Zuverlässigkeit
 espHighlightButton.MouseButton1Click:Connect(function()
     isESPEnabled = not isESPEnabled
     espHighlightButton.Text = isESPEnabled and "ESP Highlight: ON" or "ESP Highlight: OFF"
     espHighlightButton.BackgroundColor3 = isESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
     
-    print("ESP Toggle: " .. tostring(isESPEnabled))
+    print("🔄 ESP Toggle aktiviert: " .. tostring(isESPEnabled))
     
     if isESPEnabled then
-        -- Cleane alle vorherigen ESP Elemente
-        for player, highlight in pairs(espHighlights) do
-            if highlight and highlight.Parent then
-                highlight:Destroy()
-            end
-        end
-        for player, healthbar in pairs(healthbars) do
-            if healthbar and healthbar.Parent then
-                healthbar:Destroy()
-            end
-        end
+        -- Zähler für Debug
+        local playersProcessed = 0
+        local highlightsCreated = 0
+        local healthbarsCreated = 0
+        
+        -- Reset alle ESP Arrays
         espHighlights = {}
         healthbars = {}
         
-        -- Erstelle ESP für alle Spieler
+        print("📋 Alle Spieler im Server:")
+        for _, player in pairs(Players:GetPlayers()) do
+            print("  - " .. player.Name .. (player == LocalPlayer and " (LocalPlayer)" or ""))
+        end
+        
+        -- Verarbeite jeden Spieler außer LocalPlayer
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer then
-                print("Verarbeite Spieler: " .. player.Name)
+                playersProcessed = playersProcessed + 1
+                print("🎯 Verarbeite Spieler #" .. playersProcessed .. ": " .. player.Name)
                 
-                if player.Character then
-                    print("Character gefunden für: " .. player.Name)
+                if player.Character and player.Character.Parent then
+                    print("  ✅ Character gefunden für: " .. player.Name)
                     
-                    -- ESP Highlight erstellen
+                    -- Erstelle ESP Highlight
                     local highlight = createESPHighlight(player.Character)
                     if highlight then
                         espHighlights[player] = highlight
-                        print("Highlight erfolgreich erstellt für: " .. player.Name)
+                        highlightsCreated = highlightsCreated + 1
+                        print("  🟡 Highlight #" .. highlightsCreated .. " erstellt")
                     else
-                        print("FEHLER: Highlight konnte nicht erstellt werden für: " .. player.Name)
+                        print("  ❌ Highlight FEHLER für: " .. player.Name)
                     end
                     
-                    -- Healthbar erstellen
+                    -- Erstelle Healthbar
                     local healthbar = createHealthbar(player.Character)
                     if healthbar then
                         healthbars[player] = healthbar
-                        print("Healthbar erfolgreich erstellt für: " .. player.Name)
+                        healthbarsCreated = healthbarsCreated + 1
+                        print("  🟢 Healthbar #" .. healthbarsCreated .. " erstellt")
                     else
-                        print("FEHLER: Healthbar konnte nicht erstellt werden für: " .. player.Name)
+                        print("  ❌ Healthbar FEHLER für: " .. player.Name)
                     end
+                    
                 else
-                    print("Kein Character für Spieler: " .. player.Name)
-                    -- Warte auf Character
+                    print("  ⏳ Kein Character für: " .. player.Name .. " - warte...")
+                    
+                    -- Warte auf Character in separatem Thread
                     spawn(function()
-                        local attempts = 0
-                        repeat
+                        local maxWait = 50 -- 5 Sekunden
+                        local waitTime = 0
+                        
+                        while not player.Character and waitTime < maxWait and isESPEnabled do
                             wait(0.1)
-                            attempts = attempts + 1
-                        until player.Character or attempts > 50 -- Max 5 Sekunden warten
+                            waitTime = waitTime + 1
+                        end
                         
                         if player.Character and isESPEnabled then
-                            print("Character später geladen für: " .. player.Name)
+                            print("  🔄 Character später gefunden für: " .. player.Name)
                             
                             local highlight = createESPHighlight(player.Character)
                             if highlight then
                                 espHighlights[player] = highlight
-                                print("Spätes Highlight erstellt für: " .. player.Name)
+                                print("  🟡 Spätes Highlight erstellt für: " .. player.Name)
                             end
                             
                             local healthbar = createHealthbar(player.Character)
                             if healthbar then
                                 healthbars[player] = healthbar
-                                print("Späte Healthbar erstellt für: " .. player.Name)
+                                print("  🟢 Späte Healthbar erstellt für: " .. player.Name)
                             end
-                        elseif attempts > 50 then
-                            print("Timeout beim Warten auf Character für: " .. player.Name)
+                        elseif waitTime >= maxWait then
+                            print("  ⏰ Timeout für: " .. player.Name)
+                        elseif not isESPEnabled then
+                            print("  🚫 ESP wurde deaktiviert während des Wartens")
                         end
                     end)
                 end
             end
         end
         
-        print("ESP aktiviert. Highlights: " .. #espHighlights .. ", Healthbars: " .. #healthbars)
-    else
-        -- Entferne alle ESP Elemente
-        local highlightCount = 0
-        local healthbarCount = 0
+        print("📊 ESP Aktivierung abgeschlossen:")
+        print("   Spieler verarbeitet: " .. playersProcessed)
+        print("   Highlights erstellt: " .. highlightsCreated)
+        print("   Healthbars erstellt: " .. healthbarsCreated)
         
+    else
+        -- ESP deaktivieren
+        local highlightsRemoved = 0
+        local healthbarsRemoved = 0
+        
+        -- Entferne alle Highlights
         for player, highlight in pairs(espHighlights) do
             if highlight and highlight.Parent then
                 highlight:Destroy()
-                highlightCount = highlightCount + 1
+                highlightsRemoved = highlightsRemoved + 1
             end
         end
         
+        -- Entferne alle Healthbars
         for player, healthbar in pairs(healthbars) do
             if healthbar and healthbar.Parent then
                 healthbar:Destroy()
-                healthbarCount = healthbarCount + 1
+                healthbarsRemoved = healthbarsRemoved + 1
             end
         end
         
+        -- Reset Arrays
         espHighlights = {}
         healthbars = {}
         
-        print("ESP deaktiviert. Entfernt - Highlights: " .. highlightCount .. ", Healthbars: " .. healthbarCount)
+        print("🚫 ESP deaktiviert:")
+        print("   Highlights entfernt: " .. highlightsRemoved)
+        print("   Healthbars entfernt: " .. healthbarsRemoved)
     end
 end)
 
