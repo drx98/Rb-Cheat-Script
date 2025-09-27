@@ -588,20 +588,37 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Noclip
+-- Noclip - Schnellere Reaktion
+local noclipConnection
 noclipButton.MouseButton1Click:Connect(function()
     isNoclipEnabled = not isNoclipEnabled
     noclipButton.Text = isNoclipEnabled and "Noclip: ON" or "Noclip: OFF"
     noclipButton.BackgroundColor3 = isNoclipEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
-end)
-
-RunService.Heartbeat:Connect(function()
+    
     if isNoclipEnabled then
+        -- Direkte Noclip-Schleife für schnellere Reaktion
+        noclipConnection = RunService.Stepped:Connect(function()
+            local character = LocalPlayer.Character
+            if character then
+                for _, part in pairs(character:GetChildren()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        -- Stoppe Noclip und stelle Collision wieder her
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+        
         local character = LocalPlayer.Character
         if character then
             for _, part in pairs(character:GetChildren()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = false
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
                 end
             end
         end
@@ -743,6 +760,7 @@ local gotoButton = createButton(playerFrame, "Goto Player", 3)
 
 -- View Player Camera
 local originalCameraCFrame = nil
+local originalCameraSubject = nil
 local viewCameraConnection = nil
 
 viewButton.MouseButton1Click:Connect(function()
@@ -755,42 +773,21 @@ viewButton.MouseButton1Click:Connect(function()
             
             if isViewingPlayer then
                 viewingPlayerName = selectedPlayer
-                -- Speichere die ursprüngliche Kamera-Position
+                -- Speichere ursprüngliche Kamera-Einstellungen
                 originalCameraCFrame = Camera.CFrame
-                -- Setze Kamera-Typ auf Scriptable für manuelle Kontrolle
-                Camera.CameraType = Enum.CameraType.Scriptable
+                originalCameraSubject = Camera.CameraSubject
                 
-                -- Erstelle Verbindung für kontinuierliche Kamera-Updates
-                viewCameraConnection = RunService.Heartbeat:Connect(function()
-                    if isViewingPlayer and viewingPlayerName ~= "" then
-                        local viewPlayer = Players:FindFirstChild(viewingPlayerName)
-                        if viewPlayer and viewPlayer.Character and viewPlayer.Character:FindFirstChild("Head") then
-                            Camera.CFrame = viewPlayer.Character.Head.CFrame
-                        else
-                            -- Spieler nicht mehr verfügbar, View beenden
-                            isViewingPlayer = false
-                            viewingPlayerName = ""
-                            viewButton.Text = "View: OFF"
-                            viewButton.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-                            if viewCameraConnection then
-                                viewCameraConnection:Disconnect()
-                                viewCameraConnection = nil
-                            end
-                            Camera.CameraType = Enum.CameraType.Custom
-                        end
-                    end
-                end)
+                -- Setze Kamera auf den ausgewählten Spieler
+                if targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
+                    Camera.CameraSubject = targetPlayer.Character.Humanoid
+                    Camera.CameraType = Enum.CameraType.Custom
+                end
             else
                 viewingPlayerName = ""
-                -- Beende Kamera-View und stelle ursprüngliche Einstellungen wieder her
-                if viewCameraConnection then
-                    viewCameraConnection:Disconnect()
-                    viewCameraConnection = nil
-                end
-                Camera.CameraType = Enum.CameraType.Custom
-                -- Optional: Stelle ursprüngliche Position wieder her
-                if originalCameraCFrame then
-                    Camera.CFrame = originalCameraCFrame
+                -- Stelle ursprüngliche Kamera wieder her
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                    Camera.CameraSubject = LocalPlayer.Character.Humanoid
+                    Camera.CameraType = Enum.CameraType.Custom
                 end
             end
         end
@@ -1022,29 +1019,53 @@ local function createHealthbar(character)
     return billboardGui
 end
 
--- ESP Toggle
+-- ESP Toggle - Komplett überarbeitet
 espHighlightButton.MouseButton1Click:Connect(function()
     isESPEnabled = not isESPEnabled
     espHighlightButton.Text = isESPEnabled and "ESP Highlight: ON" or "ESP Highlight: OFF"
     espHighlightButton.BackgroundColor3 = isESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
     
     if isESPEnabled then
+        -- Erstelle ESP für alle Spieler außer LocalPlayer
         for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                -- ESP Highlight erstellen
-                if not espHighlights[player] or not espHighlights[player].Parent then
-                    local highlight = createESPHighlight(player.Character)
-                    espHighlights[player] = highlight
-                end
-                
-                -- Healthbar erstellen
-                if not healthbars[player] or not healthbars[player].Parent then
-                    local healthbar = createHealthbar(player.Character)
-                    healthbars[player] = healthbar
+            if player ~= LocalPlayer then
+                -- Warte auf Character falls noch nicht geladen
+                if player.Character then
+                    -- ESP Highlight erstellen
+                    if not espHighlights[player] or not espHighlights[player].Parent then
+                        local highlight = createESPHighlight(player.Character)
+                        espHighlights[player] = highlight
+                    end
+                    
+                    -- Healthbar erstellen
+                    if not healthbars[player] or not healthbars[player].Parent then
+                        local healthbar = createHealthbar(player.Character)
+                        healthbars[player] = healthbar
+                    end
+                else
+                    -- Falls Character noch nicht da ist, warte darauf
+                    spawn(function()
+                        repeat
+                            wait(0.1)
+                        until player.Character
+                        
+                        if isESPEnabled then -- Prüfe ob ESP noch an ist
+                            if not espHighlights[player] or not espHighlights[player].Parent then
+                                local highlight = createESPHighlight(player.Character)
+                                espHighlights[player] = highlight
+                            end
+                            
+                            if not healthbars[player] or not healthbars[player].Parent then
+                                local healthbar = createHealthbar(player.Character)
+                                healthbars[player] = healthbar
+                            end
+                        end
+                    end)
                 end
             end
         end
     else
+        -- Entferne alle ESP Elemente
         for player, highlight in pairs(espHighlights) do
             if highlight and highlight.Parent then
                 highlight:Destroy()
@@ -1106,38 +1127,51 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Player Added/Removed Events für ESP
+-- Player Added/Removed Events für ESP - Verbessert
 Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(character)
-        wait(1) -- Wait for character to fully load
+    local function setupESPForPlayer(character)
+        wait(0.5) -- Kurz warten damit Character vollständig geladen ist
         
         if isESPEnabled and player ~= LocalPlayer then
-            -- ESP Highlight erstellen
-            if not espHighlights[player] or not espHighlights[player].Parent then
-                local highlight = createESPHighlight(character)
-                espHighlights[player] = highlight
+            -- Cleanup alte ESP Elemente falls vorhanden
+            if espHighlights[player] and espHighlights[player].Parent then
+                espHighlights[player]:Destroy()
+            end
+            if healthbars[player] and healthbars[player].Parent then
+                healthbars[player]:Destroy()
             end
             
-            -- Healthbar erstellen
-            if not healthbars[player] or not healthbars[player].Parent then
-                local healthbar = createHealthbar(character)
-                healthbars[player] = healthbar
-            end
+            -- Erstelle neue ESP Elemente
+            local highlight = createESPHighlight(character)
+            espHighlights[player] = highlight
+            
+            local healthbar = createHealthbar(character)
+            healthbars[player] = healthbar
         end
         
         if nametagsEnabled and player ~= LocalPlayer then
-            if not nametags[player] or not nametags[player].Parent then
-                local nametag = createNametag(character, player.Name)
-                nametags[player] = nametag
+            if nametags[player] and nametags[player].Parent then
+                nametags[player]:Destroy()
             end
+            local nametag = createNametag(character, player.Name)
+            nametags[player] = nametag
         end
         
         -- Player list update
         updatePlayerList()
-    end)
+    end
+    
+    -- Setup für bereits vorhandenen Character
+    if player.Character then
+        setupESPForPlayer(player.Character)
+    end
+    
+    -- Setup für zukünftige Characters (Respawns)
+    player.CharacterAdded:Connect(setupESPForPlayer)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
+    -- Cleanup alle ESP Elemente für entfernten Spieler
     if espHighlights[player] then
         if espHighlights[player].Parent then
             espHighlights[player]:Destroy()
@@ -1161,14 +1195,13 @@ Players.PlayerRemoving:Connect(function(player)
     updatePlayerList()
 end)
 
--- Character Respawn Events
+-- Setup für bereits vorhandene Spieler
 for _, player in pairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
-        player.CharacterAdded:Connect(function(character)
-            wait(1)
+        local function setupESPForExistingPlayer(character)
+            wait(0.5)
             
             if isESPEnabled then
-                -- Cleanup old highlights
                 if espHighlights[player] and espHighlights[player].Parent then
                     espHighlights[player]:Destroy()
                 end
@@ -1176,7 +1209,6 @@ for _, player in pairs(Players:GetPlayers()) do
                     healthbars[player]:Destroy()
                 end
                 
-                -- Create new highlights
                 local highlight = createESPHighlight(character)
                 espHighlights[player] = highlight
                 
@@ -1185,16 +1217,19 @@ for _, player in pairs(Players:GetPlayers()) do
             end
             
             if nametagsEnabled then
-                -- Cleanup old nametag
                 if nametags[player] and nametags[player].Parent then
                     nametags[player]:Destroy()
                 end
-                
-                -- Create new nametag
                 local nametag = createNametag(character, player.Name)
                 nametags[player] = nametag
             end
-        end)
+        end
+        
+        if player.Character then
+            setupESPForExistingPlayer(player.Character)
+        end
+        
+        player.CharacterAdded:Connect(setupESPForExistingPlayer)
     end
 end
 
