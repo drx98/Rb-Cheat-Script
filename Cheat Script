@@ -617,7 +617,7 @@ flyButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FIXED: Character-Rotation beim Fliegen - Schaut immer in Kamera-Richtung
+-- FIXED: Character-Rotation beim Fliegen - Wie Shift-Lock (3D Kamera-Tracking)
 RunService.Heartbeat:Connect(function()
 	local camera = Workspace.CurrentCamera
 	local character = LocalPlayer.Character
@@ -625,13 +625,13 @@ RunService.Heartbeat:Connect(function()
 	if character and character:FindFirstChild("HumanoidRootPart") then
 		local humanoidRootPart = character.HumanoidRootPart
 
-		-- Character-Rotation NUR beim Fliegen - immer in Kamera-Richtung
+		-- Character-Rotation NUR beim Fliegen - Vollständige 3D Kamera-Verfolgung
 		if isFlying then
 			local lookDirection = camera.CFrame.LookVector
-			-- NUR horizontale Rotation (Y-Achse) - Character bleibt aufrecht
-			local horizontalLook = Vector3.new(lookDirection.X, 0, lookDirection.Z).Unit
-			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + horizontalLook)
-			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.2)
+			local upDirection = camera.CFrame.UpVector
+			-- Vollständige 3D-Rotation in alle Richtungen (wie Shift-Lock)
+			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + lookDirection, upDirection)
+			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.25)
 		end
 
 		-- Fly-Bewegung
