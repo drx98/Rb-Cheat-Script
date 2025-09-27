@@ -977,53 +977,56 @@ local function StartLoadScreen()
         end
     end
     
-    wait(5)
-    
-    -- Fade out load screen
-    local fadeOutTween = TweenService:Create(LoadScreen, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0.5, -200, -0.5, -100),
-        BackgroundTransparency = 1
-    })
-    
-    local textFadeOut = TweenService:Create(LoadText, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        TextTransparency = 1
-    })
-    
-    for _, effect in pairs(EffectsFrame:GetChildren()) do
-        if effect:IsA("Frame") then
-            local effectFadeOut = TweenService:Create(effect, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                BackgroundTransparency = 1
-            })
-            effectFadeOut:Play()
+    -- Use spawn to make it non-blocking
+    spawn(function()
+        wait(5)
+        
+        -- Fade out load screen
+        local fadeOutTween = TweenService:Create(LoadScreen, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, -200, -0.5, -100),
+            BackgroundTransparency = 1
+        })
+        
+        local textFadeOut = TweenService:Create(LoadText, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TextTransparency = 1
+        })
+        
+        for _, effect in pairs(EffectsFrame:GetChildren()) do
+            if effect:IsA("Frame") then
+                local effectFadeOut = TweenService:Create(effect, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    BackgroundTransparency = 1
+                })
+                effectFadeOut:Play()
+            end
         end
-    end
-    
-    fadeOutTween:Play()
-    textFadeOut:Play()
-    loadTween:Cancel()
-    
-    wait(1)
-    
-    LoadScreen:Destroy()
-    EffectsFrame:Destroy()
-    
-    -- Show main menu with animation
-    MainRahmen.Visible = true
-    MainFrame.Visible = true
-    
-    MainRahmen.Position = UDim2.new(0.5, -350, -0.1, -20)
-    MainFrame.Position = UDim2.new(0.5, -350, -0.1, 20)
-    
-    local rahmenTween = TweenService:Create(MainRahmen, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0.5, -350, 0.3, -20)
-    })
-    
-    local frameTween = TweenService:Create(MainFrame, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0.5, -350, 0.3, 20)
-    })
-    
-    rahmenTween:Play()
-    frameTween:Play()
+        
+        fadeOutTween:Play()
+        textFadeOut:Play()
+        loadTween:Cancel()
+        
+        wait(1)
+        
+        LoadScreen:Destroy()
+        EffectsFrame:Destroy()
+        
+        -- Show main menu with animation
+        MainRahmen.Visible = true
+        MainFrame.Visible = true
+        
+        MainRahmen.Position = UDim2.new(0.5, -350, -0.1, -20)
+        MainFrame.Position = UDim2.new(0.5, -350, -0.1, 20)
+        
+        local rahmenTween = TweenService:Create(MainRahmen, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, -350, 0.3, -20)
+        })
+        
+        local frameTween = TweenService:Create(MainFrame, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0.5, -350, 0.3, 20)
+        })
+        
+        rahmenTween:Play()
+        frameTween:Play()
+    end)
 end
 
 -- Update Liste canvas size
