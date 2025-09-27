@@ -95,6 +95,24 @@ end
 
 -- Create Main Frame
 local function createMainFrame()
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Parent = screenGui
+    mainFrame.Size = UDim2.new(0, 600, 0, 400)
+    mainFrame.Position = UDim2.new(0.5, -300, 0.1, 40)
+    mainFrame.BackgroundColor3 = secondaryColor
+    mainFrame.BorderSizePixel = 0
+    
+    local corner4 = Instance.new("UICorner")
+    corner4.CornerRadius = UDim.new(0, 8)
+    corner4.Parent = mainFrame
+    
+    -- Make MainFrame follow MainRahmen when dragged
+    mainRahmen:GetPropertyChangedSignal("Position"):Connect(function()
+        mainFrame.Position = UDim2.new(mainRahmen.Position.X.Scale, mainRahmen.Position.X.Offset, mainRahmen.Position.Y.Scale, mainRahmen.Position.Y.Offset + 40)
+    end)
+
     -- Main Rahmen (Title Bar)
     local mainRahmen = Instance.new("Frame")
     mainRahmen.Name = "MainRahmen"
@@ -105,11 +123,18 @@ local function createMainFrame()
     mainRahmen.BorderSizePixel = 0
     mainRahmen.Active = true
     mainRahmen.Draggable = true
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Parent = screenGui
+    mainFrame.Size = UDim2.new(0, 600, 0, 400)
+    mainFrame.Position = UDim2.new(0.5, -300, 0.1, 40)
+    mainFrame.BackgroundColor3 = secondaryColor
+    mainFrame.BorderSizePixel = 0
     
-    -- Corner radius for title bar
-    local corner1 = Instance.new("UICorner")
-    corner1.CornerRadius = UDim.new(0, 8)
-    corner1.Parent = mainRahmen
+    local corner4 = Instance.new("UICorner")
+    corner4.CornerRadius = UDim.new(0, 8)
+    corner4.Parent = mainFrame
     
     -- Title
     local title = Instance.new("TextLabel")
@@ -711,7 +736,7 @@ function createESPCategory(parent)
         end)
     end
     
-    createSlider(parent, "Nametag Size", 8, 50, 20, function(value)
+    createSlider(parent, "Nametag Size", 1, 10, 3, function(value)
         updateNametagSize(value)
     end)
 end
@@ -869,6 +894,7 @@ end
 
 -- ESP System
 local espHighlights = {}
+local healthBars = {}
 local espColor = Color3.fromRGB(0, 255, 255)
 local espTransparency = 0.5
 
@@ -880,29 +906,45 @@ function toggleESP(enabled)
             end
         end
         
-        -- Listen for new players
+        -- Listen for new players and respawns
         Players.PlayerAdded:Connect(function(newPlayer)
-            if espEnabled then
-                newPlayer.CharacterAdded:Connect(function()
+            newPlayer.CharacterAdded:Connect(function()
+                wait(1)
+                if espEnabled then
+                    createESPHighlight(newPlayer)
+                end
+            end)
+        end)
+        
+        -- Listen for existing player respawns
+        for _, existingPlayer in pairs(Players:GetPlayers()) do
+            if existingPlayer ~= player then
+                existingPlayer.CharacterAdded:Connect(function()
                     wait(1)
                     if espEnabled then
-                        createESPHighlight(newPlayer)
+                        createESPHighlight(existingPlayer)
                     end
                 end)
             end
-        end)
+        end
     else
         for _, highlight in pairs(espHighlights) do
             if highlight then
                 highlight:Destroy()
             end
         end
+        for _, healthBar in pairs(healthBars) do
+            if healthBar then
+                healthBar:Destroy()
+            end
+        end
         espHighlights = {}
+        healthBars = {}
     end
 end
 
 function createESPHighlight(targetPlayer)
-    if not targetPlayer.Character then return end
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     
     local highlight = Instance.new("Highlight")
     highlight.Parent = targetPlayer.Character
@@ -912,6 +954,71 @@ function createESPHighlight(targetPlayer)
     highlight.OutlineTransparency = 0
     
     espHighlights[targetPlayer.UserId] = highlight
+    
+    -- Create Health Bar
+    createHealthBar(targetPlayer)
+end
+
+function createHealthBar(targetPlayer)
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local humanoidTarget = targetPlayer.Character:FindFirstChild("Humanoid")
+    if not humanoidTarget then return end
+    
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Parent = targetPlayer.Character.HumanoidRootPart
+    billboardGui.Size = UDim2.new(0, 8, 0, 60)
+    billboardGui.StudsOffset = Vector3.new(2, 0, 0)
+    billboardGui.AlwaysOnTop = true
+    billboardGui.LightInfluence = 0
+    
+    -- Background for health bar
+    local healthBg = Instance.new("Frame")
+    healthBg.Parent = billboardGui
+    healthBg.Size = UDim2.new(1, 0, 1, 0)
+    healthBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    healthBg.BorderSizePixel = 0
+    
+    local healthBgCorner = Instance.new("UICorner")
+    healthBgCorner.CornerRadius = UDim.new(0, 2)
+    healthBgCorner.Parent = healthBg
+    
+    -- Health bar fill
+    local healthFill = Instance.new("Frame")
+    healthFill.Parent = healthBg
+    healthFill.Size = UDim2.new(1, 0, humanoidTarget.Health / humanoidTarget.MaxHealth, 0)
+    healthFill.Position = UDim2.new(0, 0, 1, 0)
+    healthFill.AnchorPoint = Vector2.new(0, 1)
+    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthFill.BorderSizePixel = 0
+    
+    local healthFillCorner = Instance.new("UICorner")
+    healthFillCorner.CornerRadius = UDim.new(0, 2)
+    healthFillCorner.Parent = healthFill
+    
+    healthBars[targetPlayer.UserId] = billboardGui
+    
+    -- Update health bar continuously
+    spawn(function()
+        while billboardGui.Parent and humanoidTarget.Parent do
+            wait(0.1)
+            if humanoidTarget and humanoidTarget.Parent then
+                local healthPercent = humanoidTarget.Health / humanoidTarget.MaxHealth
+                healthFill.Size = UDim2.new(1, 0, healthPercent, 0)
+                
+                -- Color based on health
+                if healthPercent > 0.6 then
+                    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Green
+                elseif healthPercent > 0.3 then
+                    healthFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
+                else
+                    healthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Red
+                end
+            else
+                break
+            end
+        end
+    end)
 end
 
 function updateESPColor(color)
@@ -936,13 +1043,35 @@ end
 -- Nametag System
 local nametags = {}
 local nametagColor = Color3.fromRGB(255, 255, 255)
-local nametagSize = 20
+local nametagSize = 3
 
 function toggleNametags(enabled)
     if enabled then
         for _, otherPlayer in pairs(Players:GetPlayers()) do
             if otherPlayer ~= player and otherPlayer.Character then
                 createNametag(otherPlayer)
+            end
+        end
+        
+        -- Listen for new players and respawns
+        Players.PlayerAdded:Connect(function(newPlayer)
+            newPlayer.CharacterAdded:Connect(function()
+                wait(1)
+                if nametagsEnabled then
+                    createNametag(newPlayer)
+                end
+            end)
+        end)
+        
+        -- Listen for existing player respawns
+        for _, existingPlayer in pairs(Players:GetPlayers()) do
+            if existingPlayer ~= player then
+                existingPlayer.CharacterAdded:Connect(function()
+                    wait(1)
+                    if nametagsEnabled then
+                        createNametag(existingPlayer)
+                    end
+                end)
             end
         end
     else
@@ -963,6 +1092,9 @@ function createNametag(targetPlayer)
     billboardGui.Size = UDim2.new(0, 200, 0, 50)
     billboardGui.StudsOffset = Vector3.new(0, -3, 0)
     billboardGui.AlwaysOnTop = true
+    billboardGui.LightInfluence = 0
+    -- Fixed size regardless of distance
+    billboardGui.StudsOffsetWorldSpace = Vector3.new(0, -3, 0)
     
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Parent = billboardGui
@@ -970,8 +1102,8 @@ function createNametag(targetPlayer)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = targetPlayer.Name
     nameLabel.TextColor3 = nametagColor
-    nameLabel.TextScaled = true
-    nameLabel.TextSize = nametagSize
+    nameLabel.TextScaled = false
+    nameLabel.TextSize = nametagSize * 6 -- Convert to proper TextSize
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextStrokeTransparency = 0
     nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
@@ -992,7 +1124,7 @@ function updateNametagSize(size)
     nametagSize = size
     for _, nametag in pairs(nametags) do
         if nametag and nametag:FindFirstChild("TextLabel") then
-            nametag.TextLabel.TextSize = size
+            nametag.TextLabel.TextSize = size * 6 -- Convert to proper TextSize
         end
     end
 end
