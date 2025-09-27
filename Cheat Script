@@ -940,9 +940,17 @@ local function createHealthbar(character)
         end
     end
     
+    -- Berechne Character-Höhe für relative Größe
+    local characterHeight = 5 -- Standard Roblox Character
+    if character:FindFirstChild("Head") then
+        local head = character.Head
+        characterHeight = math.abs(head.Position.Y - humanoidRootPart.Position.Y) + head.Size.Y/2 + humanoidRootPart.Size.Y/2
+    end
+    
     local billboardGui = Instance.new("BillboardGui")
     billboardGui.Name = "VyrxisHealthbar"
-    billboardGui.Size = UDim2.new(0, 8, 0, 80)
+    -- Größe relativ zur Character-Höhe - BLEIBT IMMER PROPORTIONAL
+    billboardGui.Size = UDim2.new(0, 0, characterHeight * 0.8, 0)
     billboardGui.StudsOffset = Vector3.new(2.5, 0, 0)
     billboardGui.Parent = humanoidRootPart
     billboardGui.AlwaysOnTop = true
