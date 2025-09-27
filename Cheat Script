@@ -587,92 +587,177 @@ local flyButton = createButton(flyFrame, "Fly: OFF", 1)
 local flySpeedSlider = createSlider(flyFrame, "Fly Speed", 10, 200, 50, 2)
 
 flyButton.MouseButton1Click:Connect(function()
-	isFlying = not isFlying
-	flyButton.Text = isFlying and "Fly: ON" or "Fly: OFF"
-	flyButton.BackgroundColor3 = isFlying and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
+	-- Alte Fly-System Implementierung entfernt - wird jetzt durch FlySystem gehandhabt
+	print("Fly button clicked - handled by new FlySystem")
+end)
 
-	if isFlying then
-		local character = LocalPlayer.Character
-		if character and character:FindFirstChild("HumanoidRootPart") then
-			local humanoidRootPart = character.HumanoidRootPart
-			
-			flyBodyVelocity = Instance.new("BodyVelocity")
-			flyBodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-			flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
-			flyBodyVelocity.Parent = humanoidRootPart
+-- Professionelles Fly System - Moderne Implementierung
+local FlySystem = {}
+FlySystem.enabled = false
+FlySystem.speed = 50
+FlySystem.bodyVelocity = nil
+FlySystem.bodyPosition = nil
+FlySystem.connection = nil
 
-			flyBodyAngularVelocity = Instance.new("BodyAngularVelocity")
-			flyBodyAngularVelocity.MaxTorque = Vector3.new(4000, 4000, 4000)
-			flyBodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-			flyBodyAngularVelocity.Parent = humanoidRootPart
+-- Fly System Initialisierung
+function FlySystem:Enable()
+	if self.enabled then return end
+	
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	
+	local humanoidRootPart = character.HumanoidRootPart
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	
+	-- Deaktiviere normale Physik
+	if humanoid then
+		humanoid.PlatformStand = true
+	end
+	
+	-- Erstelle BodyVelocity für präzise Bewegungskontrolle
+	self.bodyVelocity = Instance.new("BodyVelocity")
+	self.bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	self.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	self.bodyVelocity.Parent = humanoidRootPart
+	
+	-- Erstelle BodyPosition für Stabilität
+	self.bodyPosition = Instance.new("BodyPosition")
+	self.bodyPosition.MaxForce = Vector3.new(0, math.huge, 0)
+	self.bodyPosition.Position = humanoidRootPart.Position
+	self.bodyPosition.D = 500  -- Damping für Stabilität
+	self.bodyPosition.P = 3000 -- Power für responsive Bewegung
+	self.bodyPosition.Parent = humanoidRootPart
+	
+	self.enabled = true
+	
+	-- Starte Update-Loop
+	self:StartUpdateLoop()
+end
+
+function FlySystem:Disable()
+	if not self.enabled then return end
+	
+	local character = LocalPlayer.Character
+	if character then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.PlatformStand = false
 		end
+	end
+	
+	-- Cleanup
+	if self.bodyVelocity then
+		self.bodyVelocity:Destroy()
+		self.bodyVelocity = nil
+	end
+	
+	if self.bodyPosition then
+		self.bodyPosition:Destroy()
+		self.bodyPosition = nil
+	end
+	
+	if self.connection then
+		self.connection:Disconnect()
+		self.connection = nil
+	end
+	
+	self.enabled = false
+end
+
+function FlySystem:StartUpdateLoop()
+	if self.connection then
+		self.connection:Disconnect()
+	end
+	
+	self.connection = RunService.Heartbeat:Connect(function()
+		self:Update()
+	end)
+end
+
+function FlySystem:Update()
+	if not self.enabled then return end
+	
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then
+		self:Disable()
+		return
+	end
+	
+	local humanoidRootPart = character.HumanoidRootPart
+	local camera = Camera
+	
+	-- Character Rotation - Folgt Kamera exakt (Shift-Lock Style)
+	local lookDirection = camera.CFrame.LookVector
+	local upDirection = camera.CFrame.UpVector
+	local rightDirection = camera.CFrame.RightVector
+	
+	-- Erstelle neue CFrame für Character basierend auf Kamera-Orientation
+	local newCFrame = CFrame.fromMatrix(humanoidRootPart.Position, rightDirection, upDirection, -lookDirection)
+	humanoidRootPart.CFrame = newCFrame
+	
+	-- Bewegungsberechnung
+	local moveVector = Vector3.new(0, 0, 0)
+	
+	-- Input Detection
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		moveVector = moveVector + lookDirection
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+		moveVector = moveVector - lookDirection
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		moveVector = moveVector - rightDirection
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+		moveVector = moveVector + rightDirection
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+		moveVector = moveVector + Vector3.new(0, 1, 0)
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+		moveVector = moveVector + Vector3.new(0, -1, 0)
+	end
+	
+	-- Normalisiere Bewegungsvektor für konsistente Geschwindigkeit
+	if moveVector.Magnitude > 0 then
+		moveVector = moveVector.Unit
+	end
+	
+	-- Setze Velocity für sofortige, präzise Bewegung
+	self.bodyVelocity.Velocity = moveVector * self.speed
+	
+	-- Update BodyPosition für vertikale Stabilität
+	if moveVector.Y == 0 then
+		self.bodyPosition.Position = Vector3.new(humanoidRootPart.Position.X, humanoidRootPart.Position.Y, humanoidRootPart.Position.Z)
 	else
-		if flyBodyVelocity then
-			flyBodyVelocity:Destroy()
-			flyBodyVelocity = nil
-		end
-		if flyBodyAngularVelocity then
-			flyBodyAngularVelocity:Destroy()
-			flyBodyAngularVelocity = nil
-		end
+		self.bodyPosition.Position = humanoidRootPart.Position + Vector3.new(0, moveVector.Y * self.speed * 0.016, 0)
+	end
+end
+
+function FlySystem:SetSpeed(newSpeed)
+	self.speed = math.clamp(newSpeed, 1, 1000)
+end
+
+-- Fly Button Integration
+flyButton.MouseButton1Click:Connect(function()
+	if FlySystem.enabled then
+		FlySystem:Disable()
+		flyButton.Text = "Fly: OFF"
+		flyButton.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+	else
+		FlySystem:Enable()
+		flyButton.Text = "Fly: ON"
+		flyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
 	end
 end)
 
--- FIXED: Character-Rotation beim Fliegen - Vollständiges Shift-Lock Verhalten
+-- Speed Update Integration
+local lastFlySpeed = 50
 RunService.Heartbeat:Connect(function()
-	local camera = Workspace.CurrentCamera
-	local character = LocalPlayer.Character
-
-	if character and character:FindFirstChild("HumanoidRootPart") then
-		local humanoidRootPart = character.HumanoidRootPart
-
-		-- Character-Rotation beim Fliegen - Folgt Kamera komplett (wie Shift-Lock)
-		if isFlying then
-			local lookDirection = camera.CFrame.LookVector
-			local upDirection = camera.CFrame.UpVector
-			-- Vollständige 3D-Rotation - Character folgt Kamera exakt
-			local targetCFrame = CFrame.lookAt(humanoidRootPart.Position, humanoidRootPart.Position + lookDirection, upDirection)
-			-- Schnelle und direkte Rotation
-			humanoidRootPart.CFrame = humanoidRootPart.CFrame:Lerp(targetCFrame, 0.8)
-		end
-
-		-- Fly-Bewegung - Sofortige Geschwindigkeit, stabiles Fliegen
-		if isFlying and flyBodyVelocity then
-			flySpeed = flySpeedSlider()
-
-			-- Bewegungsvektor basierend auf Kamera-Richtung
-			local moveVector = Vector3.new(0, 0, 0)
-
-			if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-				moveVector = moveVector + camera.CFrame.LookVector
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-				moveVector = moveVector - camera.CFrame.LookVector
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-				moveVector = moveVector - camera.CFrame.RightVector
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-				moveVector = moveVector + camera.CFrame.RightVector
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-				moveVector = moveVector + Vector3.new(0, 1, 0)
-			end
-			if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-				moveVector = moveVector - Vector3.new(0, 1, 0)
-			end
-
-			-- Normalisiere den Bewegungsvektor für gleichmäßige Geschwindigkeit in alle Richtungen
-			if moveVector.Magnitude > 0 then
-				moveVector = moveVector.Unit
-			end
-
-			-- Sofortige Geschwindigkeit ohne Beschleunigung
-			flyBodyVelocity.Velocity = moveVector * flySpeed
-			
-			-- Stabilisierung für gerades Fliegen
-			flyBodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-		end
+	local currentSpeed = flySpeedSlider()
+	if currentSpeed ~= lastFlySpeed then
+		FlySystem:SetSpeed(currentSpeed)
+		lastFlySpeed = currentSpeed
 	end
 end)
 
