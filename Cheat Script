@@ -1,5 +1,9 @@
 -- ESP KATEGORIE
 local espFrame = categoryFrames["ESP"]
+if not espFrame then
+	print("Error: ESP frame not found!")
+	return
+end
 
 local espHighlightButton = createButton(espFrame, "ESP Highlight: OFF", 1)
 
@@ -927,6 +931,11 @@ ListLayout.Parent = Liste
 local categories = {"Fly", "Me", "Player", "ESP"}
 local categoryFrames = {}
 
+-- Sicherheitscheck für categoryFrames Initialisierung
+for _, category in pairs(categories) do
+	categoryFrames[category] = nil
+end
+
 for i, category in pairs(categories) do
 	local categoryButton = Instance.new("TextButton")
 	categoryButton.Size = UDim2.new(1, -10, 0, 40)
@@ -1129,6 +1138,10 @@ end
 
 -- FLY KATEGORIE
 local flyFrame = categoryFrames["Fly"]
+if not flyFrame then
+	print("Error: Fly frame not found!")
+	return
+end
 
 local flyButton = createButton(flyFrame, "Fly: OFF", 1)
 local flySpeedSlider = createSlider(flyFrame, "Fly Speed", 10, 200, 50, 2)
@@ -1306,6 +1319,10 @@ end)
 
 -- ME KATEGORIE
 local meFrame = categoryFrames["Me"]
+if not meFrame then
+	print("Error: Me frame not found!")
+	return
+end
 
 local giveItemsButton = createButton(meFrame, "Give All Items", 1)
 local walkSpeedSlider = createSlider(meFrame, "Walk Speed", 16, 200, 16, 2)
@@ -1414,6 +1431,10 @@ end)
 
 -- PLAYER KATEGORIE
 local playerFrame = categoryFrames["Player"]
+if not playerFrame then
+	print("Error: Player frame not found!")
+	return
+end
 
 -- Player Selection Frame
 local playerSelectionFrame = Instance.new("Frame")
