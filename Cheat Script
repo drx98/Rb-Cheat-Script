@@ -2007,6 +2007,3 @@ print("✓ Character wird unter die Map teleportiert (-10000 Y)")
 print("✓ Für dich: Normale Bewegung auf der Map möglich")
 print("✓ Für andere: Du bist unsichtbar/unter der Map")
 print("✓ Smooth Underground Teleportation System aktiv")locity = Instance.new("BodyAngularVelocity")
-	self.bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-	self.bodyAngularVe
