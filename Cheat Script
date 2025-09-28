@@ -1328,37 +1328,72 @@ local function createObjectHighlight(object)
 end
 
 local function isInteractableObject(obj)
-	-- ULTRA-PRÄZISE Erkennung - NUR echte Interaktionen
+	-- ERWEITERTE aber präzise Erkennung
 	if not obj or not obj.Parent then return false end
 	
-	-- 1. CLICKDETECTOR: Maus-Interaktion (direkter Klick möglich)
-	local clickDetector = obj:FindFirstChildOfClass("ClickDetector")
-	if clickDetector then
+	-- 1. DIREKTE INTERAKTION: ClickDetector (Maus-Klick)
+	if obj:FindFirstChildOfClass("ClickDetector") then
 		return true
 	end
 	
-	-- 2. PROXIMITYPROMT: E-Taste Interaktion
-	local proximityPrompt = obj:FindFirstChildOfClass("ProximityPrompt")
-	if proximityPrompt then
+	-- 2. DIREKTE INTERAKTION: ProximityPrompt (E-Taste)
+	if obj:FindFirstChildOfClass("ProximityPrompt") then
 		return true
 	end
 	
-	-- 3. SITZPLÄTZE: Nur echte Seats
+	-- 3. SITZPLÄTZE: Seats und VehicleSeats
 	if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
 		return true
 	end
 	
-	-- 4. TOOLS: Nur aufhebbare Tools im Workspace
+	-- 4. TOOLS: Aufhebbare Items
 	if obj:IsA("Tool") and obj.Parent == Workspace then
 		return true
 	end
 	
-	-- 5. MODELS: Nur wenn sie ECHTE Interaktion enthalten
+	-- 5. BINDABLEEVENT/FUNCTION: Remote Events (oft für Interaktion)
+	if obj:FindFirstChildOfClass("BindableEvent") or obj:FindFirstChildOfClass("BindableFunction") then
+		return true
+	end
+	
+	-- 6. SPECIALMESH mit InteractionType (manche Games nutzen das)
+	if obj:IsA("BasePart") and obj:FindFirstChildOfClass("SpecialMesh") then
+		local mesh = obj:FindFirstChildOfClass("SpecialMesh")
+		if mesh and mesh:FindFirstChild("InteractionType") then
+			return true
+		end
+	end
+	
+	-- 7. PARTS mit SCRIPTVERBINDUNG (BoolValue, StringValue für Interaktion)
+	if obj:IsA("BasePart") then
+		-- Suche nach Interaction-Hints
+		for _, child in pairs(obj:GetChildren()) do
+			if child:IsA("BoolValue") and (child.Name:lower():find("interact") or child.Name:lower():find("click") or child.Name:lower():find("touch")) then
+				return true
+			end
+			if child:IsA("StringValue") and (child.Name:lower():find("interact") or child.Name:lower():find("action")) then
+				return true
+			end
+		end
+		
+		-- Parts mit Touched-Events (oft interagierbar)
+		if obj:FindFirstChild("TouchInterest") or obj.CanTouch == true then
+			-- Aber nur wenn sie einen sinnvollen Namen haben
+			local name = obj.Name:lower()
+			local interactNames = {"button", "switch", "lever", "door", "chest", "panel", "terminal", "shop", "vendor"}
+			for _, interactName in pairs(interactNames) do
+				if name:find(interactName) then
+					return true
+				end
+			end
+		end
+	end
+	
+	-- 8. MODELS: Erweiterte Prüfung
 	if obj:IsA("Model") then
-		-- NPCs: Nur Humanoids die KEINE Spieler sind UND einen Namen haben
+		-- NPCs: Humanoids die keine Spieler sind
 		local humanoid = obj:FindFirstChildOfClass("Humanoid")
 		if humanoid then
-			-- Prüfe ob es ein Spieler ist
 			local isPlayer = false
 			for _, player in pairs(Players:GetPlayers()) do
 				if player.Character == obj then
@@ -1366,25 +1401,49 @@ local function isInteractableObject(obj)
 					break
 				end
 			end
-			-- Nur echte NPCs mit sinnvollen Namen
 			if not isPlayer and obj.Name ~= "Model" and obj.Name ~= "" then
 				return true
 			end
 		end
 		
-		-- Models mit ClickDetector oder ProximityPrompt in Kindern
+		-- Models mit Interaktions-Komponenten
 		for _, descendant in pairs(obj:GetDescendants()) do
 			if descendant:IsA("ClickDetector") or descendant:IsA("ProximityPrompt") then
 				return true
 			end
-			-- Seats in Models
 			if descendant:IsA("Seat") or descendant:IsA("VehicleSeat") then
 				return true
+			end
+			if descendant:IsA("BindableEvent") or descendant:IsA("BindableFunction") then
+				return true
+			end
+		end
+		
+		-- Models mit interagierbaren Namen
+		local modelName = obj.Name:lower()
+		local modelInteractNames = {"shop", "vendor", "merchant", "npc", "chest", "door", "gate", "vehicle", "car", "boat"}
+		for _, interactName in pairs(modelInteractNames) do
+			if modelName:find(interactName) then
+				-- Zusätzlich prüfen ob es wirklich Komponenten hat
+				if #obj:GetChildren() > 1 then -- Mehr als nur ein PrimaryPart
+					return true
+				end
 			end
 		end
 	end
 	
-	-- ALLES ANDERE: Nicht interagierbar
+	-- 9. FOLDERS mit Interaktions-Items (manche Games strukturieren so)
+	if obj:IsA("Folder") then
+		local folderName = obj.Name:lower()
+		if folderName:find("interact") or folderName:find("shop") or folderName:find("items") then
+			for _, child in pairs(obj:GetChildren()) do
+				if child:IsA("Tool") then
+					return true
+				end
+			end
+		end
+	end
+	
 	return false
 end
 
