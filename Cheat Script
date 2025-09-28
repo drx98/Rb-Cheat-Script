@@ -873,57 +873,58 @@ noclipButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- GHOST MODE SYSTEM - VERBESSERTE VERSION
+-- GHOST MODE SYSTEM - TELEPORT-METHODE
 local isGhostEnabled = false
-local originalTransparencies = {}
+local originalPosition = nil
 local ghostConnection = nil
 local ghostButton = createButton(meFrame, "Ghost: OFF", 5)
 
 local function enableGhostMode()
 	local character = LocalPlayer.Character
-	if not character then return end
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 	
-	print("Enabling Ghost Mode...")
-	originalTransparencies = {}
+	local humanoidRootPart = character.HumanoidRootPart
 	
-	-- Speichere originale Werte und mache transparent
+	print("Enabling Ghost Mode - Teleport Method...")
+	
+	-- Speichere aktuelle Position
+	originalPosition = humanoidRootPart.CFrame
+	
+	-- Teleportiere Character weit nach unten (für andere Spieler unsichtbar)
+	local hiddenPosition = CFrame.new(0, -1000, 0)
+	humanoidRootPart.CFrame = hiddenPosition
+	
+	-- Warte kurz
+	wait(0.1)
+	
+	-- Teleportiere zurück zur ursprünglichen Position
+	humanoidRootPart.CFrame = originalPosition
+	
+	-- Mache für LocalPlayer leicht transparent (Geist-Effekt)
 	for _, part in pairs(character:GetDescendants()) do
 		if part:IsA("BasePart") then
-			originalTransparencies[part] = {
-				transparency = part.Transparency,
-				canCollide = part.CanCollide
-			}
-			-- Für dich: Leicht transparent (Geist-Effekt)
-			part.Transparency = 0.5
-			part.CanCollide = false
-		elseif part:IsA("Decal") or part:IsA("Texture") then
-			originalTransparencies[part] = part.Transparency
-			part.Transparency = 0.5
+			part.Transparency = math.max(part.Transparency, 0.3)
 		end
 	end
 	
-	-- Erweiterte Unsichtbarkeits-Methode für andere Spieler
+	-- Kontinuierlicher Invisible-Effekt durch periodische Teleportation
 	ghostConnection = RunService.Heartbeat:Connect(function()
 		if not isGhostEnabled then return end
 		
 		local character = LocalPlayer.Character
-		if character then
-			for _, part in pairs(character:GetChildren()) do
-				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-					-- Für andere Spieler unsichtbar
-					local success, error = pcall(function()
-						-- Netzwerk-Trick: Setze Transparency sehr hoch
-						part.Transparency = math.max(part.Transparency, 0.98)
-						
-						-- Advanced: Verstecke vor anderen durch Position-Manipulation
-						if part.Name ~= "HumanoidRootPart" then
-							-- Erstelle "Schatten-Version" für andere Spieler
-							part.AssemblyLinearVelocity = Vector3.new(0, -50, 0)
-							wait()
-							part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-						end
-					end)
-				end
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			local humanoidRootPart = character.HumanoidRootPart
+			
+			-- Alle 0.5 Sekunden kurz teleportieren für andere Spieler
+			if tick() % 0.5 < 0.033 then -- Ca. alle 0.5 Sekunden für 1 Frame
+				local currentPos = humanoidRootPart.CFrame
+				
+				-- Kurz nach unten teleportieren (für andere unsichtbar)
+				humanoidRootPart.CFrame = CFrame.new(0, -2000, 0)
+				
+				-- Sofort zurück
+				game:GetService("RunService").Heartbeat:Wait()
+				humanoidRootPart.CFrame = currentPos
 			end
 		end
 	end)
@@ -935,26 +936,37 @@ local function disableGhostMode()
 	
 	print("Disabling Ghost Mode...")
 	
-	-- Verbindung beenden
+	-- Stoppe Verbindung
 	if ghostConnection then
 		ghostConnection:Disconnect()
 		ghostConnection = nil
 	end
 	
-	-- Originale Werte wiederherstellen
-	for part, original in pairs(originalTransparencies) do
-		if part and part.Parent then
-			if part:IsA("BasePart") then
-				part.Transparency = original.transparency
-				part.CanCollide = original.canCollide
-				part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-			elseif part:IsA("Decal") or part:IsA("Texture") then
-				part.Transparency = original
+	-- Teleportiere nochmal kurz weg und zurück um sichtbar zu werden
+	if character:FindFirstChild("HumanoidRootPart") then
+		local humanoidRootPart = character.HumanoidRootPart
+		local currentPos = humanoidRootPart.CFrame
+		
+		humanoidRootPart.CFrame = CFrame.new(0, -1000, 0)
+		wait(0.1)
+		humanoidRootPart.CFrame = currentPos
+	end
+	
+	-- Stelle normale Transparenz wieder her
+	for _, part in pairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			if part.Name == "HumanoidRootPart" then
+				part.Transparency = 1 -- RootPart ist immer transparent
+			else
+				part.Transparency = 0 -- Andere Parts sichtbar
 			end
+		end
+		if part:IsA("Decal") or part:IsA("Texture") then
+			part.Transparency = 0
 		end
 	end
 	
-	originalTransparencies = {}
+	originalPosition = nil
 end
 
 -- Ghost Toggle Button
@@ -970,10 +982,10 @@ ghostButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Character Respawn Handler für Ghost Mode
+-- Character Respawn Handler
 LocalPlayer.CharacterAdded:Connect(function(character)
 	if isGhostEnabled then
-		wait(2) -- Warte bis Character vollständig geladen
+		wait(3) -- Warte bis Character vollständig geladen
 		enableGhostMode()
 	end
 end)
