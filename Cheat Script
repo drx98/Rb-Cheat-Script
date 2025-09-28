@@ -873,61 +873,38 @@ noclipButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- GHOST MODE SYSTEM - TELEPORT-METHODE
+-- GHOST MODE SYSTEM - EINFACHE FUNKTIONSFÄHIGE VERSION
 local isGhostEnabled = false
-local originalPosition = nil
-local ghostConnection = nil
 local ghostButton = createButton(meFrame, "Ghost: OFF", 5)
 
 local function enableGhostMode()
 	local character = LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	if not character then return end
 	
-	local humanoidRootPart = character.HumanoidRootPart
+	print("Enabling Ghost Mode...")
 	
-	print("Enabling Ghost Mode - Teleport Method...")
-	
-	-- Speichere aktuelle Position
-	originalPosition = humanoidRootPart.CFrame
-	
-	-- Teleportiere Character weit nach unten (für andere Spieler unsichtbar)
-	local hiddenPosition = CFrame.new(0, -1000, 0)
-	humanoidRootPart.CFrame = hiddenPosition
-	
-	-- Warte kurz
-	wait(0.1)
-	
-	-- Teleportiere zurück zur ursprünglichen Position
-	humanoidRootPart.CFrame = originalPosition
-	
-	-- Mache für LocalPlayer leicht transparent (Geist-Effekt)
+	-- Für dich: Geist-Effekt (transparent)
 	for _, part in pairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.Transparency = math.max(part.Transparency, 0.3)
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			part.Transparency = 0.5
+		elseif part:IsA("Decal") or part:IsA("Texture") then
+			part.Transparency = 0.5
 		end
 	end
 	
-	-- Kontinuierlicher Invisible-Effekt durch periodische Teleportation
-	ghostConnection = RunService.Heartbeat:Connect(function()
-		if not isGhostEnabled then return end
-		
-		local character = LocalPlayer.Character
-		if character and character:FindFirstChild("HumanoidRootPart") then
-			local humanoidRootPart = character.HumanoidRootPart
-			
-			-- Alle 0.5 Sekunden kurz teleportieren für andere Spieler
-			if tick() % 0.5 < 0.033 then -- Ca. alle 0.5 Sekunden für 1 Frame
-				local currentPos = humanoidRootPart.CFrame
-				
-				-- Kurz nach unten teleportieren (für andere unsichtbar)
-				humanoidRootPart.CFrame = CFrame.new(0, -2000, 0)
-				
-				-- Sofort zurück
-				game:GetService("RunService").Heartbeat:Wait()
-				humanoidRootPart.CFrame = currentPos
+	-- Einfache Unsichtbarkeits-Methode
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			-- Für andere Spieler unsichtbar machen
+			part.Transparency = 1
+			part.CanCollide = false
+		elseif part:IsA("Accessory") then
+			local handle = part:FindFirstChild("Handle")
+			if handle then
+				handle.Transparency = 1
 			end
 		end
-	end)
+	end
 end
 
 local function disableGhostMode()
@@ -936,37 +913,21 @@ local function disableGhostMode()
 	
 	print("Disabling Ghost Mode...")
 	
-	-- Stoppe Verbindung
-	if ghostConnection then
-		ghostConnection:Disconnect()
-		ghostConnection = nil
-	end
-	
-	-- Teleportiere nochmal kurz weg und zurück um sichtbar zu werden
-	if character:FindFirstChild("HumanoidRootPart") then
-		local humanoidRootPart = character.HumanoidRootPart
-		local currentPos = humanoidRootPart.CFrame
-		
-		humanoidRootPart.CFrame = CFrame.new(0, -1000, 0)
-		wait(0.1)
-		humanoidRootPart.CFrame = currentPos
-	end
-	
-	-- Stelle normale Transparenz wieder her
+	-- Alles wieder normal machen
 	for _, part in pairs(character:GetDescendants()) do
 		if part:IsA("BasePart") then
 			if part.Name == "HumanoidRootPart" then
 				part.Transparency = 1 -- RootPart ist immer transparent
 			else
-				part.Transparency = 0 -- Andere Parts sichtbar
+				part.Transparency = 0 -- Normale Sichtbarkeit
+				if part.Name ~= "Head" then -- Head collision bleibt aus
+					part.CanCollide = true
+				end
 			end
-		end
-		if part:IsA("Decal") or part:IsA("Texture") then
+		elseif part:IsA("Decal") or part:IsA("Texture") then
 			part.Transparency = 0
 		end
 	end
-	
-	originalPosition = nil
 end
 
 -- Ghost Toggle Button
@@ -985,7 +946,7 @@ end)
 -- Character Respawn Handler
 LocalPlayer.CharacterAdded:Connect(function(character)
 	if isGhostEnabled then
-		wait(3) -- Warte bis Character vollständig geladen
+		wait(2)
 		enableGhostMode()
 	end
 end)
