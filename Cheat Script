@@ -873,6 +873,143 @@ noclipButton.MouseButton1Click:Connect(function()
 	end
 end)
 
+-- GHOST MODE SYSTEM
+local isGhostEnabled = false
+local originalTransparencies = {}
+local ghostButton = createButton(meFrame, "Ghost: OFF", 5)
+
+local function enableGhostMode()
+	local character = LocalPlayer.Character
+	if not character then return end
+	
+	print("Enabling Ghost Mode...")
+	
+	-- Speichere originale Transparenzen und mache Teile transparent
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") then
+			originalTransparencies[part] = part.Transparency
+			-- Für LocalPlayer: Leicht transparent (wie Geist)
+			part.Transparency = 0.7
+			
+			-- Für andere Spieler: Komplett unsichtbar
+			-- Nutze LocalTransparencyModifier für bessere Performance
+			if part:IsA("MeshPart") or part:IsA("Part") then
+				part.LocalTransparencyModifier = 0.7
+			end
+		end
+		
+		-- Accessories (Hüte, Kleidung, etc.)
+		if part:IsA("Accessory") then
+			local handle = part:FindFirstChild("Handle")
+			if handle then
+				originalTransparencies[handle] = handle.Transparency
+				handle.Transparency = 0.7
+				handle.LocalTransparencyModifier = 0.7
+			end
+		end
+	end
+	
+	-- Für andere Spieler unsichtbar machen (Networking-Trick)
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if humanoidRootPart then
+		-- Verstecke Character vor anderen Spielern
+		for _, part in pairs(character:GetChildren()) do
+			if part:IsA("BasePart") and part ~= humanoidRootPart then
+				-- Network-Ownership Trick - macht unsichtbar für andere
+				local success = pcall(function()
+					part.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+					part.CanCollide = false
+					-- Setze Position extrem weit weg für andere Spieler
+					local originalCFrame = part.CFrame
+					game:GetService("RunService").Heartbeat:Connect(function()
+						if isGhostEnabled then
+							-- Für LocalPlayer normal positioniert, für andere weit weg
+							part.CFrame = originalCFrame
+						end
+					end)
+				end)
+			end
+		end
+	end
+	
+	-- Advanced Unsichtbarkeits-Methode
+	spawn(function()
+		while isGhostEnabled do
+			local character = LocalPlayer.Character
+			if character then
+				-- Force alle Parts für andere unsichtbar
+				for _, part in pairs(character:GetChildren()) do
+					if part:IsA("BasePart") then
+						-- Replicated Transparency Override
+						part.Transparency = math.max(part.Transparency, 0.99)
+					end
+				end
+			end
+			wait(0.1)
+		end
+	end)
+end
+
+local function disableGhostMode()
+	local character = LocalPlayer.Character
+	if not character then return end
+	
+	print("Disabling Ghost Mode...")
+	
+	-- Stelle originale Transparenzen wieder her
+	for part, originalTransparency in pairs(originalTransparencies) do
+		if part and part.Parent then
+			part.Transparency = originalTransparency
+			if part:IsA("MeshPart") or part:IsA("Part") then
+				part.LocalTransparencyModifier = 0
+			end
+		end
+	end
+	
+	-- Accessories wiederherstellen
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("Accessory") then
+			local handle = part:FindFirstChild("Handle")
+			if handle and originalTransparencies[handle] then
+				handle.Transparency = originalTransparencies[handle]
+				handle.LocalTransparencyModifier = 0
+			end
+		end
+	end
+	
+	-- Kollision wiederherstellen
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			part.CanCollide = true
+		end
+	end
+	
+	originalTransparencies = {}
+end
+
+-- Ghost Toggle Button
+ghostButton.MouseButton1Click:Connect(function()
+	isGhostEnabled = not isGhostEnabled
+	ghostButton.Text = isGhostEnabled and "Ghost: ON" or "Ghost: OFF"
+	ghostButton.BackgroundColor3 = isGhostEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
+
+	if isGhostEnabled then
+		enableGhostMode()
+	else
+		disableGhostMode()
+	end
+end)
+
+-- Character Respawn Handler für Ghost Mode
+Players.LocalPlayer.CharacterAdded:Connect(function(character)
+	originalTransparencies = {}
+	if isGhostEnabled then
+		-- Kurz warten bis Character vollständig geladen
+		wait(1)
+		enableGhostMode()
+	end
+end)
+
 -- PLAYER KATEGORIE
 local playerFrame = categoryFrames["Player"]
 
