@@ -683,14 +683,14 @@ function FlySystem:Update()
 	local humanoidRootPart = character.HumanoidRootPart
 	local camera = Camera
 	
-	-- Character Rotation - SOFORTIGE UND PRÄZISE ROTATION
+	-- Character Rotation - VOLLSTÄNDIGE 3D ROTATION (SOFORT)
 	local lookDirection = camera.CFrame.LookVector
 	local upDirection = camera.CFrame.UpVector
 	local rightDirection = camera.CFrame.RightVector
 	
-	-- Neue CFrame für Character basierend auf Kamera - SOFORT
+	-- Neue CFrame für Character basierend auf Kamera - VOLLSTÄNDIGE 3D ROTATION
 	local newCFrame = CFrame.fromMatrix(humanoidRootPart.Position, rightDirection, upDirection, -lookDirection)
-	humanoidRootPart.CFrame = newCFrame -- Direkte Rotation ohne Verzögerung
+	humanoidRootPart.CFrame = newCFrame
 	
 	-- BEWEGUNGSBERECHNUNG - VOLLSTÄNDIG 3D
 	local moveVector = Vector3.new(0, 0, 0)
