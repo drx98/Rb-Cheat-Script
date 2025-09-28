@@ -1166,14 +1166,85 @@ end
 
 local espTransparencySlider = createSlider(espFrame, "ESP Transparency", 0, 100, 50, 3)
 
-local nametagsButton = createButton(espFrame, "Nametags: OFF", 4)
+-- ESP OBJECT HIGHLIGHT BUTTON
+local espObjectButton = createButton(espFrame, "ESP Object Highlight: OFF", 4)
+
+-- Color Selection für ESP Objects
+local espObjectColorFrame = Instance.new("Frame")
+espObjectColorFrame.Size = UDim2.new(1, -20, 0, 80)
+espObjectColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+espObjectColorFrame.BorderSizePixel = 0
+espObjectColorFrame.LayoutOrder = 5
+espObjectColorFrame.Parent = espFrame
+
+local espObjectColorCorner = Instance.new("UICorner")
+espObjectColorCorner.CornerRadius = UDim.new(0, 8)
+espObjectColorCorner.Parent = espObjectColorFrame
+
+-- Gradient für ESP Object Color Frame
+local espObjectColorGradient = Instance.new("UIGradient")
+espObjectColorGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+espObjectColorGradient.Rotation = 45
+espObjectColorGradient.Parent = espObjectColorFrame
+
+-- Stroke für ESP Object Color Frame
+local espObjectColorStroke = Instance.new("UIStroke")
+espObjectColorStroke.Color = Color3.fromRGB(0, 150, 200)
+espObjectColorStroke.Thickness = 1
+espObjectColorStroke.Transparency = 0.6
+espObjectColorStroke.Parent = espObjectColorFrame
+
+local espObjectColorLabel = Instance.new("TextLabel")
+espObjectColorLabel.Size = UDim2.new(1, 0, 0, 25)
+espObjectColorLabel.Position = UDim2.new(0, 0, 0, 5)
+espObjectColorLabel.BackgroundTransparency = 1
+espObjectColorLabel.Text = "ESP Object Color"
+espObjectColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+espObjectColorLabel.TextScaled = true
+espObjectColorLabel.Font = Enum.Font.GothamBold
+espObjectColorLabel.Parent = espObjectColorFrame
+
+-- ESP Object Color und Variablen
+local espObjectColor = Color3.fromRGB(255, 255, 0) -- Standard Gelb für Objects
+local isObjectESPEnabled = false
+local objectHighlights = {}
+
+for i, colorData in pairs(espColors) do
+	local colorButton = Instance.new("TextButton")
+	colorButton.Size = UDim2.new(0, 50, 0, 40)
+	colorButton.Position = UDim2.new(0, 10 + (i-1) * 55, 0, 30)
+	colorButton.BackgroundColor3 = colorData[1]
+	colorButton.Text = ""
+	colorButton.BorderSizePixel = 0
+	colorButton.Parent = espObjectColorFrame
+
+	local colorCorner = Instance.new("UICorner")
+	colorCorner.CornerRadius = UDim.new(0, 4)
+	colorCorner.Parent = colorButton
+
+	colorButton.MouseButton1Click:Connect(function()
+		espObjectColor = colorData[1]
+		-- Update bestehende Object Highlights
+		for obj, highlight in pairs(objectHighlights) do
+			if highlight then
+				highlight.FillColor = espObjectColor
+				highlight.OutlineColor = espObjectColor
+			end
+		end
+	end)
+end
+
+local nametagsButton = createButton(espFrame, "Nametags: OFF", 6)
 
 -- Color Selection für Nametags
 local nametagColorFrame = Instance.new("Frame")
 nametagColorFrame.Size = UDim2.new(1, -20, 0, 80)
 nametagColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 nametagColorFrame.BorderSizePixel = 0
-nametagColorFrame.LayoutOrder = 5
+nametagColorFrame.LayoutOrder = 7
 nametagColorFrame.Parent = espFrame
 
 local nametagColorCorner = Instance.new("UICorner")
@@ -1229,9 +1300,165 @@ for i, colorData in pairs(espColors) do
 	end)
 end
 
-local nametagSizeSlider = createSlider(espFrame, "Nametag Size", 8, 30, 14, 6)
+local nametagSizeSlider = createSlider(espFrame, "Nametag Size", 8, 30, 14, 8)
 
 -- ESP Funktionen - KORRIGIERT
+local function createObjectHighlight(object)
+	if not object or not object.Parent then 
+		return nil 
+	end
+
+	-- Entferne bestehende Highlights
+	for _, child in pairs(object:GetChildren()) do
+		if child.Name == "VyrxisObjectESP" then
+			child:Destroy()
+		end
+	end
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "VyrxisObjectESP"
+	highlight.FillColor = espObjectColor
+	highlight.OutlineColor = espObjectColor
+	highlight.FillTransparency = espTransparency
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = object
+
+	return highlight
+end
+
+local function isInteractableObject(obj)
+	-- Prüft ob Objekt interagierbar ist
+	if not obj:IsA("BasePart") and not obj:IsA("Model") then return false end
+	
+	-- Häufige interagierbare Objekte
+	local interactableNames = {
+		"door", "chest", "box", "button", "lever", "switch", "panel", "terminal",
+		"shop", "npc", "vendor", "merchant", "item", "pickup", "tool", "weapon",
+		"coin", "money", "treasure", "key", "card", "part", "gear", "component"
+	}
+	
+	local objectName = obj.Name:lower()
+	
+	-- Prüfe Name
+	for _, name in pairs(interactableNames) do
+		if objectName:find(name) then
+			return true
+		end
+	end
+	
+	-- Prüfe nach ClickDetector (Maus-Interaktion)
+	if obj:FindFirstChildOfClass("ClickDetector") then
+		return true
+	end
+	
+	-- Prüfe nach ProximityPrompt (E-Taste Interaktion)
+	if obj:FindFirstChildOfClass("ProximityPrompt") then
+		return true
+	end
+	
+	-- Prüfe Model auf ClickDetector/ProximityPrompt in Kindern
+	if obj:IsA("Model") then
+		for _, child in pairs(obj:GetDescendants()) do
+			if child:IsA("ClickDetector") or child:IsA("ProximityPrompt") then
+				return true
+			end
+		end
+	end
+	
+	-- Prüfe nach Humanoid (NPCs)
+	if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and obj ~= LocalPlayer.Character then
+		-- Stelle sicher, dass es kein Spieler ist
+		local isPlayer = false
+		for _, player in pairs(Players:GetPlayers()) do
+			if player.Character == obj then
+				isPlayer = true
+				break
+			end
+		end
+		if not isPlayer then
+			return true
+		end
+	end
+	
+	return false
+end
+
+local function enableObjectESP()
+	print("ESP für interagierbare Objekte aktivieren...")
+
+	-- Cleanup bestehende Highlights
+	for obj, highlight in pairs(objectHighlights) do
+		if highlight and highlight.Parent then
+			highlight:Destroy()
+		end
+	end
+	objectHighlights = {}
+
+	-- Durchsuche Workspace nach interagierbaren Objekten
+	local function scanForObjects(parent)
+		for _, obj in pairs(parent:GetChildren()) do
+			if isInteractableObject(obj) then
+				local highlight = createObjectHighlight(obj)
+				if highlight then
+					objectHighlights[obj] = highlight
+				end
+			end
+			
+			-- Rekursiv durch Kinder suchen (außer Character Models)
+			if obj:IsA("Model") and not obj:FindFirstChildOfClass("Humanoid") then
+				scanForObjects(obj)
+			elseif obj:IsA("Folder") then
+				scanForObjects(obj)
+			end
+		end
+	end
+
+	scanForObjects(Workspace)
+	print("Object ESP aktiviert - " .. #objectHighlights .. " Objekte gefunden")
+end
+
+local function disableObjectESP()
+	for obj, highlight in pairs(objectHighlights) do
+		if highlight and highlight.Parent then
+			highlight:Destroy()
+		end
+	end
+	objectHighlights = {}
+	print("Object ESP deaktiviert")
+end
+
+-- ESP Object Toggle Button Event
+espObjectButton.MouseButton1Click:Connect(function()
+	isObjectESPEnabled = not isObjectESPEnabled
+	espObjectButton.Text = isObjectESPEnabled and "ESP Object Highlight: ON" or "ESP Object Highlight: OFF"
+	espObjectButton.BackgroundColor3 = isObjectESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
+
+	if isObjectESPEnabled then
+		enableObjectESP()
+	else
+		disableObjectESP()
+	end
+end)
+
+-- Workspace Events für neue Objekte
+Workspace.ChildAdded:Connect(function(child)
+	if isObjectESPEnabled then
+		wait(0.1) -- Kurz warten damit Objekt vollständig geladen ist
+		if isInteractableObject(child) then
+			local highlight = createObjectHighlight(child)
+			if highlight then
+				objectHighlights[child] = highlight
+			end
+		end
+	end
+end)
+
+Workspace.ChildRemoved:Connect(function(child)
+	if objectHighlights[child] then
+		objectHighlights[child] = nil
+	end
+end)
 local function createESPHighlight(character)
 	if not character or not character.Parent then 
 		return nil 
