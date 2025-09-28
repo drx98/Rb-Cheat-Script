@@ -1328,38 +1328,37 @@ local function createObjectHighlight(object)
 end
 
 local function isInteractableObject(obj)
-	-- Prüft nur ECHTE interagierbare Objekte
-	if not obj then return false end
+	-- ULTRA-PRÄZISE Erkennung - NUR echte Interaktionen
+	if not obj or not obj.Parent then return false end
 	
-	-- DIREKTE INTERAKTION: ClickDetector (Maus-Klick)
-	if obj:FindFirstChildOfClass("ClickDetector") then
+	-- 1. CLICKDETECTOR: Maus-Interaktion (direkter Klick möglich)
+	local clickDetector = obj:FindFirstChildOfClass("ClickDetector")
+	if clickDetector then
 		return true
 	end
 	
-	-- DIREKTE INTERAKTION: ProximityPrompt (E-Taste)
-	if obj:FindFirstChildOfClass("ProximityPrompt") then
+	-- 2. PROXIMITYPROMT: E-Taste Interaktion
+	local proximityPrompt = obj:FindFirstChildOfClass("ProximityPrompt")
+	if proximityPrompt then
 		return true
 	end
 	
-	-- FÜR MODELS: Suche nach Interaktion in Kindern
+	-- 3. SITZPLÄTZE: Nur echte Seats
+	if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
+		return true
+	end
+	
+	-- 4. TOOLS: Nur aufhebbare Tools im Workspace
+	if obj:IsA("Tool") and obj.Parent == Workspace then
+		return true
+	end
+	
+	-- 5. MODELS: Nur wenn sie ECHTE Interaktion enthalten
 	if obj:IsA("Model") then
-		-- Prüfe alle Kinder auf ClickDetector oder ProximityPrompt
-		for _, child in pairs(obj:GetDescendants()) do
-			if child:IsA("ClickDetector") or child:IsA("ProximityPrompt") then
-				return true
-			end
-		end
-		
-		-- SITZPLÄTZE: Seat oder VehicleSeat
-		for _, child in pairs(obj:GetDescendants()) do
-			if child:IsA("Seat") or child:IsA("VehicleSeat") then
-				return true
-			end
-		end
-		
-		-- NPCs: Humanoid ABER kein Spieler
-		if obj:FindFirstChildOfClass("Humanoid") then
-			-- Prüfe ob es ein Spieler-Character ist
+		-- NPCs: Nur Humanoids die KEINE Spieler sind UND einen Namen haben
+		local humanoid = obj:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			-- Prüfe ob es ein Spieler ist
 			local isPlayer = false
 			for _, player in pairs(Players:GetPlayers()) do
 				if player.Character == obj then
@@ -1367,31 +1366,25 @@ local function isInteractableObject(obj)
 					break
 				end
 			end
-			-- Nur NPCs highlighten, keine Spieler
-			if not isPlayer then
+			-- Nur echte NPCs mit sinnvollen Namen
+			if not isPlayer and obj.Name ~= "Model" and obj.Name ~= "" then
+				return true
+			end
+		end
+		
+		-- Models mit ClickDetector oder ProximityPrompt in Kindern
+		for _, descendant in pairs(obj:GetDescendants()) do
+			if descendant:IsA("ClickDetector") or descendant:IsA("ProximityPrompt") then
+				return true
+			end
+			-- Seats in Models
+			if descendant:IsA("Seat") or descendant:IsA("VehicleSeat") then
 				return true
 			end
 		end
 	end
 	
-	-- EINZELNE PARTS: Nur wenn sie direkte Interaktion haben
-	if obj:IsA("BasePart") then
-		-- Seat oder VehicleSeat
-		if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
-			return true
-		end
-		
-		-- Nur Parts mit ClickDetector oder ProximityPrompt
-		if obj:FindFirstChildOfClass("ClickDetector") or obj:FindFirstChildOfClass("ProximityPrompt") then
-			return true
-		end
-	end
-	
-	-- TOOLS: Aufhebbare Items
-	if obj:IsA("Tool") and obj.Parent == Workspace then
-		return true
-	end
-	
+	-- ALLES ANDERE: Nicht interagierbar
 	return false
 end
 
