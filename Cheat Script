@@ -79,43 +79,7 @@ end
 local espTransparencySlider = createSlider(espFrame, "ESP Transparency", 0, 100, 50, 3)
 
 -- ESP OBJECT HIGHLIGHT BUTTON
-local espObjectButton = createButton(espFrame, "ESP Object Highlight: OFF", 4)
-
--- Color Selection für ESP Objects
-local espObjectColorFrame = Instance.new("Frame")
-espObjectColorFrame.Size = UDim2.new(1, -20, 0, 80)
-espObjectColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-espObjectColorFrame.BorderSizePixel = 0
-espObjectColorFrame.LayoutOrder = 5
-espObjectColorFrame.Parent = espFrame
-
-local espObjectColorCorner = Instance.new("UICorner")
-espObjectColorCorner.CornerRadius = UDim.new(0, 8)
-espObjectColorCorner.Parent = espObjectColorFrame
-
--- Gradient für ESP Object Color Frame
-local espObjectColorGradient = Instance.new("UIGradient")
-espObjectColorGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-espObjectColorGradient.Rotation = 45
-espObjectColorGradient.Parent = espObjectColorFrame
-
--- Stroke für ESP Object Color Frame
-local espObjectColorStroke = Instance.new("UIStroke")
-espObjectColorStroke.Color = Color3.fromRGB(0, 150, 200)
-espObjectColorStroke.Thickness = 1
-espObjectColorStroke.Transparency = 0.6
-espObjectColorStroke.Parent = espObjectColorFrame
-
-local espObjectColorLabel = Instance.new("TextLabel")
-espObjectColorLabel.Size = UDim2.new(1, 0, 0, 25)
-espObjectColorLabel.Position = UDim2.new(0, 0, 0, 5)
-espObjectColorLabel.BackgroundTransparency = 1
-espObjectColorLabel.Text = "ESP Object Color"
-espObjectColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-espObjectColorLabel.TextScaled = true
+local espObjectColorLabel.TextScaled = true
 espObjectColorLabel.Font = Enum.Font.GothamBold
 espObjectColorLabel.Parent = espObjectColorFrame
 
@@ -786,7 +750,43 @@ print("Vyrxis Menu loaded successfully - Mit Underground Ghost System!")
 print("✓ Underground Ghost Mode aktiviert")
 print("✓ Für andere Spieler: Teleportation unter die Map")
 print("✓ Für dich: Normale Bewegung und Sicht auf der Map")
-print("✓ Smooth Bewegung ohne Bugs")-- Vyrxis Menu Script für Roblox - Mit Underground Ghost System
+print("✓ Smooth Bewegung ohne Bugs")Button = createButton(espFrame, "ESP Object Highlight: OFF", 4)
+
+-- Color Selection für ESP Objects
+local espObjectColorFrame = Instance.new("Frame")
+espObjectColorFrame.Size = UDim2.new(1, -20, 0, 80)
+espObjectColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+espObjectColorFrame.BorderSizePixel = 0
+espObjectColorFrame.LayoutOrder = 5
+espObjectColorFrame.Parent = espFrame
+
+local espObjectColorCorner = Instance.new("UICorner")
+espObjectColorCorner.CornerRadius = UDim.new(0, 8)
+espObjectColorCorner.Parent = espObjectColorFrame
+
+-- Gradient für ESP Object Color Frame
+local espObjectColorGradient = Instance.new("UIGradient")
+espObjectColorGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+espObjectColorGradient.Rotation = 45
+espObjectColorGradient.Parent = espObjectColorFrame
+
+-- Stroke für ESP Object Color Frame
+local espObjectColorStroke = Instance.new("UIStroke")
+espObjectColorStroke.Color = Color3.fromRGB(0, 150, 200)
+espObjectColorStroke.Thickness = 1
+espObjectColorStroke.Transparency = 0.6
+espObjectColorStroke.Parent = espObjectColorFrame
+
+local espObjectColorLabel = Instance.new("TextLabel")
+espObjectColorLabel.Size = UDim2.new(1, 0, 0, 25)
+espObjectColorLabel.Position = UDim2.new(0, 0, 0, 5)
+espObjectColorLabel.BackgroundTransparency = 1
+espObjectColorLabel.Text = "ESP Object Color"
+espObjectColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+espObject-- Vyrxis Menu Script für Roblox - Mit Underground Ghost System
 -- Alle Services laden
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
