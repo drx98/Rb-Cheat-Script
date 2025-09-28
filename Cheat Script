@@ -1,4 +1,792 @@
--- Vyrxis Menu Script für Roblox - KORRIGIERT UND VERBESSERT
+-- ESP KATEGORIE
+local espFrame = categoryFrames["ESP"]
+
+local espHighlightButton = createButton(espFrame, "ESP Highlight: OFF", 1)
+
+-- Color Selection für ESP
+local espColorFrame = Instance.new("Frame")
+espColorFrame.Size = UDim2.new(1, -20, 0, 80)
+espColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+espColorFrame.BorderSizePixel = 0
+espColorFrame.LayoutOrder = 2
+espColorFrame.Parent = espFrame
+
+local espColorCorner = Instance.new("UICorner")
+espColorCorner.CornerRadius = UDim.new(0, 8)
+espColorCorner.Parent = espColorFrame
+
+-- Gradient für ESP Color Frame
+local espColorGradient = Instance.new("UIGradient")
+espColorGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+espColorGradient.Rotation = 45
+espColorGradient.Parent = espColorFrame
+
+-- Stroke für ESP Color Frame
+local espColorStroke = Instance.new("UIStroke")
+espColorStroke.Color = Color3.fromRGB(0, 150, 200)
+espColorStroke.Thickness = 1
+espColorStroke.Transparency = 0.6
+espColorStroke.Parent = espColorFrame
+
+local espColorLabel = Instance.new("TextLabel")
+espColorLabel.Size = UDim2.new(1, 0, 0, 25)
+espColorLabel.Position = UDim2.new(0, 0, 0, 5)
+espColorLabel.BackgroundTransparency = 1
+espColorLabel.Text = "ESP Color"
+espColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+espColorLabel.TextScaled = true
+espColorLabel.Font = Enum.Font.GothamBold
+espColorLabel.Parent = espColorFrame
+
+local espColors = {
+	{Color3.fromRGB(255, 0, 0), "Red"},
+	{Color3.fromRGB(0, 255, 0), "Green"},
+	{Color3.fromRGB(0, 0, 255), "Blue"},
+	{Color3.fromRGB(255, 255, 0), "Yellow"},
+	{Color3.fromRGB(255, 0, 255), "Magenta"},
+	{Color3.fromRGB(0, 255, 255), "Cyan"},
+	{Color3.fromRGB(255, 255, 255), "White"},
+	{Color3.fromRGB(0, 0, 0), "Black"}
+}
+
+for i, colorData in pairs(espColors) do
+	local colorButton = Instance.new("TextButton")
+	colorButton.Size = UDim2.new(0, 50, 0, 40)
+	colorButton.Position = UDim2.new(0, 10 + (i-1) * 55, 0, 30)
+	colorButton.BackgroundColor3 = colorData[1]
+	colorButton.Text = ""
+	colorButton.BorderSizePixel = 0
+	colorButton.Parent = espColorFrame
+
+	local colorCorner = Instance.new("UICorner")
+	colorCorner.CornerRadius = UDim.new(0, 4)
+	colorCorner.Parent = colorButton
+
+	colorButton.MouseButton1Click:Connect(function()
+		espColor = colorData[1]
+		for player, highlight in pairs(espHighlights) do
+			if highlight then
+				highlight.FillColor = espColor
+				highlight.OutlineColor = espColor
+			end
+		end
+	end)
+end
+
+local espTransparencySlider = createSlider(espFrame, "ESP Transparency", 0, 100, 50, 3)
+
+-- ESP OBJECT HIGHLIGHT BUTTON
+local espObjectButton = createButton(espFrame, "ESP Object Highlight: OFF", 4)
+
+-- Color Selection für ESP Objects
+local espObjectColorFrame = Instance.new("Frame")
+espObjectColorFrame.Size = UDim2.new(1, -20, 0, 80)
+espObjectColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+espObjectColorFrame.BorderSizePixel = 0
+espObjectColorFrame.LayoutOrder = 5
+espObjectColorFrame.Parent = espFrame
+
+local espObjectColorCorner = Instance.new("UICorner")
+espObjectColorCorner.CornerRadius = UDim.new(0, 8)
+espObjectColorCorner.Parent = espObjectColorFrame
+
+-- Gradient für ESP Object Color Frame
+local espObjectColorGradient = Instance.new("UIGradient")
+espObjectColorGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+espObjectColorGradient.Rotation = 45
+espObjectColorGradient.Parent = espObjectColorFrame
+
+-- Stroke für ESP Object Color Frame
+local espObjectColorStroke = Instance.new("UIStroke")
+espObjectColorStroke.Color = Color3.fromRGB(0, 150, 200)
+espObjectColorStroke.Thickness = 1
+espObjectColorStroke.Transparency = 0.6
+espObjectColorStroke.Parent = espObjectColorFrame
+
+local espObjectColorLabel = Instance.new("TextLabel")
+espObjectColorLabel.Size = UDim2.new(1, 0, 0, 25)
+espObjectColorLabel.Position = UDim2.new(0, 0, 0, 5)
+espObjectColorLabel.BackgroundTransparency = 1
+espObjectColorLabel.Text = "ESP Object Color"
+espObjectColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+espObjectColorLabel.TextScaled = true
+espObjectColorLabel.Font = Enum.Font.GothamBold
+espObjectColorLabel.Parent = espObjectColorFrame
+
+-- ESP Object Color und Variablen
+local espObjectColor = Color3.fromRGB(255, 255, 0) -- Standard Gelb für Objects
+local isObjectESPEnabled = false
+local objectHighlights = {}
+
+for i, colorData in pairs(espColors) do
+	local colorButton = Instance.new("TextButton")
+	colorButton.Size = UDim2.new(0, 50, 0, 40)
+	colorButton.Position = UDim2.new(0, 10 + (i-1) * 55, 0, 30)
+	colorButton.BackgroundColor3 = colorData[1]
+	colorButton.Text = ""
+	colorButton.BorderSizePixel = 0
+	colorButton.Parent = espObjectColorFrame
+
+	local colorCorner = Instance.new("UICorner")
+	colorCorner.CornerRadius = UDim.new(0, 4)
+	colorCorner.Parent = colorButton
+
+	colorButton.MouseButton1Click:Connect(function()
+		espObjectColor = colorData[1]
+		-- Update bestehende Object Highlights
+		for obj, highlight in pairs(objectHighlights) do
+			if highlight then
+				highlight.FillColor = espObjectColor
+				highlight.OutlineColor = espObjectColor
+			end
+		end
+	end)
+end
+
+local nametagsButton = createButton(espFrame, "Nametags: OFF", 6)
+
+-- Color Selection für Nametags
+local nametagColorFrame = Instance.new("Frame")
+nametagColorFrame.Size = UDim2.new(1, -20, 0, 80)
+nametagColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+nametagColorFrame.BorderSizePixel = 0
+nametagColorFrame.LayoutOrder = 7
+nametagColorFrame.Parent = espFrame
+
+local nametagColorCorner = Instance.new("UICorner")
+nametagColorCorner.CornerRadius = UDim.new(0, 8)
+nametagColorCorner.Parent = nametagColorFrame
+
+-- Gradient für Nametag Color Frame
+local nametagColorGradient = Instance.new("UIGradient")
+nametagColorGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+nametagColorGradient.Rotation = 45
+nametagColorGradient.Parent = nametagColorFrame
+
+-- Stroke für Nametag Color Frame
+local nametagColorStroke = Instance.new("UIStroke")
+nametagColorStroke.Color = Color3.fromRGB(0, 150, 200)
+nametagColorStroke.Thickness = 1
+nametagColorStroke.Transparency = 0.6
+nametagColorStroke.Parent = nametagColorFrame
+
+local nametagColorLabel = Instance.new("TextLabel")
+nametagColorLabel.Size = UDim2.new(1, 0, 0, 25)
+nametagColorLabel.Position = UDim2.new(0, 0, 0, 5)
+nametagColorLabel.BackgroundTransparency = 1
+nametagColorLabel.Text = "Nametag Color"
+nametagColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+nametagColorLabel.TextScaled = true
+nametagColorLabel.Font = Enum.Font.GothamBold
+nametagColorLabel.Parent = nametagColorFrame
+
+for i, colorData in pairs(espColors) do
+	local colorButton = Instance.new("TextButton")
+	colorButton.Size = UDim2.new(0, 50, 0, 40)
+	colorButton.Position = UDim2.new(0, 10 + (i-1) * 55, 0, 30)
+	colorButton.BackgroundColor3 = colorData[1]
+	colorButton.Text = ""
+	colorButton.BorderSizePixel = 0
+	colorButton.Parent = nametagColorFrame
+
+	local colorCorner = Instance.new("UICorner")
+	colorCorner.CornerRadius = UDim.new(0, 4)
+	colorCorner.Parent = colorButton
+
+	colorButton.MouseButton1Click:Connect(function()
+		nametagColor = colorData[1]
+		for player, nametag in pairs(nametags) do
+			if nametag and nametag:FindFirstChild("TextLabel") then
+				nametag.TextLabel.TextColor3 = nametagColor
+			end
+		end
+	end)
+end
+
+local nametagSizeSlider = createSlider(espFrame, "Nametag Size", 8, 30, 14, 8)
+
+-- ESP Funktionen - KORRIGIERT
+local function createObjectHighlight(object)
+	if not object or not object.Parent then 
+		return nil 
+	end
+
+	-- Entferne bestehende Highlights
+	for _, child in pairs(object:GetChildren()) do
+		if child.Name == "VyrxisObjectESP" then
+			child:Destroy()
+		end
+	end
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "VyrxisObjectESP"
+	highlight.FillColor = espObjectColor
+	highlight.OutlineColor = espObjectColor
+	highlight.FillTransparency = espTransparency
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = object
+
+	return highlight
+end
+
+local function isInteractableObject(obj)
+	-- ULTRA-RESTRIKTIVE Erkennung - NUR garantiert interagierbare Objekte
+	if not obj or not obj.Parent then return false end
+	
+	-- NIEMALS Spieler Characters markieren
+	for _, player in pairs(Players:GetPlayers()) do
+		if player.Character == obj then
+			return false
+		end
+	end
+	
+	-- 1. NUR ClickDetector - Direkter Maus-Klick
+	if obj:FindFirstChildOfClass("ClickDetector") then
+		return true
+	end
+	
+	-- 2. NUR ProximityPrompt - E-Taste Interaktion
+	if obj:FindFirstChildOfClass("ProximityPrompt") then
+		return true
+	end
+	
+	-- 3. NUR echte Sitzplätze
+	if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
+		return true
+	end
+	
+	-- 4. NUR Tools im Workspace (aufhebbar)
+	if obj:IsA("Tool") and obj.Parent == Workspace then
+		return true
+	end
+	
+	-- 5. MODELS: Nur mit DIREKTER Interaktion
+	if obj:IsA("Model") then
+		-- NPCs: Nur mit Humanoid UND spezifischen Namen
+		local humanoid = obj:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			local isPlayer = false
+			for _, player in pairs(Players:GetPlayers()) do
+				if player.Character == obj then
+					isPlayer = true
+					break
+				end
+			end
+			-- NUR NPCs mit klaren NPC-Namen
+			if not isPlayer then
+				local name = obj.Name:lower()
+				local npcNames = {"npc", "shopkeeper", "merchant", "vendor", "guard", "bot"}
+				for _, npcName in pairs(npcNames) do
+					if name:find(npcName) then
+						return true
+					end
+				end
+			end
+		end
+		
+		-- Models NUR wenn sie ClickDetector/ProximityPrompt/Seat enthalten
+		for _, descendant in pairs(obj:GetDescendants()) do
+			if descendant:IsA("ClickDetector") or descendant:IsA("ProximityPrompt") then
+				return true
+			end
+			if descendant:IsA("Seat") or descendant:IsA("VehicleSeat") then
+				return true
+			end
+		end
+	end
+	
+	-- ALLES ANDERE wird NICHT markiert
+	return false
+end
+
+local function enableObjectESP()
+	print("ESP für interagierbare Objekte aktivieren...")
+
+	-- Cleanup bestehende Highlights
+	for obj, highlight in pairs(objectHighlights) do
+		if highlight and highlight.Parent then
+			highlight:Destroy()
+		end
+	end
+	objectHighlights = {}
+
+	-- Durchsuche Workspace nach interagierbaren Objekten
+	local function scanForObjects(parent)
+		for _, obj in pairs(parent:GetChildren()) do
+			if isInteractableObject(obj) then
+				local highlight = createObjectHighlight(obj)
+				if highlight then
+					objectHighlights[obj] = highlight
+				end
+			end
+			
+			-- Rekursiv durch Kinder suchen (außer Character Models)
+			if obj:IsA("Model") and not obj:FindFirstChildOfClass("Humanoid") then
+				scanForObjects(obj)
+			elseif obj:IsA("Folder") then
+				scanForObjects(obj)
+			end
+		end
+	end
+
+	scanForObjects(Workspace)
+	print("Object ESP aktiviert - " .. #objectHighlights .. " Objekte gefunden")
+end
+
+local function disableObjectESP()
+	for obj, highlight in pairs(objectHighlights) do
+		if highlight and highlight.Parent then
+			highlight:Destroy()
+		end
+	end
+	objectHighlights = {}
+	print("Object ESP deaktiviert")
+end
+
+-- ESP Object Toggle Button Event
+espObjectButton.MouseButton1Click:Connect(function()
+	isObjectESPEnabled = not isObjectESPEnabled
+	espObjectButton.Text = isObjectESPEnabled and "ESP Object Highlight: ON" or "ESP Object Highlight: OFF"
+	espObjectButton.BackgroundColor3 = isObjectESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
+
+	if isObjectESPEnabled then
+		enableObjectESP()
+	else
+		disableObjectESP()
+	end
+end)
+
+-- Workspace Events für neue Objekte
+Workspace.ChildAdded:Connect(function(child)
+	if isObjectESPEnabled then
+		wait(0.1) -- Kurz warten damit Objekt vollständig geladen ist
+		if isInteractableObject(child) then
+			local highlight = createObjectHighlight(child)
+			if highlight then
+				objectHighlights[child] = highlight
+			end
+		end
+	end
+end)
+
+Workspace.ChildRemoved:Connect(function(child)
+	if objectHighlights[child] then
+		objectHighlights[child] = nil
+	end
+end)
+
+local function createESPHighlight(character)
+	if not character or not character.Parent then 
+		return nil 
+	end
+
+	for _, child in pairs(character:GetChildren()) do
+		if child.Name == "VyrxisESP" then
+			child:Destroy()
+		end
+	end
+
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "VyrxisESP"
+	highlight.FillColor = espColor
+	highlight.OutlineColor = espColor
+	highlight.FillTransparency = espTransparency
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = character
+
+	return highlight
+end
+
+-- KORRIGIERTE Healthbar Funktion - FEHLER BEHOBEN
+local function createHealthbar(character)
+	if not character or not character.Parent then 
+		return nil 
+	end
+
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoidRootPart or not humanoid then 
+		return nil 
+	end
+
+	for _, child in pairs(humanoidRootPart:GetChildren()) do
+		if child:IsA("BillboardGui") and child.Name == "VyrxisHealthbar" then
+			child:Destroy()
+		end
+	end
+
+	-- Berechne Character-Höhe für relative Größe
+	local characterHeight = 5 -- Standard Roblox Character
+	if character:FindFirstChild("Head") then
+		local head = character.Head
+		characterHeight = math.abs(head.Position.Y - humanoidRootPart.Position.Y) + head.Size.Y/2 + humanoidRootPart.Size.Y/2
+	end
+
+	local billboardGui = Instance.new("BillboardGui")
+	billboardGui.Name = "VyrxisHealthbar"
+	-- Größe relativ zur Character-Höhe - BLEIBT IMMER PROPORTIONAL
+	billboardGui.Size = UDim2.new(0, 0, characterHeight * 0.8, 0)
+	billboardGui.StudsOffset = Vector3.new(2.5, 0, 0)
+	billboardGui.Parent = humanoidRootPart
+	billboardGui.AlwaysOnTop = true
+	billboardGui.LightInfluence = 0
+
+	local background = Instance.new("Frame")
+	background.Size = UDim2.new(1, 0, 1, 0)
+	background.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	background.BorderSizePixel = 1
+	background.BorderColor3 = Color3.fromRGB(255, 255, 255)
+	background.Parent = billboardGui
+
+	local backgroundCorner = Instance.new("UICorner")
+	backgroundCorner.CornerRadius = UDim.new(0, 2)
+	backgroundCorner.Parent = background
+
+	local currentHealthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05)
+	local healthBar = Instance.new("Frame")
+	healthBar.Size = UDim2.new(1, -2, currentHealthPercent, -2)
+	healthBar.Position = UDim2.new(0, 1, 1, -1)
+	healthBar.AnchorPoint = Vector2.new(0, 1)
+	healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+	healthBar.BorderSizePixel = 0
+	healthBar.Parent = background
+
+	local healthBarCorner = Instance.new("UICorner")
+	healthBarCorner.CornerRadius = UDim.new(0, 1)
+	healthBarCorner.Parent = healthBar
+
+	local healthConnection = humanoid.HealthChanged:Connect(function()
+		if healthBar and healthBar.Parent then
+			local healthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05)
+			healthBar.Size = UDim2.new(1, -2, healthPercent, -2)
+
+			if healthPercent > 0.6 then
+				healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+			elseif healthPercent > 0.3 then
+				healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+			else
+				healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+			end
+		end
+	end)
+
+	local ancestryConnection = character.AncestryChanged:Connect(function()
+		if not character.Parent then
+			if healthConnection then 
+				healthConnection:Disconnect()
+			end
+			if ancestryConnection then 
+				ancestryConnection:Disconnect() 
+			end
+		end
+	end)
+
+	return billboardGui
+end
+
+local function createNametag(character, playerName)
+	if not character or not character.Parent then return nil end
+
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then return nil end
+
+	for _, child in pairs(humanoidRootPart:GetChildren()) do
+		if child.Name == "VyrxisNametag" then
+			child:Destroy()
+		end
+	end
+
+	local billboardGui = Instance.new("BillboardGui")
+	billboardGui.Name = "VyrxisNametag"
+	billboardGui.Size = UDim2.new(0, 200, 0, 50)
+	billboardGui.StudsOffset = Vector3.new(0, -4, 0)
+	billboardGui.Parent = humanoidRootPart
+	billboardGui.AlwaysOnTop = true
+	billboardGui.LightInfluence = 0
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, 0, 1, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Text = playerName
+	textLabel.TextColor3 = nametagColor
+	textLabel.TextSize = nametagSize
+	textLabel.Font = Enum.Font.GothamBold
+	textLabel.TextStrokeTransparency = 0
+	textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	textLabel.Parent = billboardGui
+
+	return billboardGui
+end
+
+-- ESP für alle Spieler - KORRIGIERT
+local function enableESPForAllPlayers()
+	print("ESP für alle Spieler aktivieren...")
+
+	for player, highlight in pairs(espHighlights) do
+		if highlight and highlight.Parent then
+			highlight:Destroy()
+		end
+	end
+	for player, healthbar in pairs(healthbars) do
+		if healthbar and healthbar.Parent then
+			healthbar:Destroy()
+		end
+	end
+	espHighlights = {}
+	healthbars = {}
+
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character.Parent then
+			local highlight = createESPHighlight(player.Character)
+			if highlight then
+				espHighlights[player] = highlight
+			end
+
+			local healthbar = createHealthbar(player.Character)
+			if healthbar then
+				healthbars[player] = healthbar
+			end
+		end
+	end
+end
+
+local function disableESPForAllPlayers()
+	for player, highlight in pairs(espHighlights) do
+		if highlight and highlight.Parent then
+			highlight:Destroy()
+		end
+	end
+
+	for player, healthbar in pairs(healthbars) do
+		if healthbar and healthbar.Parent then
+			healthbar:Destroy()
+		end
+	end
+
+	espHighlights = {}
+	healthbars = {}
+end
+
+-- ESP Toggle Button
+espHighlightButton.MouseButton1Click:Connect(function()
+	isESPEnabled = not isESPEnabled
+	espHighlightButton.Text = isESPEnabled and "ESP Highlight: ON" or "ESP Highlight: OFF"
+	espHighlightButton.BackgroundColor3 = isESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
+
+	if isESPEnabled then
+		enableESPForAllPlayers()
+	else
+		disableESPForAllPlayers()
+	end
+end)
+
+-- Player Events
+Players.PlayerAdded:Connect(function(player)
+	if player == LocalPlayer then return end
+
+	updatePlayerList()
+
+	player.CharacterAdded:Connect(function(character)
+		wait(0.5)
+
+		if isESPEnabled then
+			local highlight = createESPHighlight(character)
+			if highlight then
+				espHighlights[player] = highlight
+			end
+
+			local healthbar = createHealthbar(character)
+			if healthbar then
+				healthbars[player] = healthbar
+			end
+		end
+
+		if nametagsEnabled then
+			local nametag = createNametag(character, player.Name)
+			if nametag then 
+				nametags[player] = nametag 
+			end
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	if espHighlights[player] then
+		espHighlights[player]:Destroy()
+		espHighlights[player] = nil
+	end
+	if healthbars[player] then
+		healthbars[player]:Destroy()
+		healthbars[player] = nil
+	end
+	if nametags[player] then
+		nametags[player]:Destroy()
+		nametags[player] = nil
+	end
+
+	updatePlayerList()
+end)
+
+-- Nametags Toggle
+nametagsButton.MouseButton1Click:Connect(function()
+	nametagsEnabled = not nametagsEnabled
+	nametagsButton.Text = nametagsEnabled and "Nametags: ON" or "Nametags: OFF"
+	nametagsButton.BackgroundColor3 = nametagsEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
+
+	if nametagsEnabled then
+		for _, player in pairs(Players:GetPlayers()) do
+			if player ~= LocalPlayer and player.Character then
+				local nametag = createNametag(player.Character, player.Name)
+				nametags[player] = nametag
+			end
+		end
+	else
+		for player, nametag in pairs(nametags) do
+			if nametag then
+				nametag:Destroy()
+			end
+		end
+		nametags = {}
+	end
+end)
+
+-- ESP Transparency Update
+RunService.Heartbeat:Connect(function()
+	local newTransparency = espTransparencySlider() / 100
+	if newTransparency ~= espTransparency then
+		espTransparency = newTransparency
+		for player, highlight in pairs(espHighlights) do
+			if highlight then
+				highlight.FillTransparency = espTransparency
+			end
+		end
+	end
+
+	local newNametagSize = nametagSizeSlider()
+	if newNametagSize ~= nametagSize then
+		nametagSize = newNametagSize
+		for player, nametag in pairs(nametags) do
+			if nametag and nametag:FindFirstChild("TextLabel") then
+				nametag.TextLabel.TextSize = nametagSize
+			end
+		end
+	end
+end)
+
+-- GUI Controls
+MinimizeButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+end)
+
+SettingsButton.MouseButton1Click:Connect(function()
+	SettingsFrame.Visible = true
+end)
+
+CloseSettings.MouseButton1Click:Connect(function()
+	SettingsFrame.Visible = false
+end)
+
+-- Keybind Change
+local changingKey = false
+ChangeKeyButton.MouseButton1Click:Connect(function()
+	if not changingKey then
+		changingKey = true
+		ChangeKeyButton.Text = "Press Key..."
+
+		local connection
+		connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+			if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
+				toggleKey = input.KeyCode
+				KeybindLabel.Text = "Toggle Key: " .. toggleKey.Name
+				ChangeKeyButton.Text = "Change Key"
+				changingKey = false
+				connection:Disconnect()
+			end
+		end)
+	end
+end)
+
+-- Toggle Menu with Key
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == toggleKey then
+		MainRahmen.Visible = not MainRahmen.Visible
+		if MainRahmen.Visible then
+			MainFrame.Visible = true
+		end
+	end
+end)
+
+-- Load Screen Animation
+local function hideLoadScreen()
+	local loadBarTween = TweenService:Create(LoadBar, TweenInfo.new(4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
+	loadBarTween:Play()
+
+	spawn(function()
+		wait(1)
+		LoadSubText.Text = "Loading components..."
+		wait(1)
+		LoadSubText.Text = "Initializing features..."
+		wait(1)
+		LoadSubText.Text = "Almost ready..."
+		wait(1)
+		LoadSubText.Text = "Ready!"
+	end)
+
+	wait(5)
+
+	local fadeOutTween = TweenService:Create(LoadScreen, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+	local textFadeTween = TweenService:Create(LoadText, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
+	local subTextFadeTween = TweenService:Create(LoadSubText, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
+	local strokeFadeTween = TweenService:Create(LoadStroke, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 1})
+	local barBgFadeTween = TweenService:Create(LoadBarBackground, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+	local barFadeTween = TweenService:Create(LoadBar, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+
+	fadeOutTween:Play()
+	textFadeTween:Play()
+	subTextFadeTween:Play()
+	strokeFadeTween:Play()
+	barBgFadeTween:Play()
+	barFadeTween:Play()
+
+	for _, bubble in pairs(bubbles) do
+		local bubbleFadeTween = TweenService:Create(bubble, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
+		bubbleFadeTween:Play()
+	end
+
+	fadeOutTween.Completed:Connect(function()
+		LoadScreen:Destroy()
+		for _, bubble in pairs(bubbles) do
+			if bubble and bubble.Parent then
+				bubble:Destroy()
+			end
+		end
+
+		MainRahmen.Visible = true
+		MainFrame.Visible = true
+
+		local showTween = TweenService:Create(MainRahmen, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -350, 0.3, -15)})
+		showTween:Play()
+	end)
+end
+
+hideLoadScreen()
+
+print("Vyrxis Menu loaded successfully - Mit Underground Ghost System!")
+print("✓ Underground Ghost Mode aktiviert")
+print("✓ Für andere Spieler: Teleportation unter die Map")
+print("✓ Für dich: Normale Bewegung und Sicht auf der Map")
+print("✓ Smooth Bewegung ohne Bugs")-- Vyrxis Menu Script für Roblox - Mit Underground Ghost System
 -- Alle Services laden
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -32,6 +820,13 @@ local toggleKey = Enum.KeyCode.Insert
 local espHighlights = {}
 local nametags = {}
 local healthbars = {}
+
+-- Underground Ghost Variablen
+local isGhostEnabled = false
+local ghostConnection = nil
+local undergroundOffset = -1000
+local ghostBodyPosition = nil
+local ghostBodyVelocity = nil
 
 -- GUI erstellen
 local ScreenGui = Instance.new("ScreenGui")
@@ -843,7 +1638,7 @@ local noclipConnection
 noclipButton.MouseButton1Click:Connect(function()
 	isNoclipEnabled = not isNoclipEnabled
 	noclipButton.Text = isNoclipEnabled and "Noclip: ON" or "Noclip: OFF"
-	noclipButton.BackgroundColor3 = isNoclipEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
+	noclipButton.BackgroundColor3 = isNoclipEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
 
 	if isNoclipEnabled then
 		noclipConnection = RunService.Stepped:Connect(function()
@@ -873,81 +1668,125 @@ noclipButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- GHOST MODE SYSTEM - EINFACHE FUNKTIONSFÄHIGE VERSION
-local isGhostEnabled = false
-local ghostButton = createButton(meFrame, "Ghost: OFF", 5)
-
-local function enableGhostMode()
+-- UNDERGROUND GHOST SYSTEM - NEUE FUNKTION
+local function enableUndergroundGhost()
 	local character = LocalPlayer.Character
-	if not character then return end
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
 	
-	print("Enabling Ghost Mode...")
+	local humanoidRootPart = character.HumanoidRootPart
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	
-	-- Für dich: Geist-Effekt (transparent)
-	for _, part in pairs(character:GetDescendants()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-			part.Transparency = 0.5
-		elseif part:IsA("Decal") or part:IsA("Texture") then
-			part.Transparency = 0.5
+	print("Activating Underground Ghost Mode...")
+	
+	-- Deaktiviere andere Modi die stören könnten
+	if isNoclipEnabled then
+		isNoclipEnabled = false
+		noclipButton.Text = "Noclip: OFF"
+		noclipButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+		if noclipConnection then
+			noclipConnection:Disconnect()
+			noclipConnection = nil
 		end
 	end
 	
-	-- Einfache Unsichtbarkeits-Methode
-	for _, part in pairs(character:GetChildren()) do
-		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-			-- Für andere Spieler unsichtbar machen
-			part.Transparency = 1
-			part.CanCollide = false
-		elseif part:IsA("Accessory") then
-			local handle = part:FindFirstChild("Handle")
-			if handle then
-				handle.Transparency = 1
-			end
+	-- Erstelle Body Objects für smooth Bewegung unter der Map
+	ghostBodyPosition = Instance.new("BodyPosition")
+	ghostBodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+	ghostBodyPosition.Position = humanoidRootPart.Position + Vector3.new(0, undergroundOffset, 0)
+	ghostBodyPosition.D = 1000 -- Damping
+	ghostBodyPosition.P = 10000 -- Power
+	ghostBodyPosition.Parent = humanoidRootPart
+	
+	ghostBodyVelocity = Instance.new("BodyVelocity")
+	ghostBodyVelocity.MaxForce = Vector3.new(0, math.huge, 0) -- Nur Y-Achse
+	ghostBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	ghostBodyVelocity.Parent = humanoidRootPart
+	
+	-- Humanoid Anpassungen für normale Bewegung
+	if humanoid then
+		humanoid.PlatformStand = false -- Normale Bewegung erlauben
+	end
+	
+	-- Ghost Update Loop
+	ghostConnection = RunService.Heartbeat:Connect(function()
+		local char = LocalPlayer.Character
+		if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+		
+		local rootPart = char.HumanoidRootPart
+		local currentPos = rootPart.Position
+		
+		-- Halte den Spieler unter der Map für andere Spieler
+		if currentPos.Y > undergroundOffset + 50 then
+			-- Teleportiere unter die Map
+			ghostBodyPosition.Position = Vector3.new(currentPos.X, undergroundOffset, currentPos.Z)
+		end
+		
+		-- Sorge dafür dass Bewegung auf X/Z Achse normal funktioniert
+		-- aber Y Achse konstant unter der Map bleibt
+		ghostBodyVelocity.Velocity = Vector3.new(0, -50, 0) -- Konstanter Abwärtsdruck
+	end)
+end
+
+local function disableUndergroundGhost()
+	print("Deactivating Underground Ghost Mode...")
+	
+	-- Stoppe Update Loop
+	if ghostConnection then
+		ghostConnection:Disconnect()
+		ghostConnection = nil
+	end
+	
+	-- Entferne Body Objects
+	if ghostBodyPosition then
+		ghostBodyPosition:Destroy()
+		ghostBodyPosition = nil
+	end
+	
+	if ghostBodyVelocity then
+		ghostBodyVelocity:Destroy()
+		ghostBodyVelocity = nil
+	end
+	
+	-- Teleportiere Spieler zurück an die Oberfläche
+	local character = LocalPlayer.Character
+	if character and character:FindFirstChild("HumanoidRootPart") then
+		local humanoidRootPart = character.HumanoidRootPart
+		local currentPos = humanoidRootPart.Position
+		
+		-- Finde einen sicheren Platz an der Oberfläche
+		local raycast = Workspace:Raycast(Vector3.new(currentPos.X, 1000, currentPos.Z), Vector3.new(0, -2000, 0))
+		local surfaceY = raycast and raycast.Position.Y + 5 or 50 -- Standard Höhe falls kein Boden gefunden
+		
+		humanoidRootPart.Position = Vector3.new(currentPos.X, surfaceY, currentPos.Z)
+		
+		-- Stelle normale Physics wieder her
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.PlatformStand = false
 		end
 	end
 end
 
-local function disableGhostMode()
-	local character = LocalPlayer.Character
-	if not character then return end
-	
-	print("Disabling Ghost Mode...")
-	
-	-- Alles wieder normal machen
-	for _, part in pairs(character:GetDescendants()) do
-		if part:IsA("BasePart") then
-			if part.Name == "HumanoidRootPart" then
-				part.Transparency = 1 -- RootPart ist immer transparent
-			else
-				part.Transparency = 0 -- Normale Sichtbarkeit
-				if part.Name ~= "Head" then -- Head collision bleibt aus
-					part.CanCollide = true
-				end
-			end
-		elseif part:IsA("Decal") or part:IsA("Texture") then
-			part.Transparency = 0
-		end
-	end
-end
+-- Ghost Button
+local ghostButton = createButton(meFrame, "Underground Ghost: OFF", 5)
 
--- Ghost Toggle Button
 ghostButton.MouseButton1Click:Connect(function()
 	isGhostEnabled = not isGhostEnabled
-	ghostButton.Text = isGhostEnabled and "Ghost: ON" or "Ghost: OFF"
+	ghostButton.Text = isGhostEnabled and "Underground Ghost: ON" or "Underground Ghost: OFF"
 	ghostButton.BackgroundColor3 = isGhostEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
 
 	if isGhostEnabled then
-		enableGhostMode()
+		enableUndergroundGhost()
 	else
-		disableGhostMode()
+		disableUndergroundGhost()
 	end
 end)
 
--- Character Respawn Handler
+-- Character Respawn Handler für Ghost
 LocalPlayer.CharacterAdded:Connect(function(character)
 	if isGhostEnabled then
-		wait(2)
-		enableGhostMode()
+		wait(2) -- Warte bis Character vollständig geladen ist
+		enableUndergroundGhost()
 	end
 end)
 
@@ -1129,7 +1968,7 @@ viewButton.MouseButton1Click:Connect(function()
 		if targetPlayer then
 			isViewingPlayer = not isViewingPlayer
 			viewButton.Text = isViewingPlayer and "View: ON" or "View: OFF"
-			viewButton.BackgroundColor3 = isViewingPlayer and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
+			viewButton.BackgroundColor3 = isViewingPlayer and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
 
 			if isViewingPlayer then
 				viewingPlayerName = selectedPlayer
@@ -1163,792 +2002,3 @@ gotoButton.MouseButton1Click:Connect(function()
 		end
 	end
 end)
-
--- ESP KATEGORIE
-local espFrame = categoryFrames["ESP"]
-
-local espHighlightButton = createButton(espFrame, "ESP Highlight: OFF", 1)
-
--- Color Selection für ESP
-local espColorFrame = Instance.new("Frame")
-espColorFrame.Size = UDim2.new(1, -20, 0, 80)
-espColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-espColorFrame.BorderSizePixel = 0
-espColorFrame.LayoutOrder = 2
-espColorFrame.Parent = espFrame
-
-local espColorCorner = Instance.new("UICorner")
-espColorCorner.CornerRadius = UDim.new(0, 8)
-espColorCorner.Parent = espColorFrame
-
--- Gradient für ESP Color Frame
-local espColorGradient = Instance.new("UIGradient")
-espColorGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-espColorGradient.Rotation = 45
-espColorGradient.Parent = espColorFrame
-
--- Stroke für ESP Color Frame
-local espColorStroke = Instance.new("UIStroke")
-espColorStroke.Color = Color3.fromRGB(0, 150, 200)
-espColorStroke.Thickness = 1
-espColorStroke.Transparency = 0.6
-espColorStroke.Parent = espColorFrame
-
-local espColorLabel = Instance.new("TextLabel")
-espColorLabel.Size = UDim2.new(1, 0, 0, 25)
-espColorLabel.Position = UDim2.new(0, 0, 0, 5)
-espColorLabel.BackgroundTransparency = 1
-espColorLabel.Text = "ESP Color"
-espColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-espColorLabel.TextScaled = true
-espColorLabel.Font = Enum.Font.GothamBold
-espColorLabel.Parent = espColorFrame
-
-local espColors = {
-	{Color3.fromRGB(255, 0, 0), "Red"},
-	{Color3.fromRGB(0, 255, 0), "Green"},
-	{Color3.fromRGB(0, 0, 255), "Blue"},
-	{Color3.fromRGB(255, 255, 0), "Yellow"},
-	{Color3.fromRGB(255, 0, 255), "Magenta"},
-	{Color3.fromRGB(0, 255, 255), "Cyan"},
-	{Color3.fromRGB(255, 255, 255), "White"},
-	{Color3.fromRGB(0, 0, 0), "Black"}
-}
-
-for i, colorData in pairs(espColors) do
-	local colorButton = Instance.new("TextButton")
-	colorButton.Size = UDim2.new(0, 50, 0, 40)
-	colorButton.Position = UDim2.new(0, 10 + (i-1) * 55, 0, 30)
-	colorButton.BackgroundColor3 = colorData[1]
-	colorButton.Text = ""
-	colorButton.BorderSizePixel = 0
-	colorButton.Parent = espColorFrame
-
-	local colorCorner = Instance.new("UICorner")
-	colorCorner.CornerRadius = UDim.new(0, 4)
-	colorCorner.Parent = colorButton
-
-	colorButton.MouseButton1Click:Connect(function()
-		espColor = colorData[1]
-		for player, highlight in pairs(espHighlights) do
-			if highlight then
-				highlight.FillColor = espColor
-				highlight.OutlineColor = espColor
-			end
-		end
-	end)
-end
-
-local espTransparencySlider = createSlider(espFrame, "ESP Transparency", 0, 100, 50, 3)
-
--- ESP OBJECT HIGHLIGHT BUTTON
-local espObjectButton = createButton(espFrame, "ESP Object Highlight: OFF", 4)
-
--- Color Selection für ESP Objects
-local espObjectColorFrame = Instance.new("Frame")
-espObjectColorFrame.Size = UDim2.new(1, -20, 0, 80)
-espObjectColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-espObjectColorFrame.BorderSizePixel = 0
-espObjectColorFrame.LayoutOrder = 5
-espObjectColorFrame.Parent = espFrame
-
-local espObjectColorCorner = Instance.new("UICorner")
-espObjectColorCorner.CornerRadius = UDim.new(0, 8)
-espObjectColorCorner.Parent = espObjectColorFrame
-
--- Gradient für ESP Object Color Frame
-local espObjectColorGradient = Instance.new("UIGradient")
-espObjectColorGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-espObjectColorGradient.Rotation = 45
-espObjectColorGradient.Parent = espObjectColorFrame
-
--- Stroke für ESP Object Color Frame
-local espObjectColorStroke = Instance.new("UIStroke")
-espObjectColorStroke.Color = Color3.fromRGB(0, 150, 200)
-espObjectColorStroke.Thickness = 1
-espObjectColorStroke.Transparency = 0.6
-espObjectColorStroke.Parent = espObjectColorFrame
-
-local espObjectColorLabel = Instance.new("TextLabel")
-espObjectColorLabel.Size = UDim2.new(1, 0, 0, 25)
-espObjectColorLabel.Position = UDim2.new(0, 0, 0, 5)
-espObjectColorLabel.BackgroundTransparency = 1
-espObjectColorLabel.Text = "ESP Object Color"
-espObjectColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-espObjectColorLabel.TextScaled = true
-espObjectColorLabel.Font = Enum.Font.GothamBold
-espObjectColorLabel.Parent = espObjectColorFrame
-
--- ESP Object Color und Variablen
-local espObjectColor = Color3.fromRGB(255, 255, 0) -- Standard Gelb für Objects
-local isObjectESPEnabled = false
-local objectHighlights = {}
-
-for i, colorData in pairs(espColors) do
-	local colorButton = Instance.new("TextButton")
-	colorButton.Size = UDim2.new(0, 50, 0, 40)
-	colorButton.Position = UDim2.new(0, 10 + (i-1) * 55, 0, 30)
-	colorButton.BackgroundColor3 = colorData[1]
-	colorButton.Text = ""
-	colorButton.BorderSizePixel = 0
-	colorButton.Parent = espObjectColorFrame
-
-	local colorCorner = Instance.new("UICorner")
-	colorCorner.CornerRadius = UDim.new(0, 4)
-	colorCorner.Parent = colorButton
-
-	colorButton.MouseButton1Click:Connect(function()
-		espObjectColor = colorData[1]
-		-- Update bestehende Object Highlights
-		for obj, highlight in pairs(objectHighlights) do
-			if highlight then
-				highlight.FillColor = espObjectColor
-				highlight.OutlineColor = espObjectColor
-			end
-		end
-	end)
-end
-
-local nametagsButton = createButton(espFrame, "Nametags: OFF", 6)
-
--- Color Selection für Nametags
-local nametagColorFrame = Instance.new("Frame")
-nametagColorFrame.Size = UDim2.new(1, -20, 0, 80)
-nametagColorFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-nametagColorFrame.BorderSizePixel = 0
-nametagColorFrame.LayoutOrder = 7
-nametagColorFrame.Parent = espFrame
-
-local nametagColorCorner = Instance.new("UICorner")
-nametagColorCorner.CornerRadius = UDim.new(0, 8)
-nametagColorCorner.Parent = nametagColorFrame
-
--- Gradient für Nametag Color Frame
-local nametagColorGradient = Instance.new("UIGradient")
-nametagColorGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-nametagColorGradient.Rotation = 45
-nametagColorGradient.Parent = nametagColorFrame
-
--- Stroke für Nametag Color Frame
-local nametagColorStroke = Instance.new("UIStroke")
-nametagColorStroke.Color = Color3.fromRGB(0, 150, 200)
-nametagColorStroke.Thickness = 1
-nametagColorStroke.Transparency = 0.6
-nametagColorStroke.Parent = nametagColorFrame
-
-local nametagColorLabel = Instance.new("TextLabel")
-nametagColorLabel.Size = UDim2.new(1, 0, 0, 25)
-nametagColorLabel.Position = UDim2.new(0, 0, 0, 5)
-nametagColorLabel.BackgroundTransparency = 1
-nametagColorLabel.Text = "Nametag Color"
-nametagColorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-nametagColorLabel.TextScaled = true
-nametagColorLabel.Font = Enum.Font.GothamBold
-nametagColorLabel.Parent = nametagColorFrame
-
-for i, colorData in pairs(espColors) do
-	local colorButton = Instance.new("TextButton")
-	colorButton.Size = UDim2.new(0, 50, 0, 40)
-	colorButton.Position = UDim2.new(0, 10 + (i-1) * 55, 0, 30)
-	colorButton.BackgroundColor3 = colorData[1]
-	colorButton.Text = ""
-	colorButton.BorderSizePixel = 0
-	colorButton.Parent = nametagColorFrame
-
-	local colorCorner = Instance.new("UICorner")
-	colorCorner.CornerRadius = UDim.new(0, 4)
-	colorCorner.Parent = colorButton
-
-	colorButton.MouseButton1Click:Connect(function()
-		nametagColor = colorData[1]
-		for player, nametag in pairs(nametags) do
-			if nametag and nametag:FindFirstChild("TextLabel") then
-				nametag.TextLabel.TextColor3 = nametagColor
-			end
-		end
-	end)
-end
-
-local nametagSizeSlider = createSlider(espFrame, "Nametag Size", 8, 30, 14, 8)
-
--- ESP Funktionen - KORRIGIERT
-local function createObjectHighlight(object)
-	if not object or not object.Parent then 
-		return nil 
-	end
-
-	-- Entferne bestehende Highlights
-	for _, child in pairs(object:GetChildren()) do
-		if child.Name == "VyrxisObjectESP" then
-			child:Destroy()
-		end
-	end
-
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "VyrxisObjectESP"
-	highlight.FillColor = espObjectColor
-	highlight.OutlineColor = espObjectColor
-	highlight.FillTransparency = espTransparency
-	highlight.OutlineTransparency = 0
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Parent = object
-
-	return highlight
-end
-
-local function isInteractableObject(obj)
-	-- ULTRA-RESTRIKTIVE Erkennung - NUR garantiert interagierbare Objekte
-	if not obj or not obj.Parent then return false end
-	
-	-- NIEMALS Spieler Characters markieren
-	for _, player in pairs(Players:GetPlayers()) do
-		if player.Character == obj then
-			return false
-		end
-	end
-	
-	-- 1. NUR ClickDetector - Direkter Maus-Klick
-	if obj:FindFirstChildOfClass("ClickDetector") then
-		return true
-	end
-	
-	-- 2. NUR ProximityPrompt - E-Taste Interaktion
-	if obj:FindFirstChildOfClass("ProximityPrompt") then
-		return true
-	end
-	
-	-- 3. NUR echte Sitzplätze
-	if obj:IsA("Seat") or obj:IsA("VehicleSeat") then
-		return true
-	end
-	
-	-- 4. NUR Tools im Workspace (aufhebbar)
-	if obj:IsA("Tool") and obj.Parent == Workspace then
-		return true
-	end
-	
-	-- 5. MODELS: Nur mit DIREKTER Interaktion
-	if obj:IsA("Model") then
-		-- NPCs: Nur mit Humanoid UND spezifischen Namen
-		local humanoid = obj:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			local isPlayer = false
-			for _, player in pairs(Players:GetPlayers()) do
-				if player.Character == obj then
-					isPlayer = true
-					break
-				end
-			end
-			-- NUR NPCs mit klaren NPC-Namen
-			if not isPlayer then
-				local name = obj.Name:lower()
-				local npcNames = {"npc", "shopkeeper", "merchant", "vendor", "guard", "bot"}
-				for _, npcName in pairs(npcNames) do
-					if name:find(npcName) then
-						return true
-					end
-				end
-			end
-		end
-		
-		-- Models NUR wenn sie ClickDetector/ProximityPrompt/Seat enthalten
-		for _, descendant in pairs(obj:GetDescendants()) do
-			if descendant:IsA("ClickDetector") or descendant:IsA("ProximityPrompt") then
-				return true
-			end
-			if descendant:IsA("Seat") or descendant:IsA("VehicleSeat") then
-				return true
-			end
-		end
-	end
-	
-	-- ALLES ANDERE wird NICHT markiert
-	return false
-end
-
-local function enableObjectESP()
-	print("ESP für interagierbare Objekte aktivieren...")
-
-	-- Cleanup bestehende Highlights
-	for obj, highlight in pairs(objectHighlights) do
-		if highlight and highlight.Parent then
-			highlight:Destroy()
-		end
-	end
-	objectHighlights = {}
-
-	-- Durchsuche Workspace nach interagierbaren Objekten
-	local function scanForObjects(parent)
-		for _, obj in pairs(parent:GetChildren()) do
-			if isInteractableObject(obj) then
-				local highlight = createObjectHighlight(obj)
-				if highlight then
-					objectHighlights[obj] = highlight
-				end
-			end
-			
-			-- Rekursiv durch Kinder suchen (außer Character Models)
-			if obj:IsA("Model") and not obj:FindFirstChildOfClass("Humanoid") then
-				scanForObjects(obj)
-			elseif obj:IsA("Folder") then
-				scanForObjects(obj)
-			end
-		end
-	end
-
-	scanForObjects(Workspace)
-	print("Object ESP aktiviert - " .. #objectHighlights .. " Objekte gefunden")
-end
-
-local function disableObjectESP()
-	for obj, highlight in pairs(objectHighlights) do
-		if highlight and highlight.Parent then
-			highlight:Destroy()
-		end
-	end
-	objectHighlights = {}
-	print("Object ESP deaktiviert")
-end
-
--- ESP Object Toggle Button Event
-espObjectButton.MouseButton1Click:Connect(function()
-	isObjectESPEnabled = not isObjectESPEnabled
-	espObjectButton.Text = isObjectESPEnabled and "ESP Object Highlight: ON" or "ESP Object Highlight: OFF"
-	espObjectButton.BackgroundColor3 = isObjectESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
-
-	if isObjectESPEnabled then
-		enableObjectESP()
-	else
-		disableObjectESP()
-	end
-end)
-
--- Workspace Events für neue Objekte
-Workspace.ChildAdded:Connect(function(child)
-	if isObjectESPEnabled then
-		wait(0.1) -- Kurz warten damit Objekt vollständig geladen ist
-		if isInteractableObject(child) then
-			local highlight = createObjectHighlight(child)
-			if highlight then
-				objectHighlights[child] = highlight
-			end
-		end
-	end
-end)
-
-Workspace.ChildRemoved:Connect(function(child)
-	if objectHighlights[child] then
-		objectHighlights[child] = nil
-	end
-end)
-local function createESPHighlight(character)
-	if not character or not character.Parent then 
-		return nil 
-	end
-
-	for _, child in pairs(character:GetChildren()) do
-		if child.Name == "VyrxisESP" then
-			child:Destroy()
-		end
-	end
-
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "VyrxisESP"
-	highlight.FillColor = espColor
-	highlight.OutlineColor = espColor
-	highlight.FillTransparency = espTransparency
-	highlight.OutlineTransparency = 0
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Parent = character
-
-	return highlight
-end
-
--- KORRIGIERTE Healthbar Funktion - FEHLER BEHOBEN
-local function createHealthbar(character)
-	if not character or not character.Parent then 
-		return nil 
-	end
-
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character:FindFirstChild("Humanoid")
-	if not humanoidRootPart or not humanoid then 
-		return nil 
-	end
-
-	for _, child in pairs(humanoidRootPart:GetChildren()) do
-		if child:IsA("BillboardGui") and child.Name == "VyrxisHealthbar" then
-			child:Destroy()
-		end
-	end
-
-	-- Berechne Character-Höhe für relative Größe
-	local characterHeight = 5 -- Standard Roblox Character
-	if character:FindFirstChild("Head") then
-		local head = character.Head
-		characterHeight = math.abs(head.Position.Y - humanoidRootPart.Position.Y) + head.Size.Y/2 + humanoidRootPart.Size.Y/2
-	end
-
-	local billboardGui = Instance.new("BillboardGui")
-	billboardGui.Name = "VyrxisHealthbar"
-	-- Größe relativ zur Character-Höhe - BLEIBT IMMER PROPORTIONAL
-	billboardGui.Size = UDim2.new(0, 0, characterHeight * 0.8, 0)
-	billboardGui.StudsOffset = Vector3.new(2.5, 0, 0)
-	billboardGui.Parent = humanoidRootPart
-	billboardGui.AlwaysOnTop = true
-	billboardGui.LightInfluence = 0
-
-	local background = Instance.new("Frame")
-	background.Size = UDim2.new(1, 0, 1, 0)
-	background.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	background.BorderSizePixel = 1
-	background.BorderColor3 = Color3.fromRGB(255, 255, 255)
-	background.Parent = billboardGui
-
-	local backgroundCorner = Instance.new("UICorner")
-	backgroundCorner.CornerRadius = UDim.new(0, 2)
-	backgroundCorner.Parent = background
-
-	local currentHealthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05)
-	local healthBar = Instance.new("Frame")
-	healthBar.Size = UDim2.new(1, -2, currentHealthPercent, -2)
-	healthBar.Position = UDim2.new(0, 1, 1, -1)
-	healthBar.AnchorPoint = Vector2.new(0, 1)
-	healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-	healthBar.BorderSizePixel = 0
-	healthBar.Parent = background
-
-	local healthBarCorner = Instance.new("UICorner")
-	healthBarCorner.CornerRadius = UDim.new(0, 1)
-	healthBarCorner.Parent = healthBar
-
-	local healthConnection = humanoid.HealthChanged:Connect(function()
-		if healthBar and healthBar.Parent then
-			local healthPercent = math.max(humanoid.Health / humanoid.MaxHealth, 0.05)
-			healthBar.Size = UDim2.new(1, -2, healthPercent, -2)
-
-			if healthPercent > 0.6 then
-				healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-			elseif healthPercent > 0.3 then
-				healthBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-			else
-				healthBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-			end
-		end
-	end)
-
-	local ancestryConnection = character.AncestryChanged:Connect(function()
-		if not character.Parent then
-			if healthConnection then 
-				healthConnection:Disconnect()
-			end
-			if ancestryConnection then 
-				ancestryConnection:Disconnect() 
-			end
-		end
-	end)
-
-	return billboardGui
-end
-
-local function createNametag(character, playerName)
-	if not character or not character.Parent then return nil end
-
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return nil end
-
-	for _, child in pairs(humanoidRootPart:GetChildren()) do
-		if child.Name == "VyrxisNametag" then
-			child:Destroy()
-		end
-	end
-
-	local billboardGui = Instance.new("BillboardGui")
-	billboardGui.Name = "VyrxisNametag"
-	billboardGui.Size = UDim2.new(0, 200, 0, 50)
-	billboardGui.StudsOffset = Vector3.new(0, -4, 0)
-	billboardGui.Parent = humanoidRootPart
-	billboardGui.AlwaysOnTop = true
-	billboardGui.LightInfluence = 0
-
-	local textLabel = Instance.new("TextLabel")
-	textLabel.Size = UDim2.new(1, 0, 1, 0)
-	textLabel.BackgroundTransparency = 1
-	textLabel.Text = playerName
-	textLabel.TextColor3 = nametagColor
-	textLabel.TextSize = nametagSize
-	textLabel.Font = Enum.Font.GothamBold
-	textLabel.TextStrokeTransparency = 0
-	textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	textLabel.Parent = billboardGui
-
-	return billboardGui
-end
-
--- ESP für alle Spieler - KORRIGIERT
-local function enableESPForAllPlayers()
-	print("ESP für alle Spieler aktivieren...")
-
-	for player, highlight in pairs(espHighlights) do
-		if highlight and highlight.Parent then
-			highlight:Destroy()
-		end
-	end
-	for player, healthbar in pairs(healthbars) do
-		if healthbar and healthbar.Parent then
-			healthbar:Destroy()
-		end
-	end
-	espHighlights = {}
-	healthbars = {}
-
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character.Parent then
-			local highlight = createESPHighlight(player.Character)
-			if highlight then
-				espHighlights[player] = highlight
-			end
-
-			local healthbar = createHealthbar(player.Character)
-			if healthbar then
-				healthbars[player] = healthbar
-			end
-		end
-	end
-end
-
-local function disableESPForAllPlayers()
-	for player, highlight in pairs(espHighlights) do
-		if highlight and highlight.Parent then
-			highlight:Destroy()
-		end
-	end
-
-	for player, healthbar in pairs(healthbars) do
-		if healthbar and healthbar.Parent then
-			healthbar:Destroy()
-		end
-	end
-
-	espHighlights = {}
-	healthbars = {}
-end
-
--- ESP Toggle Button
-espHighlightButton.MouseButton1Click:Connect(function()
-	isESPEnabled = not isESPEnabled
-	espHighlightButton.Text = isESPEnabled and "ESP Highlight: ON" or "ESP Highlight: OFF"
-	espHighlightButton.BackgroundColor3 = isESPEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
-
-	if isESPEnabled then
-		enableESPForAllPlayers()
-	else
-		disableESPForAllPlayers()
-	end
-end)
-
--- Player Events
-Players.PlayerAdded:Connect(function(player)
-	if player == LocalPlayer then return end
-
-	updatePlayerList()
-
-	player.CharacterAdded:Connect(function(character)
-		wait(0.5)
-
-		if isESPEnabled then
-			local highlight = createESPHighlight(character)
-			if highlight then
-				espHighlights[player] = highlight
-			end
-
-			local healthbar = createHealthbar(character)
-			if healthbar then
-				healthbars[player] = healthbar
-			end
-		end
-
-		if nametagsEnabled then
-			local nametag = createNametag(character, player.Name)
-			if nametag then 
-				nametags[player] = nametag 
-			end
-		end
-	end)
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	if espHighlights[player] then
-		espHighlights[player]:Destroy()
-		espHighlights[player] = nil
-	end
-	if healthbars[player] then
-		healthbars[player]:Destroy()
-		healthbars[player] = nil
-	end
-	if nametags[player] then
-		nametags[player]:Destroy()
-		nametags[player] = nil
-	end
-
-	updatePlayerList()
-end)
-
--- Nametags Toggle
-nametagsButton.MouseButton1Click:Connect(function()
-	nametagsEnabled = not nametagsEnabled
-	nametagsButton.Text = nametagsEnabled and "Nametags: ON" or "Nametags: OFF"
-	nametagsButton.BackgroundColor3 = nametagsEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(60, 60, 65)
-
-	if nametagsEnabled then
-		for _, player in pairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer and player.Character then
-				local nametag = createNametag(player.Character, player.Name)
-				nametags[player] = nametag
-			end
-		end
-	else
-		for player, nametag in pairs(nametags) do
-			if nametag then
-				nametag:Destroy()
-			end
-		end
-		nametags = {}
-	end
-end)
-
--- ESP Transparency Update
-RunService.Heartbeat:Connect(function()
-	local newTransparency = espTransparencySlider() / 100
-	if newTransparency ~= espTransparency then
-		espTransparency = newTransparency
-		for player, highlight in pairs(espHighlights) do
-			if highlight then
-				highlight.FillTransparency = espTransparency
-			end
-		end
-	end
-
-	local newNametagSize = nametagSizeSlider()
-	if newNametagSize ~= nametagSize then
-		nametagSize = newNametagSize
-		for player, nametag in pairs(nametags) do
-			if nametag and nametag:FindFirstChild("TextLabel") then
-				nametag.TextLabel.TextSize = nametagSize
-			end
-		end
-	end
-end)
-
--- GUI Controls
-MinimizeButton.MouseButton1Click:Connect(function()
-	MainFrame.Visible = not MainFrame.Visible
-end)
-
-SettingsButton.MouseButton1Click:Connect(function()
-	SettingsFrame.Visible = true
-end)
-
-CloseSettings.MouseButton1Click:Connect(function()
-	SettingsFrame.Visible = false
-end)
-
--- Keybind Change
-local changingKey = false
-ChangeKeyButton.MouseButton1Click:Connect(function()
-	if not changingKey then
-		changingKey = true
-		ChangeKeyButton.Text = "Press Key..."
-
-		local connection
-		connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-			if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
-				toggleKey = input.KeyCode
-				KeybindLabel.Text = "Toggle Key: " .. toggleKey.Name
-				ChangeKeyButton.Text = "Change Key"
-				changingKey = false
-				connection:Disconnect()
-			end
-		end)
-	end
-end)
-
--- Toggle Menu with Key
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not gameProcessed and input.KeyCode == toggleKey then
-		MainRahmen.Visible = not MainRahmen.Visible
-		if MainRahmen.Visible then
-			MainFrame.Visible = true
-		end
-	end
-end)
-
--- Load Screen Animation
-local function hideLoadScreen()
-	local loadBarTween = TweenService:Create(LoadBar, TweenInfo.new(4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)})
-	loadBarTween:Play()
-
-	spawn(function()
-		wait(1)
-		LoadSubText.Text = "Loading components..."
-		wait(1)
-		LoadSubText.Text = "Initializing features..."
-		wait(1)
-		LoadSubText.Text = "Almost ready..."
-		wait(1)
-		LoadSubText.Text = "Ready!"
-	end)
-
-	wait(5)
-
-	local fadeOutTween = TweenService:Create(LoadScreen, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-	local textFadeTween = TweenService:Create(LoadText, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
-	local subTextFadeTween = TweenService:Create(LoadSubText, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextTransparency = 1})
-	local strokeFadeTween = TweenService:Create(LoadStroke, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 1})
-	local barBgFadeTween = TweenService:Create(LoadBarBackground, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-	local barFadeTween = TweenService:Create(LoadBar, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-
-	fadeOutTween:Play()
-	textFadeTween:Play()
-	subTextFadeTween:Play()
-	strokeFadeTween:Play()
-	barBgFadeTween:Play()
-	barFadeTween:Play()
-
-	for _, bubble in pairs(bubbles) do
-		local bubbleFadeTween = TweenService:Create(bubble, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = 1})
-		bubbleFadeTween:Play()
-	end
-
-	fadeOutTween.Completed:Connect(function()
-		LoadScreen:Destroy()
-		for _, bubble in pairs(bubbles) do
-			if bubble and bubble.Parent then
-				bubble:Destroy()
-			end
-		end
-
-		MainRahmen.Visible = true
-		MainFrame.Visible = true
-
-		local showTween = TweenService:Create(MainRahmen, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -350, 0.3, -15)})
-		showTween:Play()
-	end)
-end
-
-hideLoadScreen()
-
-print("Vyrxis Menu loaded successfully - ANTI-DRIFT 3D FLIGHT SYSTEM!")
-print("✓ Character rotation ONLY when flying")
-print("✓ W key flies in EXACT camera direction (including vertical)")
-print("✓ ANTI-DRIFT system prevents unwanted movement against walls")
-print("✓ Smooth, stable 3D flight with collision handling")
