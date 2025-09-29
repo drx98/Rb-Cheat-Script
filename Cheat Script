@@ -33,13 +33,6 @@ local espHighlights = {}
 local nametags = {}
 local healthbars = {}
 
--- UNDERGROUND GHOST SYSTEM - NEUE VARIABLEN
-local isGhostEnabled = false
-local ghostOffset = -10000  -- Wie weit unter der Map teleportiert werden soll
-local ghostConnection = nil
-local originalRootPartCFrame = nil
-local ghostRootPart = nil
-
 -- GUI erstellen
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "VyrxisMenu"
@@ -615,6 +608,9 @@ function FlySystem:Enable()
 	self.bodyVelocity.Parent = humanoidRootPart
 	
 	-- BodyAngularVelocity für stabile Rotation - WICHTIG GEGEN DRIFTEN!
+	self.bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+	self.bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
 	self.bodyAngularVelocity.Parent = humanoidRootPart
 	
 	-- BodyPosition für Positionsstabilisierung - DEAKTIVIERT für freie 3D-Bewegung
@@ -877,126 +873,81 @@ noclipButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- UNDERGROUND GHOST MODE SYSTEM - NUR TELEPORTATION, KEINE TRANSPARENCY
-local UndergroundGhostSystem = {}
-UndergroundGhostSystem.enabled = false
-UndergroundGhostSystem.updateConnection = nil
-UndergroundGhostSystem.storedPosition = nil
-
-function UndergroundGhostSystem:Enable()
-	if self.enabled then return end
-	
-	local character = LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then
-		warn("Ghost Error: Character oder HumanoidRootPart nicht gefunden")
-		return
-	end
-	
-	print("Underground Ghost Mode aktivieren...")
-	
-	self.enabled = true
-	local humanoidRootPart = character.HumanoidRootPart
-	
-	-- Speichere die aktuelle Y-Position
-	self.storedPosition = humanoidRootPart.Position.Y
-	
-	-- Update Loop - Teleportiert Character unter Map, aber hält lokale Position
-	self.updateConnection = RunService.Heartbeat:Connect(function()
-		if not self.enabled then return end
-		
-		local char = LocalPlayer.Character
-		if not char or not char:FindFirstChild("HumanoidRootPart") then
-			self:Disable()
-			return
-		end
-		
-		local rootPart = char.HumanoidRootPart
-		local currentCFrame = rootPart.CFrame
-		
-		-- Berechne die Position unter der Map
-		local undergroundY = ghostOffset
-		local undergroundPosition = Vector3.new(currentCFrame.X, undergroundY, currentCFrame.Z)
-		
-		-- Teleportiere Character unter die Map (Server/Replicated)
-		-- Aber behalte Rotation bei
-		rootPart.CFrame = CFrame.new(undergroundPosition) * (currentCFrame - currentCFrame.Position)
-		
-		-- WICHTIG: Camera Manipulation für lokale Sicht
-		-- Offset Kamera nach OBEN, damit du die Map normal siehst
-		local camera = Camera
-		if camera.CameraType == Enum.CameraType.Custom then
-			-- Berechne Offset zwischen Underground und normaler Höhe
-			local cameraOffset = -ghostOffset
-			
-			-- Verschiebe Kamera nach oben
-			local currentCameraCFrame = camera.CFrame
-			camera.CFrame = currentCameraCFrame + Vector3.new(0, cameraOffset, 0)
-		end
-	end)
-	
-	print("✓ Underground Ghost aktiviert!")
-	print("✓ Server: Character bei Y = " .. ghostOffset .. " (andere Spieler sehen dich nicht)")
-	print("✓ Lokal: Kamera-Offset sorgt für normale Sicht auf die Map")
-end
-
-function UndergroundGhostSystem:Disable()
-	if not self.enabled then return end
-	
-	print("Underground Ghost Mode deaktivieren...")
-	
-	-- Cleanup Connection
-	if self.updateConnection then
-		self.updateConnection:Disconnect()
-		self.updateConnection = nil
-	end
-	
-	-- Teleportiere Character zurück nach oben
-	local character = LocalPlayer.Character
-	if character and character:FindFirstChild("HumanoidRootPart") then
-		local rootPart = character.HumanoidRootPart
-		local currentPos = rootPart.Position
-		
-		-- Berechne normale Höhe
-		local normalY = currentPos.Y - ghostOffset
-		if self.storedPosition then
-			normalY = self.storedPosition
-		end
-		
-		-- Teleportiere nach oben
-		local newPosition = Vector3.new(currentPos.X, normalY, currentPos.Z)
-		rootPart.CFrame = CFrame.new(newPosition)
-	end
-	
-	self.enabled = false
-	self.storedPosition = nil
-	print("✓ Underground Ghost deaktiviert")
-end
-
--- Ghost Button
+-- GHOST MODE SYSTEM - EINFACHE FUNKTIONSFÄHIGE VERSION
+local isGhostEnabled = false
 local ghostButton = createButton(meFrame, "Ghost: OFF", 5)
 
+local function enableGhostMode()
+	local character = LocalPlayer.Character
+	if not character then return end
+	
+	print("Enabling Ghost Mode...")
+	
+	-- Für dich: Geist-Effekt (transparent)
+	for _, part in pairs(character:GetDescendants()) do
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			part.Transparency = 0.5
+		elseif part:IsA("Decal") or part:IsA("Texture") then
+			part.Transparency = 0.5
+		end
+	end
+	
+	-- Einfache Unsichtbarkeits-Methode
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			-- Für andere Spieler unsichtbar machen
+			part.Transparency = 1
+			part.CanCollide = false
+		elseif part:IsA("Accessory") then
+			local handle = part:FindFirstChild("Handle")
+			if handle then
+				handle.Transparency = 1
+			end
+		end
+	end
+end
+
+local function disableGhostMode()
+	local character = LocalPlayer.Character
+	if not character then return end
+	
+	print("Disabling Ghost Mode...")
+	
+	-- Alles wieder normal machen
+	for _, part in pairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			if part.Name == "HumanoidRootPart" then
+				part.Transparency = 1 -- RootPart ist immer transparent
+			else
+				part.Transparency = 0 -- Normale Sichtbarkeit
+				if part.Name ~= "Head" then -- Head collision bleibt aus
+					part.CanCollide = true
+				end
+			end
+		elseif part:IsA("Decal") or part:IsA("Texture") then
+			part.Transparency = 0
+		end
+	end
+end
+
+-- Ghost Toggle Button
 ghostButton.MouseButton1Click:Connect(function()
-	if UndergroundGhostSystem.enabled then
-		UndergroundGhostSystem:Disable()
-		ghostButton.Text = "Ghost: OFF"
-		ghostButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-		isGhostEnabled = false
+	isGhostEnabled = not isGhostEnabled
+	ghostButton.Text = isGhostEnabled and "Ghost: ON" or "Ghost: OFF"
+	ghostButton.BackgroundColor3 = isGhostEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(15, 15, 20)
+
+	if isGhostEnabled then
+		enableGhostMode()
 	else
-		UndergroundGhostSystem:Enable()
-		ghostButton.Text = "Ghost: ON"
-		ghostButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-		isGhostEnabled = true
+		disableGhostMode()
 	end
 end)
 
--- Character Respawn Handler für Ghost
+-- Character Respawn Handler
 LocalPlayer.CharacterAdded:Connect(function(character)
-	-- Warte bis Character vollständig geladen ist
-	character:WaitForChild("HumanoidRootPart")
-	
 	if isGhostEnabled then
-		wait(1)
-		UndergroundGhostSystem:Enable()
+		wait(2)
+		enableGhostMode()
 	end
 end)
 
@@ -1599,7 +1550,6 @@ Workspace.ChildRemoved:Connect(function(child)
 		objectHighlights[child] = nil
 	end
 end)
-
 local function createESPHighlight(character)
 	if not character or not character.Parent then 
 		return nil 
@@ -1997,11 +1947,8 @@ end
 
 hideLoadScreen()
 
-print("Vyrxis Menu loaded successfully - UNDERGROUND GHOST SYSTEM!")
-print("✓ Character wird unter die Map teleportiert (-10000 Y)")
-print("✓ Für dich: Normale Bewegung auf der Map möglich")
-print("✓ Für andere: Du bist unsichtbar/unter der Map")
-print("✓ Smooth Underground Teleportation System aktiv")locity = Instance.new("BodyAngularVelocity")
-	self.bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-	self.bodyAngularVe
+print("Vyrxis Menu loaded successfully - ANTI-DRIFT 3D FLIGHT SYSTEM!")
+print("✓ Character rotation ONLY when flying")
+print("✓ W key flies in EXACT camera direction (including vertical)")
+print("✓ ANTI-DRIFT system prevents unwanted movement against walls")
+print("✓ Smooth, stable 3D flight with collision handling")
