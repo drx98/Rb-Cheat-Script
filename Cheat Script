@@ -1,5 +1,3 @@
--- Vyrxis Menu Script für Roblox - KORRIGIERT UND VERBESSERT
--- Alle Services laden
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
