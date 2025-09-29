@@ -877,12 +877,11 @@ noclipButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- UNDERGROUND GHOST MODE SYSTEM - KOMPLETT NEU MIT VISUAL CLONE
+-- UNDERGROUND GHOST MODE SYSTEM - NUR TELEPORTATION, KEINE TRANSPARENCY
 local UndergroundGhostSystem = {}
 UndergroundGhostSystem.enabled = false
 UndergroundGhostSystem.updateConnection = nil
-UndergroundGhostSystem.visualClone = nil
-UndergroundGhostSystem.originalParts = {}
+UndergroundGhostSystem.storedPosition = nil
 
 function UndergroundGhostSystem:Enable()
 	if self.enabled then return end
@@ -896,29 +895,12 @@ function UndergroundGhostSystem:Enable()
 	print("Underground Ghost Mode aktivieren...")
 	
 	self.enabled = true
-	self.originalParts = {}
+	local humanoidRootPart = character.HumanoidRootPart
 	
-	-- Erstelle visuellen Clone für lokale Anzeige
-	self.visualClone = Instance.new("Model")
-	self.visualClone.Name = "VisualGhostClone"
+	-- Speichere die aktuelle Y-Position
+	self.storedPosition = humanoidRootPart.Position.Y
 	
-	-- Clone alle Teile für visuelle Darstellung
-	for _, part in pairs(character:GetDescendants()) do
-		if part:IsA("BasePart") or part:IsA("Decal") or part:IsA("MeshPart") then
-			local clone = part:Clone()
-			clone.Parent = self.visualClone
-			
-			-- Mache Clone nur lokal sichtbar
-			if clone:IsA("BasePart") then
-				clone.CanCollide = false
-				clone.Anchored = true
-			end
-		end
-	end
-	
-	self.visualClone.Parent = Workspace
-	
-	-- Update Loop
+	-- Update Loop - Teleportiert Character unter Map, aber hält lokale Position
 	self.updateConnection = RunService.Heartbeat:Connect(function()
 		if not self.enabled then return end
 		
@@ -929,44 +911,32 @@ function UndergroundGhostSystem:Enable()
 		end
 		
 		local rootPart = char.HumanoidRootPart
-		local humanoid = char:FindFirstChild("Humanoid")
-		
-		-- 1. Teleportiere echten Character unter die Map (für Server/andere Spieler)
 		local currentCFrame = rootPart.CFrame
-		local undergroundCFrame = currentCFrame - Vector3.new(0, currentCFrame.Y - ghostOffset, 0)
-		rootPart.CFrame = undergroundCFrame
 		
-		-- 2. Update Visual Clone an normaler Position (nur für dich sichtbar)
-		if self.visualClone and self.visualClone:FindFirstChild("HumanoidRootPart") then
-			local visualRoot = self.visualClone.HumanoidRootPart
-			
-			-- Setze Clone auf normale Höhe
-			local normalCFrame = currentCFrame - Vector3.new(0, currentCFrame.Y - (currentCFrame.Y - ghostOffset), 0)
-			visualRoot.CFrame = normalCFrame + Vector3.new(0, -ghostOffset, 0)
-			
-			-- Update alle Teile des Clones relativ zum Root
-			for _, part in pairs(char:GetDescendants()) do
-				if part:IsA("BasePart") and part ~= rootPart then
-					local clonePart = self.visualClone:FindFirstChild(part.Name)
-					if clonePart and clonePart:IsA("BasePart") then
-						local offset = part.CFrame:ToObjectSpace(rootPart.CFrame)
-						clonePart.CFrame = visualRoot.CFrame:ToWorldSpace(offset)
-					end
-				end
-			end
-		end
+		-- Berechne die Position unter der Map
+		local undergroundY = ghostOffset
+		local undergroundPosition = Vector3.new(currentCFrame.X, undergroundY, currentCFrame.Z)
 		
-		-- 3. Setze Kamera auf Visual Clone
-		if humanoid and Camera.CameraSubject == humanoid then
-			if self.visualClone:FindFirstChild("Humanoid") then
-				Camera.CameraSubject = self.visualClone.Humanoid
-			end
+		-- Teleportiere Character unter die Map (Server/Replicated)
+		-- Aber behalte Rotation bei
+		rootPart.CFrame = CFrame.new(undergroundPosition) * (currentCFrame - currentCFrame.Position)
+		
+		-- WICHTIG: Camera Manipulation für lokale Sicht
+		-- Offset Kamera nach OBEN, damit du die Map normal siehst
+		local camera = Camera
+		if camera.CameraType == Enum.CameraType.Custom then
+			-- Berechne Offset zwischen Underground und normaler Höhe
+			local cameraOffset = -ghostOffset
+			
+			-- Verschiebe Kamera nach oben
+			local currentCameraCFrame = camera.CFrame
+			camera.CFrame = currentCameraCFrame + Vector3.new(0, cameraOffset, 0)
 		end
 	end)
 	
-	print("Underground Ghost aktiviert!")
-	print("✓ Dein echter Character: Y = " .. ghostOffset .. " (unsichtbar für andere)")
-	print("✓ Visual Clone: Normale Position (nur du siehst ihn)")
+	print("✓ Underground Ghost aktiviert!")
+	print("✓ Server: Character bei Y = " .. ghostOffset .. " (andere Spieler sehen dich nicht)")
+	print("✓ Lokal: Kamera-Offset sorgt für normale Sicht auf die Map")
 end
 
 function UndergroundGhostSystem:Disable()
@@ -980,30 +950,26 @@ function UndergroundGhostSystem:Disable()
 		self.updateConnection = nil
 	end
 	
-	-- Entferne Visual Clone
-	if self.visualClone then
-		self.visualClone:Destroy()
-		self.visualClone = nil
-	end
-	
-	-- Bringe echten Character zurück nach oben
+	-- Teleportiere Character zurück nach oben
 	local character = LocalPlayer.Character
 	if character and character:FindFirstChild("HumanoidRootPart") then
 		local rootPart = character.HumanoidRootPart
 		local currentPos = rootPart.Position
 		
-		-- Teleportiere nach oben
-		rootPart.CFrame = CFrame.new(Vector3.new(currentPos.X, currentPos.Y - ghostOffset, currentPos.Z))
-		
-		-- Setze Kamera zurück
-		local humanoid = character:FindFirstChild("Humanoid")
-		if humanoid then
-			Camera.CameraSubject = humanoid
+		-- Berechne normale Höhe
+		local normalY = currentPos.Y - ghostOffset
+		if self.storedPosition then
+			normalY = self.storedPosition
 		end
+		
+		-- Teleportiere nach oben
+		local newPosition = Vector3.new(currentPos.X, normalY, currentPos.Z)
+		rootPart.CFrame = CFrame.new(newPosition)
 	end
 	
 	self.enabled = false
-	print("Underground Ghost deaktiviert")
+	self.storedPosition = nil
+	print("✓ Underground Ghost deaktiviert")
 end
 
 -- Ghost Button
@@ -1025,8 +991,11 @@ end)
 
 -- Character Respawn Handler für Ghost
 LocalPlayer.CharacterAdded:Connect(function(character)
+	-- Warte bis Character vollständig geladen ist
+	character:WaitForChild("HumanoidRootPart")
+	
 	if isGhostEnabled then
-		wait(2)
+		wait(1)
 		UndergroundGhostSystem:Enable()
 	end
 end)
