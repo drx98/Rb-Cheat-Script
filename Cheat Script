@@ -1,3 +1,780 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = Workspace.CurrentCamera
+
+-- Variablen für Funktionen
+local isFlying = false
+local flySpeed = 50
+local flyBodyVelocity = nil
+local flyBodyAngularVelocity = nil
+local originalWalkSpeed = 16
+local originalJumpHeight = 7.2
+local isESPEnabled = false
+local isNoclipEnabled = false
+local isViewingPlayer = false
+local viewingPlayerName = ""
+local espColor = Color3.fromRGB(255, 0, 0)
+local espTransparency = 0.5
+local nametagsEnabled = false
+local nametagColor = Color3.fromRGB(255, 255, 255)
+local nametagSize = 14
+local selectedPlayer = ""
+local toggleKey = Enum.KeyCode.Insert
+local espHighlights = {}
+local nametags = {}
+local healthbars = {}
+
+-- UNDERGROUND GHOST SYSTEM - NEUE VARIABLEN
+local isGhostEnabled = false
+local ghostOffset = -10000  -- Wie weit unter der Map teleportiert werden soll
+local ghostConnection = nil
+local originalRootPartCFrame = nil
+local ghostRootPart = nil
+
+-- GUI erstellen
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "VyrxisMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+-- Load Screen erstellen
+local LoadScreen = Instance.new("Frame")
+LoadScreen.Name = "LoadScreen"
+LoadScreen.Size = UDim2.new(0, 500, 0, 300)
+LoadScreen.Position = UDim2.new(0.5, -250, 0.5, -150)
+LoadScreen.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+LoadScreen.BorderSizePixel = 0
+LoadScreen.Parent = ScreenGui
+
+local LoadScreenCorner = Instance.new("UICorner")
+LoadScreenCorner.CornerRadius = UDim.new(0, 20)
+LoadScreenCorner.Parent = LoadScreen
+
+local LoadGradient = Instance.new("UIGradient")
+LoadGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+LoadGradient.Rotation = 45
+LoadGradient.Parent = LoadScreen
+
+local LoadStroke = Instance.new("UIStroke")
+LoadStroke.Color = Color3.fromRGB(0, 200, 255)
+LoadStroke.Thickness = 2
+LoadStroke.Transparency = 0.3
+LoadStroke.Parent = LoadScreen
+
+local LoadText = Instance.new("TextLabel")
+LoadText.Name = "LoadText"
+LoadText.Size = UDim2.new(1, -40, 0, 60)
+LoadText.Position = UDim2.new(0, 20, 0, 50)
+LoadText.BackgroundTransparency = 1
+LoadText.Text = "Vyrxis Menu"
+LoadText.TextColor3 = Color3.fromRGB(255, 255, 255)
+LoadText.TextSize = 36
+LoadText.Font = Enum.Font.GothamBold
+LoadText.Parent = LoadScreen
+
+local LoadSubText = Instance.new("TextLabel")
+LoadSubText.Name = "LoadSubText"
+LoadSubText.Size = UDim2.new(1, -40, 0, 30)
+LoadSubText.Position = UDim2.new(0, 20, 0, 110)
+LoadSubText.BackgroundTransparency = 1
+LoadSubText.Text = "Starting..."
+LoadSubText.TextColor3 = Color3.fromRGB(180, 180, 180)
+LoadSubText.TextSize = 18
+LoadSubText.Font = Enum.Font.Gotham
+LoadSubText.Parent = LoadScreen
+
+-- Load Bar
+local LoadBarBackground = Instance.new("Frame")
+LoadBarBackground.Size = UDim2.new(1, -80, 0, 8)
+LoadBarBackground.Position = UDim2.new(0, 40, 0, 200)
+LoadBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+LoadBarBackground.BorderSizePixel = 0
+LoadBarBackground.Parent = LoadScreen
+
+local LoadBarCorner = Instance.new("UICorner")
+LoadBarCorner.CornerRadius = UDim.new(0, 4)
+LoadBarCorner.Parent = LoadBarBackground
+
+local LoadBar = Instance.new("Frame")
+LoadBar.Size = UDim2.new(0, 0, 1, 0)
+LoadBar.Position = UDim2.new(0, 0, 0, 0)
+LoadBar.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+LoadBar.BorderSizePixel = 0
+LoadBar.Parent = LoadBarBackground
+
+local LoadBarFillCorner = Instance.new("UICorner")
+LoadBarFillCorner.CornerRadius = UDim.new(0, 4)
+LoadBarFillCorner.Parent = LoadBar
+
+local LoadBarGradient = Instance.new("UIGradient")
+LoadBarGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 150, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 200))
+}
+LoadBarGradient.Rotation = 0
+LoadBarGradient.Parent = LoadBar
+
+-- Bubble-Effekte für Load Screen
+local bubbles = {}
+
+local function createBubble(parent, size, position, speed)
+	local bubble = Instance.new("Frame")
+	bubble.Size = size
+	bubble.Position = position
+	bubble.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+	bubble.BorderSizePixel = 0
+	bubble.BackgroundTransparency = 0.7
+	bubble.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = bubble
+
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 255))
+	}
+	gradient.Parent = bubble
+
+	local function animateBubble()
+		local moveInfo = TweenInfo.new(speed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+		local moveTween = TweenService:Create(bubble, moveInfo, {
+			Position = UDim2.new(position.X.Scale, position.X.Offset + math.random(-50, 50), position.Y.Scale, position.Y.Offset + math.random(-30, 30)),
+			BackgroundTransparency = math.random(50, 90) / 100
+		})
+		moveTween:Play()
+	end
+
+	animateBubble()
+	return bubble
+end
+
+-- Erstelle Bubbles
+for i = 1, 15 do
+	local size = UDim2.new(0, math.random(20, 80), 0, math.random(20, 80))
+	local position = UDim2.new(math.random(0, 100) / 100, 0, math.random(0, 100) / 100, 0)
+	local speed = math.random(3, 8)
+	local bubble = createBubble(ScreenGui, size, position, speed)
+	table.insert(bubbles, bubble)
+end
+
+-- Load Screen Animation
+local loadTween = TweenService:Create(LoadText, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1), {TextTransparency = 0.3})
+loadTween:Play()
+
+-- Main GUI Frames - Verbessertes Design passend zum LoadScreen
+local MainRahmen = Instance.new("Frame")
+MainRahmen.Name = "MainRahmen"
+MainRahmen.Size = UDim2.new(0, 700, 0, 30)
+MainRahmen.Position = UDim2.new(0.5, -350, 0.3, -15)
+MainRahmen.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainRahmen.BorderSizePixel = 0
+MainRahmen.Visible = false
+MainRahmen.Active = true
+MainRahmen.Draggable = true
+MainRahmen.Parent = ScreenGui
+
+local RahmenCorner = Instance.new("UICorner")
+RahmenCorner.CornerRadius = UDim.new(0, 20)
+RahmenCorner.Parent = MainRahmen
+
+-- Gradient für MainRahmen
+local RahmenGradient = Instance.new("UIGradient")
+RahmenGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+RahmenGradient.Rotation = 45
+RahmenGradient.Parent = MainRahmen
+
+-- Stroke für MainRahmen
+local RahmenStroke = Instance.new("UIStroke")
+RahmenStroke.Color = Color3.fromRGB(0, 200, 255)
+RahmenStroke.Thickness = 2
+RahmenStroke.Transparency = 0.3
+RahmenStroke.Parent = MainRahmen
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(0, 200, 1, 0)
+TitleLabel.Position = UDim2.new(0, 15, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Vyrxis Menu"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextScaled = true
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = MainRahmen
+
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
+MinimizeButton.Position = UDim2.new(1, -55, 0, 2.5)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MinimizeButton.Text = "-"
+MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeButton.TextScaled = true
+MinimizeButton.Font = Enum.Font.GothamBold
+MinimizeButton.BorderSizePixel = 0
+MinimizeButton.Parent = MainRahmen
+
+local MinimizeCorner = Instance.new("UICorner")
+MinimizeCorner.CornerRadius = UDim.new(0, 8)
+MinimizeCorner.Parent = MinimizeButton
+
+-- Stroke für Minimize Button
+local MinimizeStroke = Instance.new("UIStroke")
+MinimizeStroke.Color = Color3.fromRGB(0, 200, 255)
+MinimizeStroke.Thickness = 1
+MinimizeStroke.Transparency = 0.5
+MinimizeStroke.Parent = MinimizeButton
+
+local SettingsButton = Instance.new("TextButton")
+SettingsButton.Size = UDim2.new(0, 25, 0, 25)
+SettingsButton.Position = UDim2.new(1, -25, 0, 2.5)
+SettingsButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+SettingsButton.Text = "⚙"
+SettingsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsButton.TextScaled = true
+SettingsButton.Font = Enum.Font.GothamBold
+SettingsButton.BorderSizePixel = 0
+SettingsButton.Parent = MainRahmen
+
+local SettingsCorner = Instance.new("UICorner")
+SettingsCorner.CornerRadius = UDim.new(0, 8)
+SettingsCorner.Parent = SettingsButton
+
+-- Stroke für Settings Button
+local SettingsStroke = Instance.new("UIStroke")
+SettingsStroke.Color = Color3.fromRGB(0, 200, 255)
+SettingsStroke.Thickness = 1
+SettingsStroke.Transparency = 0.5
+SettingsStroke.Parent = SettingsButton
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 700, 0, 400)
+MainFrame.Position = UDim2.new(0, 0, 1, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Visible = false
+MainFrame.Parent = MainRahmen
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 20)
+MainCorner.Parent = MainFrame
+
+-- Gradient für MainFrame
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+}
+MainGradient.Rotation = 45
+MainGradient.Parent = MainFrame
+
+-- Stroke für MainFrame
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(0, 200, 255)
+MainStroke.Thickness = 2
+MainStroke.Transparency = 0.3
+MainStroke.Parent = MainFrame
+
+-- Settings Frame
+local SettingsFrame = Instance.new("Frame")
+SettingsFrame.Name = "SettingsFrame"
+SettingsFrame.Size = UDim2.new(0, 300, 0, 200)
+SettingsFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+SettingsFrame.BorderSizePixel = 0
+SettingsFrame.Visible = false
+SettingsFrame.Parent = ScreenGui
+
+local SettingsFrameCorner = Instance.new("UICorner")
+SettingsFrameCorner.CornerRadius = UDim.new(0, 8)
+SettingsFrameCorner.Parent = SettingsFrame
+
+local CloseSettings = Instance.new("TextButton")
+CloseSettings.Size = UDim2.new(0, 20, 0, 20)
+CloseSettings.Position = UDim2.new(1, -25, 0, 5)
+CloseSettings.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CloseSettings.Text = "X"
+CloseSettings.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseSettings.TextScaled = true
+CloseSettings.Font = Enum.Font.GothamBold
+CloseSettings.BorderSizePixel = 0
+CloseSettings.Parent = SettingsFrame
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 4)
+CloseCorner.Parent = CloseSettings
+
+-- Keybind Settings
+local KeybindLabel = Instance.new("TextLabel")
+KeybindLabel.Size = UDim2.new(1, -20, 0, 30)
+KeybindLabel.Position = UDim2.new(0, 10, 0, 40)
+KeybindLabel.BackgroundTransparency = 1
+KeybindLabel.Text = "Toggle Key: " .. toggleKey.Name
+KeybindLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeybindLabel.TextScaled = true
+KeybindLabel.Font = Enum.Font.Gotham
+KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+KeybindLabel.Parent = SettingsFrame
+
+local ChangeKeyButton = Instance.new("TextButton")
+ChangeKeyButton.Size = UDim2.new(0, 100, 0, 30)
+ChangeKeyButton.Position = UDim2.new(0.5, -50, 0, 80)
+ChangeKeyButton.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+ChangeKeyButton.Text = "Change Key"
+ChangeKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ChangeKeyButton.TextScaled = true
+ChangeKeyButton.Font = Enum.Font.Gotham
+ChangeKeyButton.BorderSizePixel = 0
+ChangeKeyButton.Parent = SettingsFrame
+
+local ChangeKeyCorner = Instance.new("UICorner")
+ChangeKeyCorner.CornerRadius = UDim.new(0, 4)
+ChangeKeyCorner.Parent = ChangeKeyButton
+
+-- Kategorie Liste - Design Update
+local Liste = Instance.new("ScrollingFrame")
+Liste.Name = "Liste"
+Liste.Size = UDim2.new(0, 150, 1, -10)
+Liste.Position = UDim2.new(0, 5, 0, 5)
+Liste.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+Liste.BorderSizePixel = 0
+Liste.ScrollBarThickness = 5
+Liste.Parent = MainFrame
+
+local ListeCorner = Instance.new("UICorner")
+ListeCorner.CornerRadius = UDim.new(0, 15)
+ListeCorner.Parent = Liste
+
+-- Gradient für Liste
+local ListeGradient = Instance.new("UIGradient")
+ListeGradient.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 25)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 12))
+}
+ListeGradient.Rotation = 45
+ListeGradient.Parent = Liste
+
+-- Stroke für Liste
+local ListeStroke = Instance.new("UIStroke")
+ListeStroke.Color = Color3.fromRGB(0, 150, 200)
+ListeStroke.Thickness = 1
+ListeStroke.Transparency = 0.6
+ListeStroke.Parent = Liste
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 5)
+ListLayout.Parent = Liste
+
+-- Kategorien erstellen
+local categories = {"Fly", "Me", "Player", "ESP"}
+local categoryFrames = {}
+
+for i, category in pairs(categories) do
+	local categoryButton = Instance.new("TextButton")
+	categoryButton.Size = UDim2.new(1, -10, 0, 40)
+	categoryButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+	categoryButton.Text = category
+	categoryButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	categoryButton.TextScaled = true
+	categoryButton.Font = Enum.Font.GothamBold
+	categoryButton.BorderSizePixel = 0
+	categoryButton.LayoutOrder = i
+	categoryButton.Parent = Liste
+
+	local catCorner = Instance.new("UICorner")
+	catCorner.CornerRadius = UDim.new(0, 8)
+	catCorner.Parent = categoryButton
+
+	-- Stroke für Category Buttons
+	local catStroke = Instance.new("UIStroke")
+	catStroke.Color = Color3.fromRGB(0, 200, 255)
+	catStroke.Thickness = 1
+	catStroke.Transparency = 0.6
+	catStroke.Parent = categoryButton
+
+	-- Kategorie Frame erstellen
+	local categoryFrame = Instance.new("ScrollingFrame")
+	categoryFrame.Name = category .. "Frame"
+	categoryFrame.Size = UDim2.new(0, 530, 1, -10)
+	categoryFrame.Position = UDim2.new(0, 160, 0, 5)
+	categoryFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+	categoryFrame.BorderSizePixel = 0
+	categoryFrame.ScrollBarThickness = 5
+	categoryFrame.Visible = false
+	categoryFrame.Parent = MainFrame
+
+	local catFrameCorner = Instance.new("UICorner")
+	catFrameCorner.CornerRadius = UDim.new(0, 15)
+	catFrameCorner.Parent = categoryFrame
+
+	-- Gradient für Category Frames
+	local catFrameGradient = Instance.new("UIGradient")
+	catFrameGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 25)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 12))
+	}
+	catFrameGradient.Rotation = 45
+	catFrameGradient.Parent = categoryFrame
+
+	-- Stroke für Category Frames
+	local catFrameStroke = Instance.new("UIStroke")
+	catFrameStroke.Color = Color3.fromRGB(0, 150, 200)
+	catFrameStroke.Thickness = 1
+	catFrameStroke.Transparency = 0.6
+	catFrameStroke.Parent = categoryFrame
+
+	local catLayout = Instance.new("UIListLayout")
+	catLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	catLayout.Padding = UDim.new(0, 10)
+	catLayout.Parent = categoryFrame
+
+	categoryFrames[category] = categoryFrame
+
+	categoryButton.MouseButton1Click:Connect(function()
+		for name, frame in pairs(categoryFrames) do
+			frame.Visible = (name == category)
+		end
+	end)
+end
+
+-- Hilfsfunktionen für GUI-Elemente
+local function createButton(parent, text, layoutOrder)
+	local button = Instance.new("TextButton")
+	button.Size = UDim2.new(1, -20, 0, 40)
+	button.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+	button.Text = text
+	button.TextColor3 = Color3.fromRGB(255, 255, 255)
+	button.TextScaled = true
+	button.Font = Enum.Font.GothamBold
+	button.BorderSizePixel = 0
+	button.LayoutOrder = layoutOrder
+	button.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = button
+
+	-- Stroke für Buttons
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(0, 200, 255)
+	stroke.Thickness = 1
+	stroke.Transparency = 0.5
+	stroke.Parent = button
+
+	return button
+end
+
+local function createSlider(parent, text, minVal, maxVal, defaultVal, layoutOrder)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, -20, 0, 60)
+	frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+	frame.BorderSizePixel = 0
+	frame.LayoutOrder = layoutOrder
+	frame.Parent = parent
+
+	local frameCorner = Instance.new("UICorner")
+	frameCorner.CornerRadius = UDim.new(0, 8)
+	frameCorner.Parent = frame
+
+	-- Gradient für Slider Frame
+	local frameGradient = Instance.new("UIGradient")
+	frameGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
+	}
+	frameGradient.Rotation = 45
+	frameGradient.Parent = frame
+
+	-- Stroke für Slider Frame
+	local frameStroke = Instance.new("UIStroke")
+	frameStroke.Color = Color3.fromRGB(0, 150, 200)
+	frameStroke.Thickness = 1
+	frameStroke.Transparency = 0.6
+	frameStroke.Parent = frame
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 0, 25)
+	label.Position = UDim2.new(0, 0, 0, 5)
+	label.BackgroundTransparency = 1
+	label.Text = text .. ": " .. defaultVal
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Parent = frame
+
+	local slider = Instance.new("Frame")
+	slider.Size = UDim2.new(1, -20, 0, 20)
+	slider.Position = UDim2.new(0, 10, 0, 30)
+	slider.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
+	slider.BorderSizePixel = 0
+	slider.Parent = frame
+
+	local sliderCorner = Instance.new("UICorner")
+	sliderCorner.CornerRadius = UDim.new(0, 10)
+	sliderCorner.Parent = slider
+
+	-- Stroke für Slider
+	local sliderStroke = Instance.new("UIStroke")
+	sliderStroke.Color = Color3.fromRGB(0, 200, 255)
+	sliderStroke.Thickness = 1
+	sliderStroke.Transparency = 0.7
+	sliderStroke.Parent = slider
+
+	local handle = Instance.new("TextButton")
+	handle.Size = UDim2.new(0, 20, 1, 0)
+	handle.Position = UDim2.new((defaultVal - minVal) / (maxVal - minVal), -10, 0, 0)
+	handle.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+	handle.Text = ""
+	handle.BorderSizePixel = 0
+	handle.Parent = slider
+
+	local handleCorner = Instance.new("UICorner")
+	handleCorner.CornerRadius = UDim.new(1, 0)
+	handleCorner.Parent = handle
+
+	-- Gradient für Handle
+	local handleGradient = Instance.new("UIGradient")
+	handleGradient.Color = ColorSequence.new{
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 220, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 200))
+	}
+	handleGradient.Rotation = 45
+	handleGradient.Parent = handle
+
+	local dragging = false
+	local currentValue = defaultVal
+
+	handle.MouseButton1Down:Connect(function()
+		dragging = true
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local mouse = UserInputService:GetMouseLocation()
+			local relativePos = (mouse.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X
+			relativePos = math.clamp(relativePos, 0, 1)
+
+			handle.Position = UDim2.new(relativePos, -10, 0, 0)
+			currentValue = minVal + (maxVal - minVal) * relativePos
+			label.Text = text .. ": " .. math.floor(currentValue)
+		end
+	end)
+
+	return function() return math.floor(currentValue) end
+end
+
+-- PROFESSIONELLES 3D FLY SYSTEM - KORRIGIERT GEGEN DRIFTEN
+local FlySystem = {}
+FlySystem.enabled = false
+FlySystem.speed = 50
+FlySystem.bodyVelocity = nil
+FlySystem.bodyPosition = nil
+FlySystem.bodyAngularVelocity = nil
+FlySystem.connection = nil
+
+function FlySystem:Enable()
+	if self.enabled then return end
+	
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+	
+	local humanoidRootPart = character.HumanoidRootPart
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	
+	if humanoid then
+		humanoid.PlatformStand = true
+	end
+	
+	-- BodyVelocity für Bewegung
+	self.bodyVelocity = Instance.new("BodyVelocity")
+	self.bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	self.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	self.bodyVelocity.Parent = humanoidRootPart
+	
+	-- BodyAngularVelocity für stabile Rotation - WICHTIG GEGEN DRIFTEN!
+	self.bodyAngularVelocity.Parent = humanoidRootPart
+	
+	-- BodyPosition für Positionsstabilisierung - DEAKTIVIERT für freie 3D-Bewegung
+	self.bodyPosition = Instance.new("BodyPosition")
+	self.bodyPosition.MaxForce = Vector3.new(0, 0, 0) -- Komplett deaktiviert
+	self.bodyPosition.Position = humanoidRootPart.Position
+	self.bodyPosition.D = 2000 -- Höheres Damping gegen Driften
+	self.bodyPosition.P = 10000 -- Höhere Power für stabilere Kontrolle
+	self.bodyPosition.Parent = humanoidRootPart
+	
+	self.enabled = true
+	self:StartUpdateLoop()
+end
+
+function FlySystem:Disable()
+	if not self.enabled then return end
+	
+	local character = LocalPlayer.Character
+	if character then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.PlatformStand = false
+		end
+	end
+	
+	-- Cleanup aller Body Objects
+	if self.bodyVelocity then
+		self.bodyVelocity:Destroy()
+		self.bodyVelocity = nil
+	end
+	
+	if self.bodyPosition then
+		self.bodyPosition:Destroy()
+		self.bodyPosition = nil
+	end
+	
+	if self.bodyAngularVelocity then
+		self.bodyAngularVelocity:Destroy()
+		self.bodyAngularVelocity = nil
+	end
+	
+	if self.connection then
+		self.connection:Disconnect()
+		self.connection = nil
+	end
+	
+	self.enabled = false
+end
+
+function FlySystem:StartUpdateLoop()
+	if self.connection then
+		self.connection:Disconnect()
+	end
+	
+	self.connection = RunService.Heartbeat:Connect(function()
+		self:Update()
+	end)
+end
+
+-- ANTI-DRIFT 3D UPDATE SYSTEM - KOMPLETT ÜBERARBEITET
+function FlySystem:Update()
+	if not self.enabled then return end
+	
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then
+		self:Disable()
+		return
+	end
+	
+	local humanoidRootPart = character.HumanoidRootPart
+	local camera = Camera
+	
+	-- Character Rotation - VOLLSTÄNDIGE 3D ROTATION (SOFORT)
+	local lookDirection = camera.CFrame.LookVector
+	local upDirection = camera.CFrame.UpVector
+	local rightDirection = camera.CFrame.RightVector
+	
+	-- Neue CFrame für Character basierend auf Kamera - VOLLSTÄNDIGE 3D ROTATION
+	local newCFrame = CFrame.fromMatrix(humanoidRootPart.Position, rightDirection, upDirection, -lookDirection)
+	humanoidRootPart.CFrame = newCFrame
+	
+	-- BEWEGUNGSBERECHNUNG - VOLLSTÄNDIG 3D
+	local moveVector = Vector3.new(0, 0, 0)
+	
+	-- Input Detection
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		moveVector = moveVector + lookDirection -- Vollständige 3D-Richtung
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+		moveVector = moveVector - lookDirection
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		moveVector = moveVector - rightDirection
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+		moveVector = moveVector + rightDirection
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+		moveVector = moveVector + Vector3.new(0, 1, 0)
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+		moveVector = moveVector + Vector3.new(0, -1, 0)
+	end
+	
+	-- Normalisierung für konsistente Geschwindigkeit
+	if moveVector.Magnitude > 0 then
+		moveVector = moveVector.Unit
+	end
+	
+	-- ANTI-DRIFT SYSTEM - Setze Velocity präzise
+	local targetVelocity = moveVector * self.speed
+	self.bodyVelocity.Velocity = targetVelocity
+	
+	-- WICHTIG: BodyAngularVelocity auf NULL setzen um Driften zu verhindern
+	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+	
+	-- BodyPosition bleibt deaktiviert für freie 3D-Bewegung
+	self.bodyPosition.MaxForce = Vector3.new(0, 0, 0)
+end
+
+function FlySystem:SetSpeed(newSpeed)
+	self.speed = math.clamp(newSpeed, 1, 1000)
+end
+
+-- FLY KATEGORIE - ERSETZT DIE ALTE FLY FUNKTION
+local flyFrame = categoryFrames["Fly"]
+
+local flyButton = createButton(flyFrame, "Fly: OFF", 1)
+local flySpeedSlider = createSlider(flyFrame, "Fly Speed", 10, 200, 50, 2)
+
+flyButton.MouseButton1Click:Connect(function()
+	if FlySystem.enabled then
+		FlySystem:Disable()
+		flyButton.Text = "Fly: OFF"
+		flyButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+		isFlying = false
+	else
+		FlySystem:Enable()
+		flyButton.Text = "Fly: ON"
+		flyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+		isFlying = true
+	end
+end)
+
+-- Speed Update Integration
+local lastFlySpeed = 50
+RunService.Heartbeat:Connect(function()
+	local currentSpeed = flySpeedSlider()
+	if currentSpeed ~= lastFlySpeed then
+		FlySystem:SetSpeed(currentSpeed)
+		lastFlySpeed = currentSpeed
+	end
+end)
+
+-- ME KATEGORIE
+local meFrame = categoryFrames["Me"]
+
+local giveItemsButton = createButton(meFrame, "Give All Items", 1)
+local walkSpeedSlider = createSlider(meFrame, "Walk Speed", 16, 200, 16, 2)
+local jumpHeightSlider = createSlider(meFrame, "Jump Height", 7.2, 50, 7.2, 3)
+local noclipButton = createButton(meFrame, "Noclip: OFF", 4)
+
 giveItemsButton.MouseButton1Click:Connect(function()
 	local character = LocalPlayer.Character
 	if character then
@@ -98,13 +875,157 @@ noclipButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Character Respawn Handler für Ghost - NEUER HANDLER
+-- UNDERGROUND GHOST MODE SYSTEM - KOMPLETT NEU MIT VISUAL CLONE
+local UndergroundGhostSystem = {}
+UndergroundGhostSystem.enabled = false
+UndergroundGhostSystem.updateConnection = nil
+UndergroundGhostSystem.visualClone = nil
+UndergroundGhostSystem.originalParts = {}
+
+function UndergroundGhostSystem:Enable()
+	if self.enabled then return end
+	
+	local character = LocalPlayer.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then
+		warn("Ghost Error: Character oder HumanoidRootPart nicht gefunden")
+		return
+	end
+	
+	print("Underground Ghost Mode aktivieren...")
+	
+	self.enabled = true
+	self.originalParts = {}
+	
+	-- Erstelle visuellen Clone für lokale Anzeige
+	self.visualClone = Instance.new("Model")
+	self.visualClone.Name = "VisualGhostClone"
+	
+	-- Clone alle Teile für visuelle Darstellung
+	for _, part in pairs(character:GetDescendants()) do
+		if part:IsA("BasePart") or part:IsA("Decal") or part:IsA("MeshPart") then
+			local clone = part:Clone()
+			clone.Parent = self.visualClone
+			
+			-- Mache Clone nur lokal sichtbar
+			if clone:IsA("BasePart") then
+				clone.CanCollide = false
+				clone.Anchored = true
+			end
+		end
+	end
+	
+	self.visualClone.Parent = Workspace
+	
+	-- Update Loop
+	self.updateConnection = RunService.Heartbeat:Connect(function()
+		if not self.enabled then return end
+		
+		local char = LocalPlayer.Character
+		if not char or not char:FindFirstChild("HumanoidRootPart") then
+			self:Disable()
+			return
+		end
+		
+		local rootPart = char.HumanoidRootPart
+		local humanoid = char:FindFirstChild("Humanoid")
+		
+		-- 1. Teleportiere echten Character unter die Map (für Server/andere Spieler)
+		local currentCFrame = rootPart.CFrame
+		local undergroundCFrame = currentCFrame - Vector3.new(0, currentCFrame.Y - ghostOffset, 0)
+		rootPart.CFrame = undergroundCFrame
+		
+		-- 2. Update Visual Clone an normaler Position (nur für dich sichtbar)
+		if self.visualClone and self.visualClone:FindFirstChild("HumanoidRootPart") then
+			local visualRoot = self.visualClone.HumanoidRootPart
+			
+			-- Setze Clone auf normale Höhe
+			local normalCFrame = currentCFrame - Vector3.new(0, currentCFrame.Y - (currentCFrame.Y - ghostOffset), 0)
+			visualRoot.CFrame = normalCFrame + Vector3.new(0, -ghostOffset, 0)
+			
+			-- Update alle Teile des Clones relativ zum Root
+			for _, part in pairs(char:GetDescendants()) do
+				if part:IsA("BasePart") and part ~= rootPart then
+					local clonePart = self.visualClone:FindFirstChild(part.Name)
+					if clonePart and clonePart:IsA("BasePart") then
+						local offset = part.CFrame:ToObjectSpace(rootPart.CFrame)
+						clonePart.CFrame = visualRoot.CFrame:ToWorldSpace(offset)
+					end
+				end
+			end
+		end
+		
+		-- 3. Setze Kamera auf Visual Clone
+		if humanoid and Camera.CameraSubject == humanoid then
+			if self.visualClone:FindFirstChild("Humanoid") then
+				Camera.CameraSubject = self.visualClone.Humanoid
+			end
+		end
+	end)
+	
+	print("Underground Ghost aktiviert!")
+	print("✓ Dein echter Character: Y = " .. ghostOffset .. " (unsichtbar für andere)")
+	print("✓ Visual Clone: Normale Position (nur du siehst ihn)")
+end
+
+function UndergroundGhostSystem:Disable()
+	if not self.enabled then return end
+	
+	print("Underground Ghost Mode deaktivieren...")
+	
+	-- Cleanup Connection
+	if self.updateConnection then
+		self.updateConnection:Disconnect()
+		self.updateConnection = nil
+	end
+	
+	-- Entferne Visual Clone
+	if self.visualClone then
+		self.visualClone:Destroy()
+		self.visualClone = nil
+	end
+	
+	-- Bringe echten Character zurück nach oben
+	local character = LocalPlayer.Character
+	if character and character:FindFirstChild("HumanoidRootPart") then
+		local rootPart = character.HumanoidRootPart
+		local currentPos = rootPart.Position
+		
+		-- Teleportiere nach oben
+		rootPart.CFrame = CFrame.new(Vector3.new(currentPos.X, currentPos.Y - ghostOffset, currentPos.Z))
+		
+		-- Setze Kamera zurück
+		local humanoid = character:FindFirstChild("Humanoid")
+		if humanoid then
+			Camera.CameraSubject = humanoid
+		end
+	end
+	
+	self.enabled = false
+	print("Underground Ghost deaktiviert")
+end
+
+-- Ghost Button
+local ghostButton = createButton(meFrame, "Ghost: OFF", 5)
+
+ghostButton.MouseButton1Click:Connect(function()
+	if UndergroundGhostSystem.enabled then
+		UndergroundGhostSystem:Disable()
+		ghostButton.Text = "Ghost: OFF"
+		ghostButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+		isGhostEnabled = false
+	else
+		UndergroundGhostSystem:Enable()
+		ghostButton.Text = "Ghost: ON"
+		ghostButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+		isGhostEnabled = true
+	end
+end)
+
+-- Character Respawn Handler für Ghost
 LocalPlayer.CharacterAdded:Connect(function(character)
 	if isGhostEnabled then
-		-- Warte bis Character vollständig geladen ist
-		character:WaitForChild("HumanoidRootPart")
-		wait(2)  -- Zusätzliche Wartezeit für vollständiges Laden
-		GhostSystem:Enable()
+		wait(2)
+		UndergroundGhostSystem:Enable()
 	end
 end)
 
@@ -1105,1050 +2026,11 @@ end
 
 hideLoadScreen()
 
-print("Vyrxis Menu loaded successfully - NEUE VERBESSERTE GHOST SYSTEM!")
-print("✓ Character wird für andere unter die Map teleportiert (-10000 Y)")
-print("✓ Für dich: Normale Bewegung auf der Map mit visueller Darstellung")
+print("Vyrxis Menu loaded successfully - UNDERGROUND GHOST SYSTEM!")
+print("✓ Character wird unter die Map teleportiert (-10000 Y)")
+print("✓ Für dich: Normale Bewegung auf der Map möglich")
 print("✓ Für andere: Du bist unsichtbar/unter der Map")
-print("✓ Fake Character System für lokale Sicht aktiv")
-print("✓ Smooth Underground Teleportation System mit verbesserter Performance")-- Vyrxis Menu Script für Roblox - MIT VERBESSERTER GHOST FUNKTION
--- Alle Services laden
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
-local Workspace = game:GetService("Workspace")
-
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local Camera = Workspace.CurrentCamera
-
--- Variablen für Funktionen
-local isFlying = false
-local flySpeed = 50
-local flyBodyVelocity = nil
-local flyBodyAngularVelocity = nil
-local originalWalkSpeed = 16
-local originalJumpHeight = 7.2
-local isESPEnabled = false
-local isNoclipEnabled = false
-local isViewingPlayer = false
-local viewingPlayerName = ""
-local espColor = Color3.fromRGB(255, 0, 0)
-local espTransparency = 0.5
-local nametagsEnabled = false
-local nametagColor = Color3.fromRGB(255, 255, 255)
-local nametagSize = 14
-local selectedPlayer = ""
-local toggleKey = Enum.KeyCode.Insert
-local espHighlights = {}
-local nametags = {}
-local healthbars = {}
-
--- NEUE VERBESSERTE GHOST SYSTEM VARIABLEN
-local isGhostEnabled = false
-
--- GUI erstellen
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "VyrxisMenu"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
-
--- Load Screen erstellen
-local LoadScreen = Instance.new("Frame")
-LoadScreen.Name = "LoadScreen"
-LoadScreen.Size = UDim2.new(0, 500, 0, 300)
-LoadScreen.Position = UDim2.new(0.5, -250, 0.5, -150)
-LoadScreen.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-LoadScreen.BorderSizePixel = 0
-LoadScreen.Parent = ScreenGui
-
-local LoadScreenCorner = Instance.new("UICorner")
-LoadScreenCorner.CornerRadius = UDim.new(0, 20)
-LoadScreenCorner.Parent = LoadScreen
-
-local LoadGradient = Instance.new("UIGradient")
-LoadGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-LoadGradient.Rotation = 45
-LoadGradient.Parent = LoadScreen
-
-local LoadStroke = Instance.new("UIStroke")
-LoadStroke.Color = Color3.fromRGB(0, 200, 255)
-LoadStroke.Thickness = 2
-LoadStroke.Transparency = 0.3
-LoadStroke.Parent = LoadScreen
-
-local LoadText = Instance.new("TextLabel")
-LoadText.Name = "LoadText"
-LoadText.Size = UDim2.new(1, -40, 0, 60)
-LoadText.Position = UDim2.new(0, 20, 0, 50)
-LoadText.BackgroundTransparency = 1
-LoadText.Text = "Vyrxis Menu"
-LoadText.TextColor3 = Color3.fromRGB(255, 255, 255)
-LoadText.TextSize = 36
-LoadText.Font = Enum.Font.GothamBold
-LoadText.Parent = LoadScreen
-
-local LoadSubText = Instance.new("TextLabel")
-LoadSubText.Name = "LoadSubText"
-LoadSubText.Size = UDim2.new(1, -40, 0, 30)
-LoadSubText.Position = UDim2.new(0, 20, 0, 110)
-LoadSubText.BackgroundTransparency = 1
-LoadSubText.Text = "Starting..."
-LoadSubText.TextColor3 = Color3.fromRGB(180, 180, 180)
-LoadSubText.TextSize = 18
-LoadSubText.Font = Enum.Font.Gotham
-LoadSubText.Parent = LoadScreen
-
--- Load Bar
-local LoadBarBackground = Instance.new("Frame")
-LoadBarBackground.Size = UDim2.new(1, -80, 0, 8)
-LoadBarBackground.Position = UDim2.new(0, 40, 0, 200)
-LoadBarBackground.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-LoadBarBackground.BorderSizePixel = 0
-LoadBarBackground.Parent = LoadScreen
-
-local LoadBarCorner = Instance.new("UICorner")
-LoadBarCorner.CornerRadius = UDim.new(0, 4)
-LoadBarCorner.Parent = LoadBarBackground
-
-local LoadBar = Instance.new("Frame")
-LoadBar.Size = UDim2.new(0, 0, 1, 0)
-LoadBar.Position = UDim2.new(0, 0, 0, 0)
-LoadBar.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-LoadBar.BorderSizePixel = 0
-LoadBar.Parent = LoadBarBackground
-
-local LoadBarFillCorner = Instance.new("UICorner")
-LoadBarFillCorner.CornerRadius = UDim.new(0, 4)
-LoadBarFillCorner.Parent = LoadBar
-
-local LoadBarGradient = Instance.new("UIGradient")
-LoadBarGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 150, 255)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 200))
-}
-LoadBarGradient.Rotation = 0
-LoadBarGradient.Parent = LoadBar
-
--- Bubble-Effekte für Load Screen
-local bubbles = {}
-
-local function createBubble(parent, size, position, speed)
-	local bubble = Instance.new("Frame")
-	bubble.Size = size
-	bubble.Position = position
-	bubble.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-	bubble.BorderSizePixel = 0
-	bubble.BackgroundTransparency = 0.7
-	bubble.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = bubble
-
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 255))
-	}
-	gradient.Parent = bubble
-
-	local function animateBubble()
-		local moveInfo = TweenInfo.new(speed, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-		local moveTween = TweenService:Create(bubble, moveInfo, {
-			Position = UDim2.new(position.X.Scale, position.X.Offset + math.random(-50, 50), position.Y.Scale, position.Y.Offset + math.random(-30, 30)),
-			BackgroundTransparency = math.random(50, 90) / 100
-		})
-		moveTween:Play()
-	end
-
-	animateBubble()
-	return bubble
-end
-
--- Erstelle Bubbles
-for i = 1, 15 do
-	local size = UDim2.new(0, math.random(20, 80), 0, math.random(20, 80))
-	local position = UDim2.new(math.random(0, 100) / 100, 0, math.random(0, 100) / 100, 0)
-	local speed = math.random(3, 8)
-	local bubble = createBubble(ScreenGui, size, position, speed)
-	table.insert(bubbles, bubble)
-end
-
--- Load Screen Animation
-local loadTween = TweenService:Create(LoadText, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1), {TextTransparency = 0.3})
-loadTween:Play()
-
--- Main GUI Frames - Verbessertes Design passend zum LoadScreen
-local MainRahmen = Instance.new("Frame")
-MainRahmen.Name = "MainRahmen"
-MainRahmen.Size = UDim2.new(0, 700, 0, 30)
-MainRahmen.Position = UDim2.new(0.5, -350, 0.3, -15)
-MainRahmen.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-MainRahmen.BorderSizePixel = 0
-MainRahmen.Visible = false
-MainRahmen.Active = true
-MainRahmen.Draggable = true
-MainRahmen.Parent = ScreenGui
-
-local RahmenCorner = Instance.new("UICorner")
-RahmenCorner.CornerRadius = UDim.new(0, 20)
-RahmenCorner.Parent = MainRahmen
-
--- Gradient für MainRahmen
-local RahmenGradient = Instance.new("UIGradient")
-RahmenGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-RahmenGradient.Rotation = 45
-RahmenGradient.Parent = MainRahmen
-
--- Stroke für MainRahmen
-local RahmenStroke = Instance.new("UIStroke")
-RahmenStroke.Color = Color3.fromRGB(0, 200, 255)
-RahmenStroke.Thickness = 2
-RahmenStroke.Transparency = 0.3
-RahmenStroke.Parent = MainRahmen
-
-local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Size = UDim2.new(0, 200, 1, 0)
-TitleLabel.Position = UDim2.new(0, 15, 0, 0)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "Vyrxis Menu"
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.TextScaled = true
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-TitleLabel.Parent = MainRahmen
-
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
-MinimizeButton.Position = UDim2.new(1, -55, 0, 2.5)
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-MinimizeButton.Text = "-"
-MinimizeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinimizeButton.TextScaled = true
-MinimizeButton.Font = Enum.Font.GothamBold
-MinimizeButton.BorderSizePixel = 0
-MinimizeButton.Parent = MainRahmen
-
-local MinimizeCorner = Instance.new("UICorner")
-MinimizeCorner.CornerRadius = UDim.new(0, 8)
-MinimizeCorner.Parent = MinimizeButton
-
--- Stroke für Minimize Button
-local MinimizeStroke = Instance.new("UIStroke")
-MinimizeStroke.Color = Color3.fromRGB(0, 200, 255)
-MinimizeStroke.Thickness = 1
-MinimizeStroke.Transparency = 0.5
-MinimizeStroke.Parent = MinimizeButton
-
-local SettingsButton = Instance.new("TextButton")
-SettingsButton.Size = UDim2.new(0, 25, 0, 25)
-SettingsButton.Position = UDim2.new(1, -25, 0, 2.5)
-SettingsButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-SettingsButton.Text = "⚙"
-SettingsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-SettingsButton.TextScaled = true
-SettingsButton.Font = Enum.Font.GothamBold
-SettingsButton.BorderSizePixel = 0
-SettingsButton.Parent = MainRahmen
-
-local SettingsCorner = Instance.new("UICorner")
-SettingsCorner.CornerRadius = UDim.new(0, 8)
-SettingsCorner.Parent = SettingsButton
-
--- Stroke für Settings Button
-local SettingsStroke = Instance.new("UIStroke")
-SettingsStroke.Color = Color3.fromRGB(0, 200, 255)
-SettingsStroke.Thickness = 1
-SettingsStroke.Transparency = 0.5
-SettingsStroke.Parent = SettingsButton
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 700, 0, 400)
-MainFrame.Position = UDim2.new(0, 0, 1, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-MainFrame.BorderSizePixel = 0
-MainFrame.Visible = false
-MainFrame.Parent = MainRahmen
-
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 20)
-MainCorner.Parent = MainFrame
-
--- Gradient für MainFrame
-local MainGradient = Instance.new("UIGradient")
-MainGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-}
-MainGradient.Rotation = 45
-MainGradient.Parent = MainFrame
-
--- Stroke für MainFrame
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(0, 200, 255)
-MainStroke.Thickness = 2
-MainStroke.Transparency = 0.3
-MainStroke.Parent = MainFrame
-
--- Settings Frame
-local SettingsFrame = Instance.new("Frame")
-SettingsFrame.Name = "SettingsFrame"
-SettingsFrame.Size = UDim2.new(0, 300, 0, 200)
-SettingsFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-SettingsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-SettingsFrame.BorderSizePixel = 0
-SettingsFrame.Visible = false
-SettingsFrame.Parent = ScreenGui
-
-local SettingsFrameCorner = Instance.new("UICorner")
-SettingsFrameCorner.CornerRadius = UDim.new(0, 8)
-SettingsFrameCorner.Parent = SettingsFrame
-
-local CloseSettings = Instance.new("TextButton")
-CloseSettings.Size = UDim2.new(0, 20, 0, 20)
-CloseSettings.Position = UDim2.new(1, -25, 0, 5)
-CloseSettings.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-CloseSettings.Text = "X"
-CloseSettings.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseSettings.TextScaled = true
-CloseSettings.Font = Enum.Font.GothamBold
-CloseSettings.BorderSizePixel = 0
-CloseSettings.Parent = SettingsFrame
-
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 4)
-CloseCorner.Parent = CloseSettings
-
--- Keybind Settings
-local KeybindLabel = Instance.new("TextLabel")
-KeybindLabel.Size = UDim2.new(1, -20, 0, 30)
-KeybindLabel.Position = UDim2.new(0, 10, 0, 40)
-KeybindLabel.BackgroundTransparency = 1
-KeybindLabel.Text = "Toggle Key: " .. toggleKey.Name
-KeybindLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeybindLabel.TextScaled = true
-KeybindLabel.Font = Enum.Font.Gotham
-KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
-KeybindLabel.Parent = SettingsFrame
-
-local ChangeKeyButton = Instance.new("TextButton")
-ChangeKeyButton.Size = UDim2.new(0, 100, 0, 30)
-ChangeKeyButton.Position = UDim2.new(0.5, -50, 0, 80)
-ChangeKeyButton.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-ChangeKeyButton.Text = "Change Key"
-ChangeKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ChangeKeyButton.TextScaled = true
-ChangeKeyButton.Font = Enum.Font.Gotham
-ChangeKeyButton.BorderSizePixel = 0
-ChangeKeyButton.Parent = SettingsFrame
-
-local ChangeKeyCorner = Instance.new("UICorner")
-ChangeKeyCorner.CornerRadius = UDim.new(0, 4)
-ChangeKeyCorner.Parent = ChangeKeyButton
-
--- Kategorie Liste - Design Update
-local Liste = Instance.new("ScrollingFrame")
-Liste.Name = "Liste"
-Liste.Size = UDim2.new(0, 150, 1, -10)
-Liste.Position = UDim2.new(0, 5, 0, 5)
-Liste.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
-Liste.BorderSizePixel = 0
-Liste.ScrollBarThickness = 5
-Liste.Parent = MainFrame
-
-local ListeCorner = Instance.new("UICorner")
-ListeCorner.CornerRadius = UDim.new(0, 15)
-ListeCorner.Parent = Liste
-
--- Gradient für Liste
-local ListeGradient = Instance.new("UIGradient")
-ListeGradient.Color = ColorSequence.new{
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 25)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 12))
-}
-ListeGradient.Rotation = 45
-ListeGradient.Parent = Liste
-
--- Stroke für Liste
-local ListeStroke = Instance.new("UIStroke")
-ListeStroke.Color = Color3.fromRGB(0, 150, 200)
-ListeStroke.Thickness = 1
-ListeStroke.Transparency = 0.6
-ListeStroke.Parent = Liste
-
-local ListLayout = Instance.new("UIListLayout")
-ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.Padding = UDim.new(0, 5)
-ListLayout.Parent = Liste
-
--- Kategorien erstellen
-local categories = {"Fly", "Me", "Player", "ESP"}
-local categoryFrames = {}
-
-for i, category in pairs(categories) do
-	local categoryButton = Instance.new("TextButton")
-	categoryButton.Size = UDim2.new(1, -10, 0, 40)
-	categoryButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-	categoryButton.Text = category
-	categoryButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	categoryButton.TextScaled = true
-	categoryButton.Font = Enum.Font.GothamBold
-	categoryButton.BorderSizePixel = 0
-	categoryButton.LayoutOrder = i
-	categoryButton.Parent = Liste
-
-	local catCorner = Instance.new("UICorner")
-	catCorner.CornerRadius = UDim.new(0, 8)
-	catCorner.Parent = categoryButton
-
-	-- Stroke für Category Buttons
-	local catStroke = Instance.new("UIStroke")
-	catStroke.Color = Color3.fromRGB(0, 200, 255)
-	catStroke.Thickness = 1
-	catStroke.Transparency = 0.6
-	catStroke.Parent = categoryButton
-
-	-- Kategorie Frame erstellen
-	local categoryFrame = Instance.new("ScrollingFrame")
-	categoryFrame.Name = category .. "Frame"
-	categoryFrame.Size = UDim2.new(0, 530, 1, -10)
-	categoryFrame.Position = UDim2.new(0, 160, 0, 5)
-	categoryFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
-	categoryFrame.BorderSizePixel = 0
-	categoryFrame.ScrollBarThickness = 5
-	categoryFrame.Visible = false
-	categoryFrame.Parent = MainFrame
-
-	local catFrameCorner = Instance.new("UICorner")
-	catFrameCorner.CornerRadius = UDim.new(0, 15)
-	catFrameCorner.Parent = categoryFrame
-
-	-- Gradient für Category Frames
-	local catFrameGradient = Instance.new("UIGradient")
-	catFrameGradient.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 25)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 12))
-	}
-	catFrameGradient.Rotation = 45
-	catFrameGradient.Parent = categoryFrame
-
-	-- Stroke für Category Frames
-	local catFrameStroke = Instance.new("UIStroke")
-	catFrameStroke.Color = Color3.fromRGB(0, 150, 200)
-	catFrameStroke.Thickness = 1
-	catFrameStroke.Transparency = 0.6
-	catFrameStroke.Parent = categoryFrame
-
-	local catLayout = Instance.new("UIListLayout")
-	catLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	catLayout.Padding = UDim.new(0, 10)
-	catLayout.Parent = categoryFrame
-
-	categoryFrames[category] = categoryFrame
-
-	categoryButton.MouseButton1Click:Connect(function()
-		for name, frame in pairs(categoryFrames) do
-			frame.Visible = (name == category)
-		end
-	end)
-end
-
--- Hilfsfunktionen für GUI-Elemente
-local function createButton(parent, text, layoutOrder)
-	local button = Instance.new("TextButton")
-	button.Size = UDim2.new(1, -20, 0, 40)
-	button.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-	button.Text = text
-	button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	button.TextScaled = true
-	button.Font = Enum.Font.GothamBold
-	button.BorderSizePixel = 0
-	button.LayoutOrder = layoutOrder
-	button.Parent = parent
-
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
-	corner.Parent = button
-
-	-- Stroke für Buttons
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(0, 200, 255)
-	stroke.Thickness = 1
-	stroke.Transparency = 0.5
-	stroke.Parent = button
-
-	return button
-end
-
-local function createSlider(parent, text, minVal, maxVal, defaultVal, layoutOrder)
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(1, -20, 0, 60)
-	frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-	frame.BorderSizePixel = 0
-	frame.LayoutOrder = layoutOrder
-	frame.Parent = parent
-
-	local frameCorner = Instance.new("UICorner")
-	frameCorner.CornerRadius = UDim.new(0, 8)
-	frameCorner.Parent = frame
-
-	-- Gradient für Slider Frame
-	local frameGradient = Instance.new("UIGradient")
-	frameGradient.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 30)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 15))
-	}
-	frameGradient.Rotation = 45
-	frameGradient.Parent = frame
-
-	-- Stroke für Slider Frame
-	local frameStroke = Instance.new("UIStroke")
-	frameStroke.Color = Color3.fromRGB(0, 150, 200)
-	frameStroke.Thickness = 1
-	frameStroke.Transparency = 0.6
-	frameStroke.Parent = frame
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 0, 25)
-	label.Position = UDim2.new(0, 0, 0, 5)
-	label.BackgroundTransparency = 1
-	label.Text = text .. ": " .. defaultVal
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.TextScaled = true
-	label.Font = Enum.Font.GothamBold
-	label.Parent = frame
-
-	local slider = Instance.new("Frame")
-	slider.Size = UDim2.new(1, -20, 0, 20)
-	slider.Position = UDim2.new(0, 10, 0, 30)
-	slider.BackgroundColor3 = Color3.fromRGB(8, 8, 12)
-	slider.BorderSizePixel = 0
-	slider.Parent = frame
-
-	local sliderCorner = Instance.new("UICorner")
-	sliderCorner.CornerRadius = UDim.new(0, 10)
-	sliderCorner.Parent = slider
-
-	-- Stroke für Slider
-	local sliderStroke = Instance.new("UIStroke")
-	sliderStroke.Color = Color3.fromRGB(0, 200, 255)
-	sliderStroke.Thickness = 1
-	sliderStroke.Transparency = 0.7
-	sliderStroke.Parent = slider
-
-	local handle = Instance.new("TextButton")
-	handle.Size = UDim2.new(0, 20, 1, 0)
-	handle.Position = UDim2.new((defaultVal - minVal) / (maxVal - minVal), -10, 0, 0)
-	handle.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-	handle.Text = ""
-	handle.BorderSizePixel = 0
-	handle.Parent = slider
-
-	local handleCorner = Instance.new("UICorner")
-	handleCorner.CornerRadius = UDim.new(1, 0)
-	handleCorner.Parent = handle
-
-	-- Gradient für Handle
-	local handleGradient = Instance.new("UIGradient")
-	handleGradient.Color = ColorSequence.new{
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 220, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 200))
-	}
-	handleGradient.Rotation = 45
-	handleGradient.Parent = handle
-
-	local dragging = false
-	local currentValue = defaultVal
-
-	handle.MouseButton1Down:Connect(function()
-		dragging = true
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			local mouse = UserInputService:GetMouseLocation()
-			local relativePos = (mouse.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X
-			relativePos = math.clamp(relativePos, 0, 1)
-
-			handle.Position = UDim2.new(relativePos, -10, 0, 0)
-			currentValue = minVal + (maxVal - minVal) * relativePos
-			label.Text = text .. ": " .. math.floor(currentValue)
-		end
-	end)
-
-	return function() return math.floor(currentValue) end
-end
-
--- PROFESSIONELLES 3D FLY SYSTEM - KORRIGIERT GEGEN DRIFTEN
-local FlySystem = {}
-FlySystem.enabled = false
-FlySystem.speed = 50
-FlySystem.bodyVelocity = nil
-FlySystem.bodyPosition = nil
-FlySystem.bodyAngularVelocity = nil
-FlySystem.connection = nil
-
-function FlySystem:Enable()
-	if self.enabled then return end
-	
-	local character = LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-	
-	local humanoidRootPart = character.HumanoidRootPart
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	
-	if humanoid then
-		humanoid.PlatformStand = true
-	end
-	
-	-- BodyVelocity für Bewegung
-	self.bodyVelocity = Instance.new("BodyVelocity")
-	self.bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	self.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-	self.bodyVelocity.Parent = humanoidRootPart
-	
-	-- BodyAngularVelocity für stabile Rotation
-	self.bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+print("✓ Smooth Underground Teleportation System aktiv")locity = Instance.new("BodyAngularVelocity")
 	self.bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
 	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-	self.bodyAngularVelocity.Parent = humanoidRootPart
-	
-	-- BodyPosition für Positionsstabilisierung
-	self.bodyPosition = Instance.new("BodyPosition")
-	self.bodyPosition.MaxForce = Vector3.new(0, 0, 0) -- Komplett deaktiviert
-	self.bodyPosition.Position = humanoidRootPart.Position
-	self.bodyPosition.D = 2000 -- Höheres Damping gegen Driften
-	self.bodyPosition.P = 10000 -- Höhere Power für stabilere Kontrolle
-	self.bodyPosition.Parent = humanoidRootPart
-	
-	self.enabled = true
-	self:StartUpdateLoop()
-end
-
-function FlySystem:Disable()
-	if not self.enabled then return end
-	
-	local character = LocalPlayer.Character
-	if character then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.PlatformStand = false
-		end
-	end
-	
-	-- Cleanup aller Body Objects
-	if self.bodyVelocity then
-		self.bodyVelocity:Destroy()
-		self.bodyVelocity = nil
-	end
-	
-	if self.bodyPosition then
-		self.bodyPosition:Destroy()
-		self.bodyPosition = nil
-	end
-	
-	if self.bodyAngularVelocity then
-		self.bodyAngularVelocity:Destroy()
-		self.bodyAngularVelocity = nil
-	end
-	
-	if self.connection then
-		self.connection:Disconnect()
-		self.connection = nil
-	end
-	
-	self.enabled = false
-end
-
-function FlySystem:StartUpdateLoop()
-	if self.connection then
-		self.connection:Disconnect()
-	end
-	
-	self.connection = RunService.Heartbeat:Connect(function()
-		self:Update()
-	end)
-end
-
--- ANTI-DRIFT 3D UPDATE SYSTEM - KOMPLETT ÜBERARBEITET
-function FlySystem:Update()
-	if not self.enabled then return end
-	
-	local character = LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then
-		self:Disable()
-		return
-	end
-	
-	local humanoidRootPart = character.HumanoidRootPart
-	local camera = Camera
-	
-	-- Character Rotation - VOLLSTÄNDIGE 3D ROTATION (SOFORT)
-	local lookDirection = camera.CFrame.LookVector
-	local upDirection = camera.CFrame.UpVector
-	local rightDirection = camera.CFrame.RightVector
-	
-	-- Neue CFrame für Character basierend auf Kamera - VOLLSTÄNDIGE 3D ROTATION
-	local newCFrame = CFrame.fromMatrix(humanoidRootPart.Position, rightDirection, upDirection, -lookDirection)
-	humanoidRootPart.CFrame = newCFrame
-	
-	-- BEWEGUNGSBERECHNUNG - VOLLSTÄNDIG 3D
-	local moveVector = Vector3.new(0, 0, 0)
-	
-	-- Input Detection
-	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-		moveVector = moveVector + lookDirection -- Vollständige 3D-Richtung
-	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-		moveVector = moveVector - lookDirection
-	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-		moveVector = moveVector - rightDirection
-	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-		moveVector = moveVector + rightDirection
-	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-		moveVector = moveVector + Vector3.new(0, 1, 0)
-	end
-	if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-		moveVector = moveVector + Vector3.new(0, -1, 0)
-	end
-	
-	-- Normalisierung für konsistente Geschwindigkeit
-	if moveVector.Magnitude > 0 then
-		moveVector = moveVector.Unit
-	end
-	
-	-- ANTI-DRIFT SYSTEM - Setze Velocity präzise
-	local targetVelocity = moveVector * self.speed
-	self.bodyVelocity.Velocity = targetVelocity
-	
-	-- WICHTIG: BodyAngularVelocity auf NULL setzen um Driften zu verhindern
-	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
-	
-	-- BodyPosition bleibt deaktiviert für freie 3D-Bewegung
-	self.bodyPosition.MaxForce = Vector3.new(0, 0, 0)
-end
-
-function FlySystem:SetSpeed(newSpeed)
-	self.speed = math.clamp(newSpeed, 1, 1000)
-end
-
--- NEUE VERBESSERTE GHOST SYSTEM - ERSETZT DAS ALTE KOMPLETT
-local GhostSystem = {}
-GhostSystem.enabled = false
-GhostSystem.ghostOffset = -10000  -- Wie weit unter der Map teleportiert werden soll
-GhostSystem.updateConnection = nil
-GhostSystem.fakeCharacter = nil
-GhostSystem.ghostBodyPosition = nil
-GhostSystem.realCharacterParts = {}
-
-function GhostSystem:Enable()
-	if self.enabled then return end
-	
-	local character = LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then
-		print("Ghost Error: Character oder HumanoidRootPart nicht gefunden")
-		return
-	end
-	
-	local humanoidRootPart = character.HumanoidRootPart
-	
-	print("Aktiviere Verbesserte Ghost Mode...")
-	
-	-- Speichere alle Character Parts
-	for _, part in pairs(character:GetChildren()) do
-		if part:IsA("BasePart") then
-			self.realCharacterParts[part.Name] = {
-				part = part,
-				originalTransparency = part.Transparency,
-				originalCanCollide = part.CanCollide
-			}
-		end
-	end
-	
-	-- Erstelle BodyPosition für Underground Teleportation
-	self.ghostBodyPosition = Instance.new("BodyPosition")
-	self.ghostBodyPosition.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-	self.ghostBodyPosition.P = 50000  -- Sehr hohe Power für sofortige Teleportation
-	self.ghostBodyPosition.D = 5000   -- Damping für smooth movement
-	self.ghostBodyPosition.Parent = humanoidRootPart
-	
-	-- Erstelle Fake Character für lokale Sicht
-	self:CreateFakeCharacter()
-	
-	self.enabled = true
-	
-	-- Update Loop starten
-	self.updateConnection = RunService.Heartbeat:Connect(function()
-		self:Update()
-	end)
-	
-	print("Ghost Mode aktiviert - Du bist für andere unter der Map, für dich normal sichtbar")
-end
-
-function GhostSystem:Disable()
-	if not self.enabled then return end
-	
-	print("Deaktiviere Ghost Mode...")
-	
-	-- Cleanup
-	if self.updateConnection then
-		self.updateConnection:Disconnect()
-		self.updateConnection = nil
-	end
-	
-	if self.ghostBodyPosition then
-		self.ghostBodyPosition:Destroy()
-		self.ghostBodyPosition = nil
-	end
-	
-	-- Fake Character entfernen
-	if self.fakeCharacter then
-		self.fakeCharacter:Destroy()
-		self.fakeCharacter = nil
-	end
-	
-	-- Echten Character wieder sichtbar machen
-	local character = LocalPlayer.Character
-	if character then
-		for partName, partData in pairs(self.realCharacterParts) do
-			if partData.part and partData.part.Parent then
-				partData.part.Transparency = partData.originalTransparency
-				partData.part.CanCollide = partData.originalCanCollide
-			end
-		end
-	end
-	
-	self.realCharacterParts = {}
-	self.enabled = false
-	print("Ghost Mode deaktiviert")
-end
-
-function GhostSystem:CreateFakeCharacter()
-	local character = LocalPlayer.Character
-	if not character then return end
-	
-	-- Echten Character für lokalen Spieler unsichtbar machen
-	for _, part in pairs(character:GetChildren()) do
-		if part:IsA("BasePart") then
-			part.Transparency = 1  -- Komplett unsichtbar für lokalen Spieler
-		elseif part:IsA("Accessory") and part:FindFirstChild("Handle") then
-			part.Handle.Transparency = 1
-		end
-	end
-	
-	-- Erstelle Fake Character Model für visuelle Darstellung
-	self.fakeCharacter = Instance.new("Model")
-	self.fakeCharacter.Name = "VyrxisFakeCharacter"
-	self.fakeCharacter.Parent = Workspace
-	
-	-- Erstelle Fake Head
-	local realHead = character:FindFirstChild("Head")
-	if realHead then
-		local fakeHead = Instance.new("Part")
-		fakeHead.Name = "FakeHead"
-		fakeHead.Size = realHead.Size
-		fakeHead.Shape = Enum.PartType.Block
-		fakeHead.Material = Enum.Material.Neon
-		fakeHead.BrickColor = BrickColor.new("Bright blue")
-		fakeHead.Transparency = 0.3
-		fakeHead.CanCollide = false
-		fakeHead.Anchored = true
-		fakeHead.Parent = self.fakeCharacter
-		
-		-- Runde Ecken
-		local corner = Instance.new("SpecialMesh")
-		corner.MeshType = Enum.MeshType.Head
-		corner.Scale = Vector3.new(1.25, 1.25, 1.25)
-		corner.Parent = fakeHead
-		
-		-- Glowing Effekt
-		local pointLight = Instance.new("PointLight")
-		pointLight.Brightness = 1.5
-		pointLight.Color = Color3.fromRGB(0, 150, 255)
-		pointLight.Range = 8
-		pointLight.Parent = fakeHead
-	end
-	
-	-- Erstelle Fake Torso
-	local realTorso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-	if realTorso then
-		local fakeTorso = Instance.new("Part")
-		fakeTorso.Name = "FakeTorso"
-		fakeTorso.Size = realTorso.Size
-		fakeTorso.Shape = Enum.PartType.Block
-		fakeTorso.Material = Enum.Material.Neon
-		fakeTorso.BrickColor = BrickColor.new("Bright blue")
-		fakeTorso.Transparency = 0.4
-		fakeTorso.CanCollide = false
-		fakeTorso.Anchored = true
-		fakeTorso.Parent = self.fakeCharacter
-	end
-	
-	-- Erstelle Fake Arms
-	for _, armName in pairs({"Left Arm", "Right Arm", "LeftUpperArm", "RightUpperArm"}) do
-		local realArm = character:FindFirstChild(armName)
-		if realArm then
-			local fakeArm = Instance.new("Part")
-			fakeArm.Name = "Fake" .. armName:gsub(" ", "")
-			fakeArm.Size = realArm.Size
-			fakeArm.Shape = Enum.PartType.Block
-			fakeArm.Material = Enum.Material.Neon
-			fakeArm.BrickColor = BrickColor.new("Bright blue")
-			fakeArm.Transparency = 0.5
-			fakeArm.CanCollide = false
-			fakeArm.Anchored = true
-			fakeArm.Parent = self.fakeCharacter
-		end
-	end
-	
-	-- Erstelle Fake Legs
-	for _, legName in pairs({"Left Leg", "Right Leg", "LeftUpperLeg", "RightUpperLeg"}) do
-		local realLeg = character:FindFirstChild(legName)
-		if realLeg then
-			local fakeLeg = Instance.new("Part")
-			fakeLeg.Name = "Fake" .. legName:gsub(" ", "")
-			fakeLeg.Size = realLeg.Size
-			fakeLeg.Shape = Enum.PartType.Block
-			fakeLeg.Material = Enum.Material.Neon
-			fakeLeg.BrickColor = BrickColor.new("Bright blue")
-			fakeLeg.Transparency = 0.5
-			fakeLeg.CanCollide = false
-			fakeLeg.Anchored = true
-			fakeLeg.Parent = self.fakeCharacter
-		end
-	end
-end
-
-function GhostSystem:Update()
-	if not self.enabled then return end
-	
-	local character = LocalPlayer.Character
-	if not character or not character:FindFirstChild("HumanoidRootPart") then
-		self:Disable()
-		return
-	end
-	
-	local humanoidRootPart = character.HumanoidRootPart
-	local currentPos = humanoidRootPart.Position
-	
-	-- Für andere Spieler: Character unter die Map teleportieren
-	if self.ghostBodyPosition then
-		self.ghostBodyPosition.Position = Vector3.new(currentPos.X, self.ghostOffset, currentPos.Z)
-	end
-	
-	-- Fake Character Position für lokale Sicht updaten
-	if self.fakeCharacter then
-		for _, fakePart in pairs(self.fakeCharacter:GetChildren()) do
-			if fakePart:IsA("BasePart") then
-				local offset = Vector3.new(0, 0, 0)
-				
-				-- Positioniere Fake Parts relativ zum echten Character
-				if fakePart.Name == "FakeHead" then
-					local realHead = character:FindFirstChild("Head")
-					if realHead then
-						fakePart.CFrame = realHead.CFrame
-					end
-				elseif fakePart.Name == "FakeTorso" then
-					local realTorso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-					if realTorso then
-						fakePart.CFrame = realTorso.CFrame
-					end
-				elseif fakePart.Name:find("Arm") then
-					-- Positioniere Arms
-					local realArmName = fakePart.Name:gsub("Fake", ""):gsub("([A-Z])", " %1"):sub(2)
-					local realArm = character:FindFirstChild(realArmName)
-					if realArm then
-						fakePart.CFrame = realArm.CFrame
-					end
-				elseif fakePart.Name:find("Leg") then
-					-- Positioniere Legs
-					local realLegName = fakePart.Name:gsub("Fake", ""):gsub("([A-Z])", " %1"):sub(2)
-					local realLeg = character:FindFirstChild(realLegName)
-					if realLeg then
-						fakePart.CFrame = realLeg.CFrame
-					end
-				end
-			end
-		end
-	end
-	
-	-- Stelle sicher, dass der echte Character für den lokalen Spieler unsichtbar bleibt
-	for partName, partData in pairs(self.realCharacterParts) do
-		if partData.part and partData.part.Parent then
-			partData.part.Transparency = 1  -- Komplett unsichtbar für lokalen Spieler
-		end
-	end
-end
-
--- FLY KATEGORIE - ERSETZT DIE ALTE FLY FUNKTION
-local flyFrame = categoryFrames["Fly"]
-
-local flyButton = createButton(flyFrame, "Fly: OFF", 1)
-local flySpeedSlider = createSlider(flyFrame, "Fly Speed", 10, 200, 50, 2)
-
-flyButton.MouseButton1Click:Connect(function()
-	if FlySystem.enabled then
-		FlySystem:Disable()
-		flyButton.Text = "Fly: OFF"
-		flyButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-		isFlying = false
-	else
-		FlySystem:Enable()
-		flyButton.Text = "Fly: ON"
-		flyButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-		isFlying = true
-	end
-end)
-
--- Speed Update Integration
-local lastFlySpeed = 50
-RunService.Heartbeat:Connect(function()
-	local currentSpeed = flySpeedSlider()
-	if currentSpeed ~= lastFlySpeed then
-		FlySystem:SetSpeed(currentSpeed)
-		lastFlySpeed = currentSpeed
-	end
-end)
-
--- ME KATEGORIE
-local meFrame = categoryFrames["Me"]
-
-local giveItemsButton = createButton(meFrame, "Give All Items", 1)
-local walkSpeedSlider = createSlider(meFrame, "Walk Speed", 16, 200, 16, 2)
-local jumpHeightSlider = createSlider(meFrame, "Jump Height", 7.2, 50, 7.2, 3)
-local noclipButton = createButton(meFrame, "Noclip: OFF", 4)
-
--- NEUE GHOST BUTTON - ERSETZT DEN ALTEN KOMPLETT
-local ghostButton = createButton(meFrame, "Ghost: OFF", 5)
-
-ghostButton.MouseButton1Click:Connect(function()
-	if GhostSystem.enabled then
-		GhostSystem:Disable()
-		ghostButton.Text = "Ghost: OFF"
-		ghostButton.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-		isGhostEnabled = false
-	else
-		GhostSystem:Enable()
-		ghostButton.Text = "Ghost: ON"
-		ghostButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-		isGhostEnabled = true
-	end
-end)
+	self.bodyAngularVe
