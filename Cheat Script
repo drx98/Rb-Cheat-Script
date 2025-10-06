@@ -1,5 +1,5 @@
--- Vyrxis Menu - Bubble Style Edition
--- Komplett neues Design mit Bubble Aesthetics
+-- Vyrxis Menu - Bubble Style Edition (Extended)
+-- Komplett neues Design mit Bubble Aesthetics + Neue Funktionen
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
@@ -28,6 +28,20 @@ local espHighlights = {}
 local nametags = {}
 local healthbars = {}
 
+-- Neue Feature Variablen
+local isFollowingPlayer = false
+local followConnection = nil
+local followWalkAnimation = "Default"
+local followDistance = 5
+local isOrbitingPlayer = false
+local orbitConnection = nil
+local orbitSpeed = 50
+local orbitRadius = 10
+local orbitAngle = 0
+local isSpinning = false
+local spinConnection = nil
+local spinSpeed = 5
+
 -- Settings Speicher-System
 local SettingsSaver = {}
 local settingsFileName = "VyrxisMenu_Settings_" .. LocalPlayer.UserId .. ".json"
@@ -44,7 +58,12 @@ local defaultSettings = {
 	nametagSize = 14,
 	espColorR = 255,
 	espColorG = 0,
-	espColorB = 0
+	espColorB = 0,
+	orbitSpeed = 50,
+	orbitRadius = 10,
+	spinSpeed = 5,
+	followAnimation = "Default",
+	followDistance = 5
 }
 
 function SettingsSaver:Save(settings)
@@ -91,6 +110,11 @@ espColor = Color3.fromRGB(
 	savedSettings.espColorB or 0
 )
 espTransparency = (savedSettings.espTransparency or 50) / 100
+orbitSpeed = savedSettings.orbitSpeed or 50
+orbitRadius = savedSettings.orbitRadius or 10
+spinSpeed = savedSettings.spinSpeed or 5
+followWalkAnimation = savedSettings.followAnimation or "Default"
+followDistance = savedSettings.followDistance or 5
 
 -- FLY SYSTEM
 local FlySystem = {}
@@ -373,47 +397,7 @@ local function createMenu()
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					dragging = false
-					-- Bring Player
-				local bringRow = Instance.new("Frame")
-				bringRow.Size = UDim2.new(1, -16, 0, 36)
-				bringRow.Position = UDim2.new(0, 8, 0.9, 0)
-				bringRow.BackgroundTransparency = 1
-				bringRow.Parent = playerContent
-
-				local bringText = Instance.new("TextLabel")
-				bringText.Size = UDim2.new(1, -120, 1, 0)
-				bringText.BackgroundTransparency = 1
-				bringText.Text = "Bring Player"
-				bringText.TextXAlignment = Enum.TextXAlignment.Left
-				bringText.TextColor3 = Color3.fromRGB(64, 224, 208)
-				bringText.TextScaled = true
-				bringText.Font = Enum.Font.SourceSansBold
-				bringText.Parent = bringRow
-
-				local bringButton = Instance.new("ImageButton")
-				bringButton.Size = UDim2.new(0, 26, 0, 26)
-				bringButton.Position = UDim2.new(1, -4, 0.5, 0)
-				bringButton.AnchorPoint = Vector2.new(1, 0.5)
-				bringButton.BackgroundTransparency = 1
-				bringButton.Image = "rbxassetid://101366472762102"
-				bringButton.Parent = bringRow
-
-				bringButton.MouseButton1Click:Connect(function()
-					if selectedPlayer ~= "" then
-						local targetPlayer = Players:FindFirstChild(selectedPlayer)
-						local character = LocalPlayer.Character
-						if targetPlayer and targetPlayer.Character and character and character:FindFirstChild("HumanoidRootPart") then
-							local targetCharacter = targetPlayer.Character
-							if targetCharacter:FindFirstChild("HumanoidRootPart") then
-								-- Versuche den Spieler zu dir zu bringen
-								-- Diese Methode funktioniert nur in bestimmten Spielen
-								local yourPos = character.HumanoidRootPart.CFrame
-								targetCharacter.HumanoidRootPart.CFrame = yourPos * CFrame.new(0, 0, -3)
-							end
-						end
-					end
-				end)
-			end
+				end
 			end)
 		end
 	end)
@@ -491,7 +475,6 @@ local function createMenu()
 				keyButton.Text = "Press Key"
 				conn:Disconnect()
 				
-				-- Speichere in Tabelle (wird erst beim Klick auf Save gespeichert)
 				savedSettings.toggleKey = toggleKey.Name
 			end
 		end)
@@ -515,7 +498,6 @@ local function createMenu()
 	saveButton.MouseButton1Click:Connect(function()
 		local success = SettingsSaver:Save(savedSettings)
 		if success then
-			-- Visuelles Feedback
 			saveButton.Text = "Saved!"
 			saveButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
 			task.wait(1)
@@ -559,17 +541,16 @@ local function createMenu()
 	rightContainer.Position = UDim2.new(0.95, 0, 0.55, 0)
 	rightContainer.BackgroundTransparency = 1
 
-	-- Persistente Kategorie-Frames (werden nicht zerstört, nur versteckt)
+	-- Persistente Kategorie-Frames
 	local categoryFrames = {}
 	
-	-- Globale Key-Listener (funktionieren unabhängig von geöffneten Kategorien)
+	-- Globale Key-Listener
 	local globalFlyKey = Enum.KeyCode[savedSettings.flyKey] or Enum.KeyCode.F
 	local globalSpeedKey = Enum.KeyCode[savedSettings.speedKey] or Enum.KeyCode.LeftControl
 	local globalSpeedEnabled = false
 	local globalCustomWalkSpeed = savedSettings.walkSpeed or 16
 	local globalCustomJumpHeight = savedSettings.jumpHeight or 50
 	
-	-- Setze gespeicherte Fly Speed
 	FlySystem:SetSpeed(savedSettings.flySpeed or 50)
 
 	-- Globaler Fly Toggle Listener
@@ -602,20 +583,26 @@ local function createMenu()
 
 	-- Slider Factory
 	local function createSlider(parent, labelText, minVal, maxVal, defaultVal)
+		local containerFrame = Instance.new("Frame")
+		containerFrame.Size = UDim2.new(1, -16, 0, 56)
+		containerFrame.BackgroundTransparency = 1
+		containerFrame.Parent = parent
+		
 		local label = Instance.new("TextLabel")
-		label.Size = UDim2.new(1, -16, 0, 20)
+		label.Size = UDim2.new(1, 0, 0, 20)
 		label.BackgroundTransparency = 1
 		label.Text = labelText
 		label.TextXAlignment = Enum.TextXAlignment.Left
 		label.TextColor3 = Color3.fromRGB(64, 224, 208)
 		label.TextScaled = true
 		label.Font = Enum.Font.SourceSansBold
-		label.Parent = parent
+		label.Parent = containerFrame
 
 		local sliderFrame = Instance.new("Frame")
-		sliderFrame.Size = UDim2.new(1, -16, 0, 28)
+		sliderFrame.Size = UDim2.new(1, 0, 0, 28)
+		sliderFrame.Position = UDim2.new(0, 0, 0, 28)
 		sliderFrame.BackgroundTransparency = 1
-		sliderFrame.Parent = parent
+		sliderFrame.Parent = containerFrame
 
 		local sliderBar = Instance.new("Frame")
 		sliderBar.Size = UDim2.new(1, -50, 0, 6)
@@ -707,35 +694,32 @@ local function createMenu()
 		corner.CornerRadius = UDim.new(0, 6)
 		corner.Parent = button
 
-		-- Speichere Status der Toggles für jede Kategorie
 		local categoryStates = {
 			flyEnabled = false,
 			noclipEnabled = false,
 			speedEnabled = false,
 			espEnabled = false,
 			nametagsEnabled = false,
-			viewEnabled = false
+			viewEnabled = false,
+			followEnabled = false,
+			orbitEnabled = false,
+			spinEnabled = false
 		}
 
 		button.MouseButton1Click:Connect(function()
-			-- Wenn Frame bereits existiert, nur Sichtbarkeit umschalten
 			if categoryFrames[name] then
 				local isVisible = categoryFrames[name].Visible
-				-- Verstecke alle anderen Frames
 				for _, frame in pairs(categoryFrames) do
 					frame.Visible = false
 				end
-				-- Toggle aktuellen Frame
 				categoryFrames[name].Visible = not isVisible
 				return
 			end
 			
-			-- Verstecke alle anderen Frames
 			for _, frame in pairs(categoryFrames) do
 				frame.Visible = false
 			end
 
-			-- Erstelle neuen Frame und speichere ihn
 			local subFrame = Instance.new("ScrollingFrame")
 			subFrame.Name = name .. "Frame"
 			subFrame.Size = UDim2.new(0.57, 0, 0.76, 0)
@@ -745,7 +729,6 @@ local function createMenu()
 			subFrame.Visible = true
 			subFrame.Parent = rightContainer
 			
-			-- Speichere Frame für spätere Verwendung
 			categoryFrames[name] = subFrame
 
 			local listLayout = Instance.new("UIListLayout")
@@ -800,7 +783,6 @@ local function createMenu()
 					updateFlyState(not FlySystem.enabled)
 				end)
 				
-				-- Update Toggle Image basierend auf FlySystem Status
 				RunService.Heartbeat:Connect(function()
 					if toggleImage and toggleImage.Parent then
 						toggleImage.Image = FlySystem.enabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
@@ -816,7 +798,6 @@ local function createMenu()
 					end
 				end)
 
-				-- Fly Toggle Key Row
 				local flyKeyRow = Instance.new("Frame")
 				flyKeyRow.Size = UDim2.new(1, -16, 0, 36)
 				flyKeyRow.BackgroundTransparency = 1
@@ -969,13 +950,12 @@ local function createMenu()
 					end
 				end)
 
-				-- Walk-Jump Speed System mit Toggle
+				-- Walk-Jump Speed System
 				local speedEnabled = globalSpeedEnabled
 				local speedKey = Enum.KeyCode[savedSettings.speedKey] or Enum.KeyCode.LeftControl
 				local customWalkSpeed = savedSettings.walkSpeed or 16
 				local customJumpHeight = savedSettings.jumpHeight or 50
 
-				-- Walk-Jump Speed Toggle Row
 				local speedToggleRow = Instance.new("Frame")
 				speedToggleRow.Size = UDim2.new(1, -16, 0, 36)
 				speedToggleRow.BackgroundTransparency = 1
@@ -1019,14 +999,12 @@ local function createMenu()
 					updateSpeedState(not globalSpeedEnabled)
 				end)
 				
-				-- Update Toggle Image basierend auf globalSpeedEnabled
 				RunService.Heartbeat:Connect(function()
 					if speedToggleButton and speedToggleButton.Parent then
 						speedToggleButton.Image = globalSpeedEnabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
 					end
 				end)
 
-				-- WalkSpeed Slider
 				local wsBox = createSlider(subFrame, "Walk Speed", 16, 300, customWalkSpeed)
 				wsBox.Changed:Connect(function()
 					local val = tonumber(wsBox.Text)
@@ -1042,7 +1020,6 @@ local function createMenu()
 					end
 				end)
 
-				-- JumpHeight Slider
 				local jumpBox = createSlider(subFrame, "Jump Height", 7.2, 500, customJumpHeight)
 				jumpBox.Changed:Connect(function()
 					local val = tonumber(jumpBox.Text)
@@ -1058,7 +1035,6 @@ local function createMenu()
 					end
 				end)
 
-				-- Toggle Key Row
 				local speedKeyRow = Instance.new("Frame")
 				speedKeyRow.Size = UDim2.new(1, -16, 0, 36)
 				speedKeyRow.BackgroundTransparency = 1
@@ -1102,141 +1078,57 @@ local function createMenu()
 					end)
 				end)
 
-				-- Size Changer mit Toggle (Verbesserte Version)
-				local sizeEnabled = false
-				local currentScale = 1
-				local originalScales = {}
-				local sizeConnection = nil
+				-- Spin Character
+				local spinRow = Instance.new("Frame")
+				spinRow.Size = UDim2.new(1, -16, 0, 36)
+				spinRow.BackgroundTransparency = 1
+				spinRow.Parent = subFrame
 
-				local sizeRow = Instance.new("Frame")
-				sizeRow.Size = UDim2.new(1, -16, 0, 36)
-				sizeRow.BackgroundTransparency = 1
-				sizeRow.Parent = subFrame
+				local spinText = Instance.new("TextLabel")
+				spinText.Size = UDim2.new(1, -120, 1, 0)
+				spinText.BackgroundTransparency = 1
+				spinText.Text = "Spin Character"
+				spinText.TextXAlignment = Enum.TextXAlignment.Left
+				spinText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				spinText.TextScaled = true
+				spinText.Font = Enum.Font.SourceSansBold
+				spinText.Parent = spinRow
 
-				local sizeText = Instance.new("TextLabel")
-				sizeText.Size = UDim2.new(1, -160, 1, 0)
-				sizeText.BackgroundTransparency = 1
-				sizeText.Text = "Character Size"
-				sizeText.TextXAlignment = Enum.TextXAlignment.Left
-				sizeText.TextColor3 = Color3.fromRGB(64, 224, 208)
-				sizeText.TextScaled = true
-				sizeText.Font = Enum.Font.SourceSansBold
-				sizeText.Parent = sizeRow
+				local spinToggle = Instance.new("ImageButton")
+				spinToggle.Size = UDim2.new(0, 36, 0, 21)
+				spinToggle.Position = UDim2.new(1, -4, 0.5, 0)
+				spinToggle.AnchorPoint = Vector2.new(1, 0.5)
+				spinToggle.BackgroundTransparency = 1
+				spinToggle.Image = "rbxassetid://82936764863537"
+				spinToggle.Parent = spinRow
 
-				local sizeToggle = Instance.new("ImageButton")
-				sizeToggle.Size = UDim2.new(0, 36, 0, 21)
-				sizeToggle.Position = UDim2.new(1, -4, 0.5, 0)
-				sizeToggle.AnchorPoint = Vector2.new(1, 0.5)
-				sizeToggle.BackgroundTransparency = 1
-				sizeToggle.Image = "rbxassetid://82936764863537"
-				sizeToggle.Parent = sizeRow
+				spinToggle.MouseButton1Click:Connect(function()
+					isSpinning = not isSpinning
+					spinToggle.Image = isSpinning and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
 
-				local function applySize(scale)
-					local character = LocalPlayer.Character
-					if not character then return end
-					
-					local humanoid = character:FindFirstChildOfClass("Humanoid")
-					if not humanoid then return end
-					
-					-- Methode 1: Versuche über Humanoid Description
-					pcall(function()
-						local description = humanoid:GetAppliedDescription()
-						if description then
-							description.HeightScale = scale
-							description.WidthScale = scale
-							description.DepthScale = scale
-							description.HeadScale = scale
-							humanoid:ApplyDescription(description)
-						end
-					end)
-					
-					-- Methode 2: Direkte Scale-Werte (als Fallback)
-					pcall(function()
-						for _, obj in pairs(humanoid:GetChildren()) do
-							if obj:IsA("NumberValue") then
-								if obj.Name:match("Scale") then
-									obj.Value = scale
-								end
-							end
-						end
-					end)
-				end
-
-				local function saveOriginalScales()
-					originalScales = {}
-					local character = LocalPlayer.Character
-					if not character then return end
-					
-					local humanoid = character:FindFirstChildOfClass("Humanoid")
-					if not humanoid then return end
-					
-					pcall(function()
-						local description = humanoid:GetAppliedDescription()
-						if description then
-							originalScales.height = description.HeightScale
-							originalScales.width = description.WidthScale
-							originalScales.depth = description.DepthScale
-							originalScales.head = description.HeadScale
-						end
-					end)
-				end
-
-				local function restoreOriginalScales()
-					local character = LocalPlayer.Character
-					if not character then return end
-					
-					local humanoid = character:FindFirstChildOfClass("Humanoid")
-					if not humanoid then return end
-					
-					if next(originalScales) ~= nil then
-						pcall(function()
-							local description = humanoid:GetAppliedDescription()
-							if description then
-								description.HeightScale = originalScales.height or 1
-								description.WidthScale = originalScales.width or 1
-								description.DepthScale = originalScales.depth or 1
-								description.HeadScale = originalScales.head or 1
-								humanoid:ApplyDescription(description)
+					if isSpinning then
+						if spinConnection then spinConnection:Disconnect() end
+						spinConnection = RunService.Heartbeat:Connect(function()
+							local character = LocalPlayer.Character
+							if character and character:FindFirstChild("HumanoidRootPart") then
+								local rootPart = character.HumanoidRootPart
+								rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(spinSpeed), 0)
 							end
 						end)
 					else
-						-- Fallback auf 1.0 wenn keine Originalwerte gespeichert
-						applySize(1)
-					end
-				end
-
-				sizeToggle.MouseButton1Click:Connect(function()
-					sizeEnabled = not sizeEnabled
-					sizeToggle.Image = sizeEnabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
-
-					if sizeEnabled then
-						saveOriginalScales()
-						applySize(currentScale)
-						
-						-- Kontinuierliche Anwendung um Resets zu verhindern
-						if sizeConnection then sizeConnection:Disconnect() end
-						sizeConnection = RunService.Heartbeat:Connect(function()
-							if sizeEnabled then
-								applySize(currentScale)
-							end
-						end)
-					else
-						if sizeConnection then 
-							sizeConnection:Disconnect() 
-							sizeConnection = nil
+						if spinConnection then
+							spinConnection:Disconnect()
+							spinConnection = nil
 						end
-						restoreOriginalScales()
 					end
 				end)
 
-				local sizeBox = createSlider(subFrame, "Size Scale", 0.5, 5, 1)
-				sizeBox.Changed:Connect(function()
-					local val = tonumber(sizeBox.Text)
+				local spinSpeedBox = createSlider(subFrame, "Spin Speed", 1, 20, spinSpeed)
+				spinSpeedBox.Changed:Connect(function()
+					local val = tonumber(spinSpeedBox.Text)
 					if val then
-						currentScale = val
-						if sizeEnabled then
-							applySize(currentScale)
-						end
+						spinSpeed = val
+						savedSettings.spinSpeed = val
 					end
 				end)
 
@@ -1277,14 +1169,19 @@ local function createMenu()
 
 			-- PLAYER TAB
 			if name == "PlayerButton" then
-				local playerContent = Instance.new("Frame")
+				local playerContent = Instance.new("ScrollingFrame")
 				playerContent.Size = UDim2.new(1, -16, 1, -16)
 				playerContent.BackgroundTransparency = 1
+				playerContent.ScrollBarThickness = 6
 				playerContent.Parent = subFrame
 
+				local playerLayout = Instance.new("UIListLayout")
+				playerLayout.Parent = playerContent
+				playerLayout.SortOrder = Enum.SortOrder.LayoutOrder
+				playerLayout.Padding = UDim.new(0, 8)
+
 				local searchBox = Instance.new("TextBox")
-				searchBox.Size = UDim2.new(1, -8, 0, 28)
-				searchBox.Position = UDim2.new(0, 4, 0, 0)
+				searchBox.Size = UDim2.new(1, 0, 0, 28)
 				searchBox.PlaceholderText = "Search Player..."
 				searchBox.Text = ""
 				searchBox.ClearTextOnFocus = false
@@ -1298,13 +1195,22 @@ local function createMenu()
 				searchCorner.CornerRadius = UDim.new(0, 6)
 				searchCorner.Parent = searchBox
 
+				local playerListFrame = Instance.new("Frame")
+				playerListFrame.Size = UDim2.new(1, 0, 0, 150)
+				playerListFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+				playerListFrame.BorderSizePixel = 0
+				playerListFrame.Parent = playerContent
+
+				local playerListCorner = Instance.new("UICorner")
+				playerListCorner.CornerRadius = UDim.new(0, 6)
+				playerListCorner.Parent = playerListFrame
+
 				local playerList = Instance.new("ScrollingFrame")
-				playerList.Size = UDim2.new(1, -8, 0.55, -36)
-				playerList.Position = UDim2.new(0, 4, 0, 36)
-				playerList.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-				playerList.BorderSizePixel = 0
+				playerList.Size = UDim2.new(1, -4, 1, -4)
+				playerList.Position = UDim2.new(0, 2, 0, 2)
+				playerList.BackgroundTransparency = 1
 				playerList.ScrollBarThickness = 6
-				playerList.Parent = playerContent
+				playerList.Parent = playerListFrame
 
 				local listLayout = Instance.new("UIListLayout")
 				listLayout.Parent = playerList
@@ -1323,7 +1229,6 @@ local function createMenu()
 							local playerName = plr.Name:lower()
 							local displayName = plr.DisplayName and plr.DisplayName ~= plr.Name and plr.DisplayName:lower() or ""
 							
-							-- Suche nach Benutzername ODER Anzeigename
 							local matchesSearch = searchTerm == "" or 
 								string.find(playerName, searchTerm) or 
 								(displayName ~= "" and string.find(displayName, searchTerm))
@@ -1332,7 +1237,6 @@ local function createMenu()
 								local btn = Instance.new("TextButton")
 								btn.Size = UDim2.new(1, -4, 0, 24)
 								
-								-- Zeige Anzeigename und Benutzername wenn unterschiedlich
 								if plr.DisplayName and plr.DisplayName ~= plr.Name then
 									btn.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
 								else
@@ -1365,8 +1269,7 @@ local function createMenu()
 
 				-- View Player
 				local viewRow = Instance.new("Frame")
-				viewRow.Size = UDim2.new(1, -16, 0, 36)
-				viewRow.Position = UDim2.new(0, 8, 0.6, 0)
+				viewRow.Size = UDim2.new(1, 0, 0, 36)
 				viewRow.BackgroundTransparency = 1
 				viewRow.Parent = playerContent
 
@@ -1409,10 +1312,414 @@ local function createMenu()
 					end
 				end)
 
+				-- Follow Player
+				local followRow = Instance.new("Frame")
+				followRow.Size = UDim2.new(1, 0, 0, 36)
+				followRow.BackgroundTransparency = 1
+				followRow.Parent = playerContent
+
+				local followText = Instance.new("TextLabel")
+				followText.Size = UDim2.new(1, -120, 1, 0)
+				followText.BackgroundTransparency = 1
+				followText.Text = "Follow Player"
+				followText.TextXAlignment = Enum.TextXAlignment.Left
+				followText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				followText.TextScaled = true
+				followText.Font = Enum.Font.SourceSansBold
+				followText.Parent = followRow
+
+				local followToggle = Instance.new("ImageButton")
+				followToggle.Size = UDim2.new(0, 36, 0, 21)
+				followToggle.Position = UDim2.new(1, -4, 0.5, 0)
+				followToggle.AnchorPoint = Vector2.new(1, 0.5)
+				followToggle.BackgroundTransparency = 1
+				followToggle.Image = "rbxassetid://82936764863537"
+				followToggle.Parent = followRow
+
+				-- Walk Animation IDs (Roblox Standard Animations)
+				local walkAnimations = {
+					["Default"] = nil,
+					["Astronaut"] = "rbxassetid://891621366",
+					["Bubbly"] = "rbxassetid://910034870",
+					["Cartoony"] = "rbxassetid://742637744",
+					["Elder"] = "rbxassetid://845403856",
+					["Knight"] = "rbxassetid://657564596",
+					["Mage"] = "rbxassetid://657564596",
+					["Ninja"] = "rbxassetid://656118852",
+					["Pirate"] = "rbxassetid://750783738",
+					["Robot"] = "rbxassetid://656121766",
+					["Stylish"] = "rbxassetid://616140096",
+					["Superhero"] = "rbxassetid://616111295",
+					["Toy"] = "rbxassetid://782842708",
+					["Vampire"] = "rbxassetid://1083216690",
+					["Werewolf"] = "rbxassetid://1083178339",
+					["Zombie"] = "rbxassetid://616163682"
+				}
+
+				local currentAnimationTrack = nil
+
+				local function applyWalkAnimation(character, animName)
+					if not character then return end
+					local humanoid = character:FindFirstChildOfClass("Humanoid")
+					if not humanoid then return end
+
+					-- Remove current animation
+					if currentAnimationTrack then
+						currentAnimationTrack:Stop()
+						currentAnimationTrack = nil
+					end
+
+					-- Apply new animation if not default
+					if animName ~= "Default" and walkAnimations[animName] then
+						local animator = humanoid:FindFirstChildOfClass("Animator")
+						if not animator then
+							animator = Instance.new("Animator")
+							animator.Parent = humanoid
+						end
+
+						local animation = Instance.new("Animation")
+						animation.AnimationId = walkAnimations[animName]
+						
+						pcall(function()
+							currentAnimationTrack = animator:LoadAnimation(animation)
+							if currentAnimationTrack then
+								currentAnimationTrack.Priority = Enum.AnimationPriority.Movement
+								currentAnimationTrack.Looped = true
+								currentAnimationTrack:Play()
+							end
+						end)
+					end
+				end
+
+				-- Animation Selector
+				local animSelectorRow = Instance.new("Frame")
+				animSelectorRow.Size = UDim2.new(1, 0, 0, 36)
+				animSelectorRow.BackgroundTransparency = 1
+				animSelectorRow.Parent = playerContent
+
+				local animSelectorText = Instance.new("TextLabel")
+				animSelectorText.Size = UDim2.new(1, -120, 1, 0)
+				animSelectorText.BackgroundTransparency = 1
+				animSelectorText.Text = "Walk Animation"
+				animSelectorText.TextXAlignment = Enum.TextXAlignment.Left
+				animSelectorText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				animSelectorText.TextScaled = true
+				animSelectorText.Font = Enum.Font.SourceSansBold
+				animSelectorText.Parent = animSelectorRow
+
+				local animDropdown = Instance.new("TextButton")
+				animDropdown.Size = UDim2.new(0, 100, 0, 24)
+				animDropdown.Position = UDim2.new(1, -4, 0.5, 0)
+				animDropdown.AnchorPoint = Vector2.new(1, 0.5)
+				animDropdown.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+				animDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+				animDropdown.Text = followWalkAnimation
+				animDropdown.Font = Enum.Font.SourceSans
+				animDropdown.TextScaled = true
+				animDropdown.Parent = animSelectorRow
+
+				local animDropdownCorner = Instance.new("UICorner")
+				animDropdownCorner.CornerRadius = UDim.new(0, 4)
+				animDropdownCorner.Parent = animDropdown
+
+				-- Dropdown Menu
+				local animDropdownMenu = Instance.new("ScrollingFrame")
+				animDropdownMenu.Size = UDim2.new(0, 100, 0, 200)
+				animDropdownMenu.Position = UDim2.new(1, -4, 1, 2)
+				animDropdownMenu.AnchorPoint = Vector2.new(1, 0)
+				animDropdownMenu.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+				animDropdownMenu.BorderSizePixel = 0
+				animDropdownMenu.ScrollBarThickness = 4
+				animDropdownMenu.Visible = false
+				animDropdownMenu.ZIndex = 100
+				animDropdownMenu.Parent = animSelectorRow
+
+				local animDropdownMenuCorner = Instance.new("UICorner")
+				animDropdownMenuCorner.CornerRadius = UDim.new(0, 4)
+				animDropdownMenuCorner.Parent = animDropdownMenu
+
+				local animMenuLayout = Instance.new("UIListLayout")
+				animMenuLayout.Parent = animDropdownMenu
+				animMenuLayout.SortOrder = Enum.SortOrder.Name
+				animMenuLayout.Padding = UDim.new(0, 2)
+
+				local animNames = {}
+				for name, _ in pairs(walkAnimations) do
+					table.insert(animNames, name)
+				end
+				table.sort(animNames)
+
+				for _, animName in ipairs(animNames) do
+					local animOption = Instance.new("TextButton")
+					animOption.Size = UDim2.new(1, -4, 0, 24)
+					animOption.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+					animOption.TextColor3 = Color3.fromRGB(255, 255, 255)
+					animOption.Text = animName
+					animOption.Font = Enum.Font.SourceSans
+					animOption.TextScaled = true
+					animOption.ZIndex = 101
+					animOption.Parent = animDropdownMenu
+
+					local animOptionCorner = Instance.new("UICorner")
+					animOptionCorner.CornerRadius = UDim.new(0, 3)
+					animOptionCorner.Parent = animOption
+
+					animOption.MouseButton1Click:Connect(function()
+						followWalkAnimation = animName
+						animDropdown.Text = animName
+						animDropdownMenu.Visible = false
+						savedSettings.followAnimation = animName
+						
+						if isFollowingPlayer then
+							local character = LocalPlayer.Character
+							applyWalkAnimation(character, animName)
+						end
+					end)
+				end
+
+				animDropdown.MouseButton1Click:Connect(function()
+					animDropdownMenu.Visible = not animDropdownMenu.Visible
+				end)
+
+				-- Follow Distance Slider
+				local followDistanceBox = createSlider(playerContent, "Follow Distance", 0, 500, followDistance)
+				followDistanceBox.Changed:Connect(function()
+					local val = tonumber(followDistanceBox.Text)
+					if val then
+						followDistance = val
+						savedSettings.followDistance = val
+					end
+				end)
+
+				-- Variablen für Jump-Synchronisation
+				local lastTargetJumpState = false
+				local speedSyncConnection = nil
+
+				followToggle.MouseButton1Click:Connect(function()
+					isFollowingPlayer = not isFollowingPlayer
+					followToggle.Image = isFollowingPlayer and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
+
+					if isFollowingPlayer and selectedPlayer ~= "" then
+						local character = LocalPlayer.Character
+						
+						-- Stelle sicher, dass Character steht
+						if character then
+							local humanoid = character:FindFirstChildOfClass("Humanoid")
+							if humanoid then
+								humanoid.Sit = false
+								wait(0.1)
+							end
+						end
+						
+						applyWalkAnimation(character, followWalkAnimation)
+
+						if followConnection then followConnection:Disconnect() end
+						if speedSyncConnection then speedSyncConnection:Disconnect() end
+
+						-- Hauptloop
+						followConnection = RunService.Heartbeat:Connect(function()
+							if not isFollowingPlayer then
+								if followConnection then followConnection:Disconnect() end
+								if speedSyncConnection then speedSyncConnection:Disconnect() end
+								if currentAnimationTrack then
+									currentAnimationTrack:Stop()
+									currentAnimationTrack = nil
+								end
+								return
+							end
+
+							local targetPlayer = Players:FindFirstChild(selectedPlayer)
+							local character = LocalPlayer.Character
+							
+							if targetPlayer and targetPlayer.Character and character then
+								local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+								local targetHumanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+								local myRoot = character:FindFirstChild("HumanoidRootPart")
+								local myHumanoid = character:FindFirstChildOfClass("Humanoid")
+								
+								if targetRoot and myRoot and myHumanoid and targetHumanoid then
+									-- Verhindere Fallen während Follow
+									if myHumanoid:GetState() == Enum.HumanoidStateType.Physics or 
+									   myHumanoid:GetState() == Enum.HumanoidStateType.Ragdoll then
+										myHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+									end
+									
+									-- AGGRESSIVE Geschwindigkeits-Synchronisation - JEDEN FRAME
+									myHumanoid.WalkSpeed = targetHumanoid.WalkSpeed
+									
+									-- Synchronisiere JumpPower/JumpHeight
+									if targetHumanoid.UseJumpPower then
+										myHumanoid.UseJumpPower = true
+										myHumanoid.JumpPower = targetHumanoid.JumpPower
+									else
+										myHumanoid.UseJumpPower = false
+										myHumanoid.JumpHeight = targetHumanoid.JumpHeight
+									end
+
+									-- Berechne Zielposition mit eingestelltem Abstand
+									local distance = (myRoot.Position - targetRoot.Position).Magnitude
+									local direction = (targetRoot.Position - myRoot.Position).Unit
+									local targetPosition = targetRoot.Position - (direction * followDistance)
+
+									if distance > followDistance + 2 then
+										myHumanoid:MoveTo(targetPosition)
+									end
+
+									-- Synchronisiere Sprung
+									local targetJumpState = targetHumanoid:GetState() == Enum.HumanoidStateType.Jumping or 
+															targetHumanoid:GetState() == Enum.HumanoidStateType.Freefall
+
+									if targetJumpState and not lastTargetJumpState and distance <= followDistance + 10 then
+										myHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+									end
+
+									lastTargetJumpState = targetJumpState
+
+									-- Synchronisiere Sitzen nur wenn Ziel sitzt
+									if targetHumanoid.Sit and not myHumanoid.Sit then
+										myHumanoid.Sit = true
+									elseif not targetHumanoid.Sit and myHumanoid.Sit then
+										myHumanoid.Sit = false
+									end
+								end
+							else
+								isFollowingPlayer = false
+								followToggle.Image = "rbxassetid://82936764863537"
+								if followConnection then followConnection:Disconnect() end
+								if speedSyncConnection then speedSyncConnection:Disconnect() end
+								if currentAnimationTrack then
+									currentAnimationTrack:Stop()
+									currentAnimationTrack = nil
+								end
+							end
+						end)
+
+						-- Zusätzlicher RenderStepped für noch schnellere Synchronisation
+						speedSyncConnection = RunService.RenderStepped:Connect(function()
+							if not isFollowingPlayer then return end
+							
+							local targetPlayer = Players:FindFirstChild(selectedPlayer)
+							local character = LocalPlayer.Character
+							
+							if targetPlayer and targetPlayer.Character and character then
+								local targetHumanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+								local myHumanoid = character:FindFirstChildOfClass("Humanoid")
+								
+								if targetHumanoid and myHumanoid then
+									-- Erzwinge WalkSpeed jeden RenderStepped Frame
+									if myHumanoid.WalkSpeed ~= targetHumanoid.WalkSpeed then
+										myHumanoid.WalkSpeed = targetHumanoid.WalkSpeed
+									end
+								end
+							end
+						end)
+					else
+						if followConnection then
+							followConnection:Disconnect()
+							followConnection = nil
+						end
+						if targetSpeedConnection then
+							targetSpeedConnection:Disconnect()
+							targetSpeedConnection = nil
+						end
+						if targetJumpConnection then
+							targetJumpConnection:Disconnect()
+							targetJumpConnection = nil
+						end
+						if currentAnimationTrack then
+							currentAnimationTrack:Stop()
+							currentAnimationTrack = nil
+						end
+					end
+				end)
+
+				-- Orbit Player
+				local orbitRow = Instance.new("Frame")
+				orbitRow.Size = UDim2.new(1, 0, 0, 36)
+				orbitRow.BackgroundTransparency = 1
+				orbitRow.Parent = playerContent
+
+				local orbitText = Instance.new("TextLabel")
+				orbitText.Size = UDim2.new(1, -120, 1, 0)
+				orbitText.BackgroundTransparency = 1
+				orbitText.Text = "Orbit Player"
+				orbitText.TextXAlignment = Enum.TextXAlignment.Left
+				orbitText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				orbitText.TextScaled = true
+				orbitText.Font = Enum.Font.SourceSansBold
+				orbitText.Parent = orbitRow
+
+				local orbitToggle = Instance.new("ImageButton")
+				orbitToggle.Size = UDim2.new(0, 36, 0, 21)
+				orbitToggle.Position = UDim2.new(1, -4, 0.5, 0)
+				orbitToggle.AnchorPoint = Vector2.new(1, 0.5)
+				orbitToggle.BackgroundTransparency = 1
+				orbitToggle.Image = "rbxassetid://82936764863537"
+				orbitToggle.Parent = orbitRow
+
+				orbitToggle.MouseButton1Click:Connect(function()
+					isOrbitingPlayer = not isOrbitingPlayer
+					orbitToggle.Image = isOrbitingPlayer and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
+
+					if isOrbitingPlayer and selectedPlayer ~= "" then
+						orbitAngle = 0
+						if orbitConnection then orbitConnection:Disconnect() end
+						orbitConnection = RunService.Heartbeat:Connect(function(dt)
+							if not isOrbitingPlayer then
+								if orbitConnection then orbitConnection:Disconnect() end
+								return
+							end
+
+							local targetPlayer = Players:FindFirstChild(selectedPlayer)
+							local character = LocalPlayer.Character
+							
+							if targetPlayer and targetPlayer.Character and character then
+								local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+								local myRoot = character:FindFirstChild("HumanoidRootPart")
+								
+								if targetRoot and myRoot then
+									orbitAngle = orbitAngle + (orbitSpeed * dt)
+									local x = math.cos(orbitAngle) * orbitRadius
+									local z = math.sin(orbitAngle) * orbitRadius
+									
+									local targetPos = targetRoot.Position + Vector3.new(x, 0, z)
+									myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
+								end
+							else
+								isOrbitingPlayer = false
+								orbitToggle.Image = "rbxassetid://82936764863537"
+								if orbitConnection then orbitConnection:Disconnect() end
+							end
+						end)
+					else
+						if orbitConnection then
+							orbitConnection:Disconnect()
+							orbitConnection = nil
+						end
+					end
+				end)
+
+				local orbitSpeedBox = createSlider(playerContent, "Orbit Speed", 1, 1000, orbitSpeed)
+				orbitSpeedBox.Changed:Connect(function()
+					local val = tonumber(orbitSpeedBox.Text)
+					if val then
+						orbitSpeed = val
+						savedSettings.orbitSpeed = val
+					end
+				end)
+
+				local orbitRadiusBox = createSlider(playerContent, "Orbit Radius", 1, 1000, orbitRadius)
+				orbitRadiusBox.Changed:Connect(function()
+					local val = tonumber(orbitRadiusBox.Text)
+					if val then
+						orbitRadius = val
+						savedSettings.orbitRadius = val
+					end
+				end)
+
 				-- Goto Player
 				local gotoRow = Instance.new("Frame")
-				gotoRow.Size = UDim2.new(1, -16, 0, 36)
-				gotoRow.Position = UDim2.new(0, 8, 0.7, 0)
+				gotoRow.Size = UDim2.new(1, 0, 0, 36)
 				gotoRow.BackgroundTransparency = 1
 				gotoRow.Parent = playerContent
 
@@ -1449,8 +1756,7 @@ local function createMenu()
 
 				-- Player Sit
 				local sitRow = Instance.new("Frame")
-				sitRow.Size = UDim2.new(1, -16, 0, 36)
-				sitRow.Position = UDim2.new(0, 8, 0.75, 0)
+				sitRow.Size = UDim2.new(1, 0, 0, 36)
 				sitRow.BackgroundTransparency = 1
 				sitRow.Parent = playerContent
 
@@ -1489,14 +1795,10 @@ local function createMenu()
 							local rootPart = character:FindFirstChild("HumanoidRootPart")
 							
 							if targetHead and humanoid and rootPart then
-								-- Setze Spieler auf Kopf
 								humanoid.Sit = true
-								
-								-- Deaktiviere Bewegung
 								humanoid.WalkSpeed = 0
 								humanoid.JumpHeight = 0
 								
-								-- Ständige Positionsaktualisierung
 								if sitConnection then sitConnection:Disconnect() end
 								sitConnection = RunService.Heartbeat:Connect(function()
 									if not isSitting then
@@ -1515,7 +1817,6 @@ local function createMenu()
 										sitToggle.Image = "rbxassetid://82936764863537"
 										if sitConnection then sitConnection:Disconnect() end
 										
-										-- Reaktiviere Bewegung
 										if humanoid then
 											humanoid.WalkSpeed = 16
 											humanoid.JumpHeight = 7.2
@@ -1525,7 +1826,6 @@ local function createMenu()
 							end
 						end
 					else
-						-- Stehe auf
 						if sitConnection then
 							sitConnection:Disconnect()
 							sitConnection = nil
@@ -1535,51 +1835,8 @@ local function createMenu()
 						if character and character:FindFirstChild("Humanoid") then
 							local humanoid = character.Humanoid
 							humanoid.Sit = false
-							
-							-- Reaktiviere Bewegung
 							humanoid.WalkSpeed = 16
 							humanoid.JumpHeight = 7.2
-						end
-					end
-				end)
-
-				-- Bring Player
-				local bringRow = Instance.new("Frame")
-				bringRow.Size = UDim2.new(1, -16, 0, 36)
-				bringRow.Position = UDim2.new(0, 8, 0.85, 0)
-				bringRow.BackgroundTransparency = 1
-				bringRow.Parent = playerContent
-
-				local bringText = Instance.new("TextLabel")
-				bringText.Size = UDim2.new(1, -120, 1, 0)
-				bringText.BackgroundTransparency = 1
-				bringText.Text = "Bring Player"
-				bringText.TextXAlignment = Enum.TextXAlignment.Left
-				bringText.TextColor3 = Color3.fromRGB(64, 224, 208)
-				bringText.TextScaled = true
-				bringText.Font = Enum.Font.SourceSansBold
-				bringText.Parent = bringRow
-
-				local bringButton = Instance.new("ImageButton")
-				bringButton.Size = UDim2.new(0, 26, 0, 26)
-				bringButton.Position = UDim2.new(1, -4, 0.5, 0)
-				bringButton.AnchorPoint = Vector2.new(1, 0.5)
-				bringButton.BackgroundTransparency = 1
-				bringButton.Image = "rbxassetid://101366472762102"
-				bringButton.Parent = bringRow
-
-				bringButton.MouseButton1Click:Connect(function()
-					if selectedPlayer ~= "" then
-						local targetPlayer = Players:FindFirstChild(selectedPlayer)
-						local character = LocalPlayer.Character
-						if targetPlayer and targetPlayer.Character and character and character:FindFirstChild("HumanoidRootPart") then
-							local targetCharacter = targetPlayer.Character
-							if targetCharacter:FindFirstChild("HumanoidRootPart") then
-								-- Versuche den Spieler zu dir zu bringen
-								-- Diese Methode funktioniert nur in bestimmten Spielen
-								local yourPos = character.HumanoidRootPart.CFrame
-								targetCharacter.HumanoidRootPart.CFrame = yourPos * CFrame.new(0, 0, -3)
-							end
 						end
 					end
 				end)
@@ -1597,7 +1854,6 @@ local function createMenu()
 					Color3.fromRGB(255, 255, 255),
 				}
 
-				-- ESP Toggle
 				local espRow = Instance.new("Frame")
 				espRow.Size = UDim2.new(1, -16, 0, 36)
 				espRow.BackgroundTransparency = 1
@@ -1621,7 +1877,6 @@ local function createMenu()
 				espToggle.BackgroundTransparency = 1
 				espToggle.Parent = espRow
 
-				-- ESP Functions
 				local function createESPHighlight(character)
 					if not character or not character.Parent then return nil end
 
@@ -1754,7 +2009,6 @@ local function createMenu()
 					end
 				end)
 
-				-- Color Picker
 				local colorPreview = Instance.new("TextButton")
 				colorPreview.Size = UDim2.new(0, 40, 0, 24)
 				colorPreview.BackgroundColor3 = espColor
@@ -1791,7 +2045,6 @@ local function createMenu()
 								highlight.OutlineColor = espColor
 							end
 						end
-						-- Speichere in Tabelle
 						savedSettings.espColorR = col.R * 255
 						savedSettings.espColorG = col.G * 255
 						savedSettings.espColorB = col.B * 255
@@ -1802,7 +2055,6 @@ local function createMenu()
 					colorPickerFrame.Visible = not colorPickerFrame.Visible
 				end)
 
-				-- ESP Transparency Slider
 				local transBox = createSlider(subFrame, "ESP Transparency", 0, 100, savedSettings.espTransparency or 50)
 				transBox.Changed:Connect(function()
 					local val = tonumber(transBox.Text)
@@ -1817,7 +2069,6 @@ local function createMenu()
 					end
 				end)
 
-				-- Nametags Toggle
 				local nameRow = Instance.new("Frame")
 				nameRow.Size = UDim2.new(1, -16, 0, 36)
 				nameRow.BackgroundTransparency = 1
@@ -1878,7 +2129,6 @@ local function createMenu()
 					nameToggle.Image = nametagsEnabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
 
 					if nametagsEnabled then
-						-- Erstelle Nametags für alle aktuellen Spieler
 						for _, player in pairs(Players:GetPlayers()) do
 							if player ~= LocalPlayer and player.Character then
 								local nametag = createNametag(player.Character, player.Name)
@@ -1886,7 +2136,6 @@ local function createMenu()
 							end
 						end
 					else
-						-- Entferne alle Nametags
 						for player, nametag in pairs(nametags) do
 							if nametag then nametag:Destroy() end
 						end
@@ -1894,7 +2143,6 @@ local function createMenu()
 					end
 				end)
 
-				-- Nametag Size Slider
 				local sizeBox = createSlider(subFrame, "Nametag Size", 8, 30, savedSettings.nametagSize or 14)
 				sizeBox.Changed:Connect(function()
 					local val = tonumber(sizeBox.Text)
@@ -1909,7 +2157,6 @@ local function createMenu()
 					end
 				end)
 
-				-- Player Events für ESP und Nametags
 				Players.PlayerAdded:Connect(function(player)
 					if player == LocalPlayer then return end
 
@@ -1930,7 +2177,6 @@ local function createMenu()
 						end
 					end)
 					
-					-- Wenn der Spieler bereits einen Character hat
 					if player.Character then
 						wait(0.5)
 						
@@ -1950,7 +2196,6 @@ local function createMenu()
 				end)
 
 				Players.PlayerRemoving:Connect(function(player)
-					-- Cleanup ESP
 					if espHighlights[player] then
 						espHighlights[player]:Destroy()
 						espHighlights[player] = nil
@@ -1959,7 +2204,6 @@ local function createMenu()
 						healthbars[player]:Destroy()
 						healthbars[player] = nil
 					end
-					-- Cleanup Nametags
 					if nametags[player] then
 						nametags[player]:Destroy()
 						nametags[player] = nil
@@ -1971,20 +2215,17 @@ local function createMenu()
 		return button
 	end
 
-	-- Create Menu Buttons (Animation Button entfernt)
 	createButton("FlyButton", "Fly")
 	createButton("MeButton", "Me")
 	createButton("PlayerButton", "Player")
 	createButton("ESPButton", "ESP")
 
-	-- Toggle Menu
 	UserInputService.InputBegan:Connect(function(input, gp)
 		if not gp and input.KeyCode == toggleKey then
 			mainFrame.Visible = not mainFrame.Visible
 		end
 	end)
 
-	-- WalkSpeed/Jump Continuous Update
 	RunService.Heartbeat:Connect(function()
 		local character = LocalPlayer.Character
 		if character and character:FindFirstChild("Humanoid") and character:FindFirstChild("HumanoidRootPart") then
@@ -1996,7 +2237,6 @@ local function createMenu()
 	end)
 end
 
--- START
 task.spawn(function()
 	createLoadScreen()
 end)
@@ -2004,4 +2244,5 @@ end)
 task.wait(9)
 createMenu()
 
-print("Vyrxis Bubble Menu loaded successfully!")
+print("[Vyrxis] Extended Menu loaded successfully!")
+print("[Vyrxis] New Features: Follow Player, Orbit Player, Spin Character")
