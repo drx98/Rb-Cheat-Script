@@ -1493,7 +1493,6 @@ local function createMenu()
 
 				-- Variablen für Jump-Synchronisation
 				local lastTargetJumpState = false
-				local speedSyncConnection = nil
 
 				followToggle.MouseButton1Click:Connect(function()
 					isFollowingPlayer = not isFollowingPlayer
@@ -1514,13 +1513,11 @@ local function createMenu()
 						applyWalkAnimation(character, followWalkAnimation)
 
 						if followConnection then followConnection:Disconnect() end
-						if speedSyncConnection then speedSyncConnection:Disconnect() end
 
 						-- Hauptloop
 						followConnection = RunService.Heartbeat:Connect(function()
 							if not isFollowingPlayer then
 								if followConnection then followConnection:Disconnect() end
-								if speedSyncConnection then speedSyncConnection:Disconnect() end
 								if currentAnimationTrack then
 									currentAnimationTrack:Stop()
 									currentAnimationTrack = nil
@@ -1542,18 +1539,6 @@ local function createMenu()
 									if myHumanoid:GetState() == Enum.HumanoidStateType.Physics or 
 									   myHumanoid:GetState() == Enum.HumanoidStateType.Ragdoll then
 										myHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-									end
-									
-									-- AGGRESSIVE Geschwindigkeits-Synchronisation - JEDEN FRAME
-									myHumanoid.WalkSpeed = targetHumanoid.WalkSpeed
-									
-									-- Synchronisiere JumpPower/JumpHeight
-									if targetHumanoid.UseJumpPower then
-										myHumanoid.UseJumpPower = true
-										myHumanoid.JumpPower = targetHumanoid.JumpPower
-									else
-										myHumanoid.UseJumpPower = false
-										myHumanoid.JumpHeight = targetHumanoid.JumpHeight
 									end
 
 									-- Berechne Zielposition mit eingestelltem Abstand
@@ -1586,30 +1571,9 @@ local function createMenu()
 								isFollowingPlayer = false
 								followToggle.Image = "rbxassetid://82936764863537"
 								if followConnection then followConnection:Disconnect() end
-								if speedSyncConnection then speedSyncConnection:Disconnect() end
 								if currentAnimationTrack then
 									currentAnimationTrack:Stop()
 									currentAnimationTrack = nil
-								end
-							end
-						end)
-
-						-- Zusätzlicher RenderStepped für noch schnellere Synchronisation
-						speedSyncConnection = RunService.RenderStepped:Connect(function()
-							if not isFollowingPlayer then return end
-							
-							local targetPlayer = Players:FindFirstChild(selectedPlayer)
-							local character = LocalPlayer.Character
-							
-							if targetPlayer and targetPlayer.Character and character then
-								local targetHumanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-								local myHumanoid = character:FindFirstChildOfClass("Humanoid")
-								
-								if targetHumanoid and myHumanoid then
-									-- Erzwinge WalkSpeed jeden RenderStepped Frame
-									if myHumanoid.WalkSpeed ~= targetHumanoid.WalkSpeed then
-										myHumanoid.WalkSpeed = targetHumanoid.WalkSpeed
-									end
 								end
 							end
 						end)
