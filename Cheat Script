@@ -844,7 +844,7 @@ local function createMenu()
 
 			-- ME TAB
 			if name == "MeButton" then
-				-- Give All Items
+				-- Give All Items (VERBESSERT)
 				local giveRow = Instance.new("Frame")
 				giveRow.Size = UDim2.new(1, -16, 0, 36)
 				giveRow.BackgroundTransparency = 1
@@ -872,24 +872,78 @@ local function createMenu()
 					local character = LocalPlayer.Character
 					if character then
 						local backpack = LocalPlayer.Backpack
-						local starterPack = game:GetService("StarterPack")
-						local replicatedStorage = game:GetService("ReplicatedStorage")
+						local itemsFound = 0
+						
+						-- Funktion um zu prüfen ob Item bereits vorhanden ist
+						local function hasItem(itemName)
+							if backpack:FindFirstChild(itemName) then
+								return true
+							end
+							if character:FindFirstChild(itemName) then
+								return true
+							end
+							return false
+						end
+						
+						-- Funktion zum sicheren Klonen von Tools
+						local function cloneTool(tool)
+							if tool:IsA("Tool") and not hasItem(tool.Name) then
+								local success, clonedTool = pcall(function()
+									local clone = tool:Clone()
+									clone.Parent = backpack
+									return clone
+								end)
+								if success then
+									itemsFound = itemsFound + 1
+									return true
+								end
+							end
+							return false
+						end
 
-						for _, source in pairs({starterPack, replicatedStorage}) do
-							for _, item in pairs(source:GetDescendants()) do
-								if item:IsA("Tool") and not backpack:FindFirstChild(item.Name) then
-									local clonedTool = item:Clone()
-									clonedTool.Parent = backpack
+						-- 1. StarterPack durchsuchen
+						local starterPack = game:GetService("StarterPack")
+						for _, item in pairs(starterPack:GetChildren()) do
+							cloneTool(item)
+						end
+
+						-- 2. ReplicatedStorage durchsuchen (tiefer)
+						local replicatedStorage = game:GetService("ReplicatedStorage")
+						for _, item in pairs(replicatedStorage:GetDescendants()) do
+							cloneTool(item)
+						end
+
+						-- 3. Workspace durchsuchen (alle Tools)
+						for _, item in pairs(Workspace:GetDescendants()) do
+							cloneTool(item)
+						end
+
+						-- 4. Von anderen Spielern Items klonen
+						for _, player in pairs(Players:GetPlayers()) do
+							if player ~= LocalPlayer and player.Character then
+								for _, item in pairs(player.Character:GetChildren()) do
+									cloneTool(item)
+								end
+								if player:FindFirstChild("Backpack") then
+									for _, item in pairs(player.Backpack:GetChildren()) do
+										cloneTool(item)
+									end
 								end
 							end
 						end
 
-						for _, item in pairs(Workspace:GetDescendants()) do
-							if item:IsA("Tool") and not backpack:FindFirstChild(item.Name) then
-								local clonedTool = item:Clone()
-								clonedTool.Parent = backpack
+						-- 5. PlayerGui nach Tools durchsuchen (Shop Items etc.)
+						for _, player in pairs(Players:GetPlayers()) do
+							if player:FindFirstChild("PlayerGui") then
+								for _, item in pairs(player.PlayerGui:GetDescendants()) do
+									if item:IsA("Tool") then
+										cloneTool(item)
+									end
+								end
 							end
 						end
+
+						print("[Vyrxis] Found and cloned " .. itemsFound .. " new items!")
 					end
 				end)
 
@@ -1123,7 +1177,7 @@ local function createMenu()
 					end
 				end)
 
-				local spinSpeedBox = createSlider(subFrame, "Spin Speed", 1, 20, spinSpeed)
+				local spinSpeedBox = createSlider(subFrame, "Spin Speed", 0, 2000, spinSpeed)
 				spinSpeedBox.Changed:Connect(function()
 					local val = tonumber(spinSpeedBox.Text)
 					if val then
@@ -1163,6 +1217,154 @@ local function createMenu()
 					end)
 					if not success then
 						warn("[Vyrxis] Rejoin failed: " .. tostring(err))
+					end
+				end)
+
+				-- Anti-AFK
+				local antiAFKRow = Instance.new("Frame")
+				antiAFKRow.Size = UDim2.new(1, -16, 0, 36)
+				antiAFKRow.BackgroundTransparency = 1
+				antiAFKRow.Parent = subFrame
+
+				local antiAFKText = Instance.new("TextLabel")
+				antiAFKText.Size = UDim2.new(1, -120, 1, 0)
+				antiAFKText.BackgroundTransparency = 1
+				antiAFKText.Text = "Anti-AFK"
+				antiAFKText.TextXAlignment = Enum.TextXAlignment.Left
+				antiAFKText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				antiAFKText.TextScaled = true
+				antiAFKText.Font = Enum.Font.SourceSansBold
+				antiAFKText.Parent = antiAFKRow
+
+				local antiAFKToggle = Instance.new("ImageButton")
+				antiAFKToggle.Size = UDim2.new(0, 36, 0, 21)
+				antiAFKToggle.Position = UDim2.new(1, -4, 0.5, 0)
+				antiAFKToggle.AnchorPoint = Vector2.new(1, 0.5)
+				antiAFKToggle.BackgroundTransparency = 1
+				antiAFKToggle.Image = "rbxassetid://82936764863537"
+				antiAFKToggle.Parent = antiAFKRow
+
+				local antiAFKConnection = nil
+
+				antiAFKToggle.MouseButton1Click:Connect(function()
+					local isEnabled = antiAFKConnection ~= nil
+					
+					if isEnabled then
+						if antiAFKConnection then
+							antiAFKConnection:Disconnect()
+							antiAFKConnection = nil
+						end
+						antiAFKToggle.Image = "rbxassetid://82936764863537"
+					else
+						local vu = game:GetService("VirtualUser")
+						antiAFKConnection = game:GetService("Players").LocalPlayer.Idled:Connect(function()
+							vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+							wait(1)
+							vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+						end)
+						antiAFKToggle.Image = "rbxassetid://133008101695657"
+					end
+				end)
+
+				-- Save/Load Position
+				local resetPosRow = Instance.new("Frame")
+				resetPosRow.Size = UDim2.new(1, -16, 0, 36)
+				resetPosRow.BackgroundTransparency = 1
+				resetPosRow.Parent = subFrame
+
+				local resetPosText = Instance.new("TextLabel")
+				resetPosText.Size = UDim2.new(1, -120, 1, 0)
+				resetPosText.BackgroundTransparency = 1
+				resetPosText.Text = "Save/Load Position"
+				resetPosText.TextXAlignment = Enum.TextXAlignment.Left
+				resetPosText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				resetPosText.TextScaled = true
+				resetPosText.Font = Enum.Font.SourceSansBold
+				resetPosText.Parent = resetPosRow
+
+				local savedPosition = nil
+
+				local savePosButton = Instance.new("ImageButton")
+				savePosButton.Size = UDim2.new(0, 26, 0, 26)
+				savePosButton.Position = UDim2.new(1, -34, 0.5, 0)
+				savePosButton.AnchorPoint = Vector2.new(1, 0.5)
+				savePosButton.BackgroundTransparency = 1
+				savePosButton.Image = "rbxassetid://101366472762102"
+				savePosButton.Parent = resetPosRow
+
+				local loadPosButton = Instance.new("ImageButton")
+				loadPosButton.Size = UDim2.new(0, 26, 0, 26)
+				loadPosButton.Position = UDim2.new(1, -4, 0.5, 0)
+				loadPosButton.AnchorPoint = Vector2.new(1, 0.5)
+				loadPosButton.BackgroundTransparency = 1
+				loadPosButton.Image = "rbxassetid://101366472762102"
+				loadPosButton.Parent = resetPosRow
+
+				savePosButton.MouseButton1Click:Connect(function()
+					local character = LocalPlayer.Character
+					if character and character:FindFirstChild("HumanoidRootPart") then
+						savedPosition = character.HumanoidRootPart.CFrame
+						print("[Vyrxis] Position saved!")
+					end
+				end)
+
+				loadPosButton.MouseButton1Click:Connect(function()
+					if savedPosition then
+						local character = LocalPlayer.Character
+						if character and character:FindFirstChild("HumanoidRootPart") then
+							character.HumanoidRootPart.CFrame = savedPosition
+							print("[Vyrxis] Position loaded!")
+						end
+					end
+				end)
+
+				-- Infinite Jump
+				local infJumpRow = Instance.new("Frame")
+				infJumpRow.Size = UDim2.new(1, -16, 0, 36)
+				infJumpRow.BackgroundTransparency = 1
+				infJumpRow.Parent = subFrame
+
+				local infJumpText = Instance.new("TextLabel")
+				infJumpText.Size = UDim2.new(1, -120, 1, 0)
+				infJumpText.BackgroundTransparency = 1
+				infJumpText.Text = "Infinite Jump"
+				infJumpText.TextXAlignment = Enum.TextXAlignment.Left
+				infJumpText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				infJumpText.TextScaled = true
+				infJumpText.Font = Enum.Font.SourceSansBold
+				infJumpText.Parent = infJumpRow
+
+				local infJumpToggle = Instance.new("ImageButton")
+				infJumpToggle.Size = UDim2.new(0, 36, 0, 21)
+				infJumpToggle.Position = UDim2.new(1, -4, 0.5, 0)
+				infJumpToggle.AnchorPoint = Vector2.new(1, 0.5)
+				infJumpToggle.BackgroundTransparency = 1
+				infJumpToggle.Image = "rbxassetid://82936764863537"
+				infJumpToggle.Parent = infJumpRow
+
+				local infJumpEnabled = false
+				local infJumpConnection = nil
+
+				infJumpToggle.MouseButton1Click:Connect(function()
+					infJumpEnabled = not infJumpEnabled
+					infJumpToggle.Image = infJumpEnabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
+
+					if infJumpEnabled then
+						if infJumpConnection then infJumpConnection:Disconnect() end
+						infJumpConnection = UserInputService.JumpRequest:Connect(function()
+							local character = LocalPlayer.Character
+							if character then
+								local humanoid = character:FindFirstChildOfClass("Humanoid")
+								if humanoid then
+									humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+								end
+							end
+						end)
+					else
+						if infJumpConnection then
+							infJumpConnection:Disconnect()
+							infJumpConnection = nil
+						end
 					end
 				end)
 			end
@@ -1663,7 +1865,7 @@ local function createMenu()
 					end
 				end)
 
-				local orbitSpeedBox = createSlider(playerContent, "Orbit Speed", 1, 1000, orbitSpeed)
+				local orbitSpeedBox = createSlider(playerContent, "Orbit Speed", 0, 2000, orbitSpeed)
 				orbitSpeedBox.Changed:Connect(function()
 					local val = tonumber(orbitSpeedBox.Text)
 					if val then
@@ -1714,6 +1916,87 @@ local function createMenu()
 							if targetCharacter:FindFirstChild("HumanoidRootPart") then
 								character.HumanoidRootPart.CFrame = targetCharacter.HumanoidRootPart.CFrame
 							end
+						end
+					end
+				end)
+
+				-- Clone Items (NEU)
+				local cloneItemsRow = Instance.new("Frame")
+				cloneItemsRow.Size = UDim2.new(1, 0, 0, 36)
+				cloneItemsRow.BackgroundTransparency = 1
+				cloneItemsRow.Parent = playerContent
+
+				local cloneItemsText = Instance.new("TextLabel")
+				cloneItemsText.Size = UDim2.new(1, -120, 1, 0)
+				cloneItemsText.BackgroundTransparency = 1
+				cloneItemsText.Text = "Clone Items"
+				cloneItemsText.TextXAlignment = Enum.TextXAlignment.Left
+				cloneItemsText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				cloneItemsText.TextScaled = true
+				cloneItemsText.Font = Enum.Font.SourceSansBold
+				cloneItemsText.Parent = cloneItemsRow
+
+				local cloneItemsButton = Instance.new("ImageButton")
+				cloneItemsButton.Size = UDim2.new(0, 26, 0, 26)
+				cloneItemsButton.Position = UDim2.new(1, -4, 0.5, 0)
+				cloneItemsButton.AnchorPoint = Vector2.new(1, 0.5)
+				cloneItemsButton.BackgroundTransparency = 1
+				cloneItemsButton.Image = "rbxassetid://101366472762102"
+				cloneItemsButton.Parent = cloneItemsRow
+
+				cloneItemsButton.MouseButton1Click:Connect(function()
+					if selectedPlayer ~= "" then
+						local targetPlayer = Players:FindFirstChild(selectedPlayer)
+						local character = LocalPlayer.Character
+						
+						if targetPlayer and character then
+							local backpack = LocalPlayer.Backpack
+							local itemsCloned = 0
+							
+							-- Funktion um zu prüfen ob Item bereits vorhanden ist
+							local function hasItem(itemName)
+								if backpack:FindFirstChild(itemName) then
+									return true
+								end
+								if character:FindFirstChild(itemName) then
+									return true
+								end
+								return false
+							end
+							
+							-- Items aus dem Character des Zielspielers klonen
+							if targetPlayer.Character then
+								for _, item in pairs(targetPlayer.Character:GetChildren()) do
+									if item:IsA("Tool") and not hasItem(item.Name) then
+										local success, clonedTool = pcall(function()
+											local clone = item:Clone()
+											clone.Parent = backpack
+											return clone
+										end)
+										if success then
+											itemsCloned = itemsCloned + 1
+										end
+									end
+								end
+							end
+							
+							-- Items aus dem Backpack des Zielspielers klonen
+							if targetPlayer:FindFirstChild("Backpack") then
+								for _, item in pairs(targetPlayer.Backpack:GetChildren()) do
+									if item:IsA("Tool") and not hasItem(item.Name) then
+										local success, clonedTool = pcall(function()
+											local clone = item:Clone()
+											clone.Parent = backpack
+											return clone
+										end)
+										if success then
+											itemsCloned = itemsCloned + 1
+										end
+									end
+								end
+							end
+							
+							print("[Vyrxis] Cloned " .. itemsCloned .. " items from " .. targetPlayer.Name)
 						end
 					end
 				end)
@@ -2209,4 +2492,4 @@ task.wait(9)
 createMenu()
 
 print("[Vyrxis] Extended Menu loaded successfully!")
-print("[Vyrxis] New Features: Follow Player, Orbit Player, Spin Character")
+print("[Vyrxis] New Features: Follow Player, Orbit Player, Spin Character, Anti-AFK, Infinite Jump")
