@@ -1463,37 +1463,59 @@ local function createMenu()
 
 				local noclipConnection
 				noclipToggle.MouseButton1Click:Connect(function()
-					isNoclipEnabled = not isNoclipEnabled
-					noclipToggle.Image = isNoclipEnabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
-					categoryStates.noclipEnabled = isNoclipEnabled
+    isNoclipEnabled = not isNoclipEnabled
+    noclipToggle.Image = isNoclipEnabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
+    categoryStates.noclipEnabled = isNoclipEnabled
 
-					if isNoclipEnabled then
-						noclipConnection = RunService.Stepped:Connect(function()
-							-- Verwende die richtige Character-Referenz
-							local targetCharacter = InvisibleSystem:GetActiveCharacter()
-							if targetCharacter then
-								for _, part in pairs(targetCharacter:GetChildren()) do
-									if part:IsA("BasePart") and part.CanCollide then
-										part.CanCollide = false
-									end
-								end
-							end
-						end)
-					else
-						if noclipConnection then
-							noclipConnection:Disconnect()
-							noclipConnection = nil
-						end
-						local targetCharacter = InvisibleSystem:GetActiveCharacter()
-						if targetCharacter then
-							for _, part in pairs(targetCharacter:GetChildren()) do
-								if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-									part.CanCollide = true
-								end
-							end
-						end
-					end
-				end)
+    if isNoclipEnabled then
+        noclipConnection = RunService.Stepped:Connect(function()
+            -- Funktioniert für BEIDE: Clone UND echten Character!
+            if isInvisible and cloneCharacter then
+                -- Im Invisible Mode: Clone noclip
+                for _, part in pairs(cloneCharacter:GetChildren()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+            
+            -- Echter Character IMMER noclip (egal ob invisible oder nicht)
+            local realCharacter = LocalPlayer.Character
+            if realCharacter then
+                for _, part in pairs(realCharacter:GetChildren()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if noclipConnection then
+            noclipConnection:Disconnect()
+            noclipConnection = nil
+        end
+        
+        -- Kollisionen wieder aktivieren
+        if isInvisible and cloneCharacter then
+            for _, part in pairs(cloneCharacter:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    if part.Name == "Torso" or part.Name == "UpperTorso" or part.Name == "Head" then
+                        part.CanCollide = true
+                    end
+                end
+            end
+        end
+        
+        local realCharacter = LocalPlayer.Character
+        if realCharacter then
+            for _, part in pairs(realCharacter:GetChildren()) do
+                if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end)
 
 				-- Walk-Jump Speed System
 				local speedEnabled = globalSpeedEnabled
