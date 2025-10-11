@@ -1,5 +1,5 @@
--- Vyrxis Menu - Bubble Style Edition (Extended)
--- Komplett neues Design mit Bubble Aesthetics + Neue Funktionen
+-- Vyrxis Menu - Bubble Style Edition (Extended + Invisible Mode)
+-- Komplett neues Design mit Bubble Aesthetics + Invisible Mode Feature
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
@@ -41,6 +41,16 @@ local orbitAngle = 0
 local isSpinning = false
 local spinConnection = nil
 local spinSpeed = 5
+
+-- Invisible Mode Variablen
+local isInvisible = false
+local cloneCharacter = nil
+local cloneRoot = nil
+local cloneHumanoid = nil
+local invisibleTeleportConnection = nil
+local invisibleMovementConnection = nil
+local invisibleRenderConnection = nil  -- <-- DIESE NEUE VARIABLE HINZUFÜGEN
+local savedCFrame = nil
 
 -- Settings Speicher-System
 local SettingsSaver = {}
@@ -90,7 +100,7 @@ function SettingsSaver:Load()
 		end
 		return nil
 	end)
-	
+
 	if success and result then
 		print("[Vyrxis] Settings loaded successfully!")
 		return result
@@ -127,41 +137,41 @@ FlySystem.connection = nil
 
 function FlySystem:Enable()
 	if self.enabled then return end
-	
+
 	local character = LocalPlayer.Character
 	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-	
+
 	local humanoidRootPart = character.HumanoidRootPart
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	
+
 	if humanoid then
 		humanoid.PlatformStand = true
 	end
-	
+
 	self.bodyVelocity = Instance.new("BodyVelocity")
 	self.bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
 	self.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
 	self.bodyVelocity.Parent = humanoidRootPart
-	
+
 	self.bodyAngularVelocity = Instance.new("BodyAngularVelocity")
 	self.bodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
 	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
 	self.bodyAngularVelocity.Parent = humanoidRootPart
-	
+
 	self.bodyPosition = Instance.new("BodyPosition")
 	self.bodyPosition.MaxForce = Vector3.new(0, 0, 0)
 	self.bodyPosition.Position = humanoidRootPart.Position
 	self.bodyPosition.D = 2000
 	self.bodyPosition.P = 10000
 	self.bodyPosition.Parent = humanoidRootPart
-	
+
 	self.enabled = true
 	self:StartUpdateLoop()
 end
 
 function FlySystem:Disable()
 	if not self.enabled then return end
-	
+
 	local character = LocalPlayer.Character
 	if character then
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -169,12 +179,12 @@ function FlySystem:Disable()
 			humanoid.PlatformStand = false
 		end
 	end
-	
+
 	if self.bodyVelocity then self.bodyVelocity:Destroy() self.bodyVelocity = nil end
 	if self.bodyPosition then self.bodyPosition:Destroy() self.bodyPosition = nil end
 	if self.bodyAngularVelocity then self.bodyAngularVelocity:Destroy() self.bodyAngularVelocity = nil end
 	if self.connection then self.connection:Disconnect() self.connection = nil end
-	
+
 	self.enabled = false
 end
 
@@ -185,34 +195,34 @@ end
 
 function FlySystem:Update()
 	if not self.enabled then return end
-	
+
 	local character = LocalPlayer.Character
 	if not character or not character:FindFirstChild("HumanoidRootPart") then
 		self:Disable()
 		return
 	end
-	
+
 	local humanoidRootPart = character.HumanoidRootPart
 	local camera = Camera
-	
+
 	local lookDirection = camera.CFrame.LookVector
 	local upDirection = camera.CFrame.UpVector
 	local rightDirection = camera.CFrame.RightVector
-	
+
 	local newCFrame = CFrame.fromMatrix(humanoidRootPart.Position, rightDirection, upDirection, -lookDirection)
 	humanoidRootPart.CFrame = newCFrame
-	
+
 	local moveVector = Vector3.new(0, 0, 0)
-	
+
 	if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + lookDirection end
 	if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector - lookDirection end
 	if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - rightDirection end
 	if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + rightDirection end
 	if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
 	if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveVector = moveVector + Vector3.new(0, -1, 0) end
-	
+
 	if moveVector.Magnitude > 0 then moveVector = moveVector.Unit end
-	
+
 	local targetVelocity = moveVector * self.speed
 	self.bodyVelocity.Velocity = targetVelocity
 	self.bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
@@ -221,6 +231,444 @@ end
 
 function FlySystem:SetSpeed(newSpeed)
 	self.speed = math.clamp(newSpeed, 1, 1000)
+end
+
+-- INVISIBLE MODE SYSTEM (WORKING VERSION - VISIBLE CLONE)
+local InvisibleSystem = {}
+
+function InvisibleSystem:CreateClone()
+	local character = LocalPlayer.Character
+	if not character then return nil, nil, nil end
+	
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then return nil, nil, nil end
+	
+	local clone = Instance.new("Model")
+	clone.Name = "GhostClone"
+	
+	local cloneHRP = nil
+	
+	-- Nur BaseParts clonen
+	for _, part in pairs(character:GetChildren()) do
+		if part:IsA("BasePart") then
+			local success, clonedPart = pcall(function()
+				return part:Clone()
+			end)
+			
+			if success and clonedPart then
+				if clonedPart.Name == "HumanoidRootPart" then
+					clonedPart.Transparency = 1
+					cloneHRP = clonedPart
+				else
+					-- Clone ist 50% transparent (Ghost-Effekt)
+					clonedPart.Transparency = math.clamp(clonedPart.Transparency + 0.5, 0, 1)
+				end
+				
+				if clonedPart.Name == "Torso" or clonedPart.Name == "UpperTorso" or clonedPart.Name == "Head" then
+					clonedPart.CanCollide = true
+				else
+					clonedPart.CanCollide = false
+				end
+				
+				clonedPart.Anchored = false
+				clonedPart.Massless = true
+				
+				clonedPart.CustomPhysicalProperties = PhysicalProperties.new(
+					0.7,
+					0.05,
+					0.3,
+					1,
+					1
+				)
+				
+				for _, obj in pairs(clonedPart:GetDescendants()) do
+					if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+						obj:Destroy()
+					end
+				end
+				
+				clonedPart.Parent = clone
+			end
+		end
+	end
+	
+	-- Fallback: Erstelle HumanoidRootPart wenn nicht vorhanden
+	if not cloneHRP then
+		cloneHRP = Instance.new("Part")
+		cloneHRP.Name = "HumanoidRootPart"
+		cloneHRP.Size = Vector3.new(2, 2, 1)
+		cloneHRP.Transparency = 1
+		cloneHRP.CanCollide = false
+		cloneHRP.Anchored = false
+		cloneHRP.Massless = true
+		cloneHRP.Parent = clone
+	end
+	
+	cloneHRP.CustomPhysicalProperties = PhysicalProperties.new(
+		0.5,
+		0.05,
+		0.3,
+		1,
+		1
+	)
+	
+	cloneHRP.CFrame = humanoidRootPart.CFrame
+	
+	local humanoid = Instance.new("Humanoid")
+	humanoid.DisplayName = ""
+	humanoid.HealthDisplayDistance = 0
+	humanoid.NameDisplayDistance = 0
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+	humanoid.AutoRotate = true
+	humanoid.Parent = clone
+	
+	-- BodyVelocity für Fly Mode (direkt aktiviert)
+	local bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+	bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	bodyVelocity.Parent = cloneHRP
+	
+	-- BodyGyro für Fly Mode (direkt aktiviert)
+	local bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000)
+	bodyGyro.P = 3000
+	bodyGyro.D = 100
+	bodyGyro.CFrame = cloneHRP.CFrame
+	bodyGyro.Parent = cloneHRP
+	
+	-- Parts mit Welds verbinden
+	for _, part in pairs(clone:GetChildren()) do
+		if part:IsA("BasePart") and part ~= cloneHRP then
+			local weld = Instance.new("Weld")
+			weld.Part0 = cloneHRP
+			weld.Part1 = part
+			weld.C0 = cloneHRP.CFrame:Inverse() * part.CFrame
+			weld.Parent = part
+		end
+	end
+	
+	clone.Parent = workspace
+	
+	-- Welds zum echten Character entfernen
+	task.wait(0.1)
+	for _, part in pairs(clone:GetDescendants()) do
+		if part:IsA("Weld") or part:IsA("Motor6D") or part:IsA("ManualWeld") then
+			if part.Part0 and part.Part0:IsDescendantOf(character) then
+				part:Destroy()
+			elseif part.Part1 and part.Part1:IsDescendantOf(character) then
+				part:Destroy()
+			end
+		end
+	end
+	
+	print("[Vyrxis] Clone erfolgreich erstellt im Fly Mode!")
+	return clone, cloneHRP, humanoid
+end
+
+function InvisibleSystem:MakeInvisible()
+	if not isInvisible then return end
+	
+	local character = LocalPlayer.Character
+	if not character then return end
+	
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart or not humanoidRootPart.Parent then return end
+	
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid then return end
+	
+	-- SICHERER BEREICH: -400 (über der Kill Zone)
+	local safeUndergroundY = -400
+	
+	-- KRITISCH: Setze Health auf Max (verhindert Tod!)
+	humanoid.Health = humanoid.MaxHealth
+	
+	-- 1. Setze Humanoid-States
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	humanoid.AutoRotate = false
+	
+	-- 2. Deaktiviere FallDamage & Tod komplett
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+	
+	-- 3. MULTI CFrame TELEPORT (3x hintereinander für INSTANT Effekt!)
+	for i = 1, 3 do
+		humanoidRootPart.CFrame = CFrame.new(0, safeUndergroundY, 0)
+	end
+	
+	-- 4. Setze Velocities HART auf 0 (mehrfach!)
+	humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+	humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+	humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+	humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+	
+	-- 5. Deaktiviere Kollisionen
+	for _, part in pairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+			part.Massless = true
+			if part ~= humanoidRootPart then
+				part.Transparency = 1
+			end
+		end
+	end
+end
+
+function InvisibleSystem:ControlClone()
+	if not cloneRoot or not cloneRoot.Parent or not cloneHumanoid then return end
+	
+	local camera = Camera
+	
+	-- Hole Eingaben direkt
+	local moveVector = Vector3.new(0, 0, 0)
+	
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		moveVector = moveVector + Vector3.new(0, 0, -1)
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+		moveVector = moveVector + Vector3.new(0, 0, 1)
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		moveVector = moveVector + Vector3.new(-1, 0, 0)
+	end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+		moveVector = moveVector + Vector3.new(1, 0, 0)
+	end
+	
+	-- Immer im Fly Mode
+	cloneHumanoid.PlatformStand = true
+	
+	local bodyVelocity = cloneRoot:FindFirstChild("BodyVelocity")
+	local bodyGyro = cloneRoot:FindFirstChild("BodyGyro")
+	
+	if bodyVelocity and bodyGyro then
+		local speed = 50
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+			speed = 100
+		end
+		
+		local moveVelocity = Vector3.new(0, 0, 0)
+		
+		if moveVector.Magnitude > 0 then
+			local cameraCFrame = camera.CFrame
+			local cameraRelativeMove = cameraCFrame:VectorToWorldSpace(moveVector)
+			cameraRelativeMove = Vector3.new(cameraRelativeMove.X, 0, cameraRelativeMove.Z)
+			
+			if cameraRelativeMove.Magnitude > 0 then
+				moveVelocity = cameraRelativeMove.Unit * speed
+			end
+		end
+		
+		local verticalSpeed = 0
+		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+			verticalSpeed = speed
+		elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+			verticalSpeed = -speed
+		end
+		
+		bodyVelocity.Velocity = Vector3.new(moveVelocity.X, verticalSpeed, moveVelocity.Z)
+		
+		if moveVelocity.Magnitude > 0.1 then
+			local targetCFrame = CFrame.new(cloneRoot.Position, cloneRoot.Position + moveVelocity)
+			bodyGyro.CFrame = targetCFrame
+		end
+	end
+	
+	camera.CameraSubject = cloneHumanoid
+end
+
+-- HILFSFUNKTION: Gibt den zu steuernden Character zurück
+function InvisibleSystem:GetActiveCharacter()
+	if isInvisible and cloneCharacter then
+		return cloneCharacter
+	else
+		return LocalPlayer.Character
+	end
+end
+
+-- HILFSFUNKTION: Gibt die zu steuernde HumanoidRootPart zurück
+function InvisibleSystem:GetActiveRootPart()
+	if isInvisible and cloneRoot then
+		return cloneRoot
+	else
+		local character = LocalPlayer.Character
+		return character and character:FindFirstChild("HumanoidRootPart")
+	end
+end
+
+-- HILFSFUNKTION: Gibt den zu steuernden Humanoid zurück
+function InvisibleSystem:GetActiveHumanoid()
+	if isInvisible and cloneHumanoid then
+		return cloneHumanoid
+	else
+		local character = LocalPlayer.Character
+		return character and character:FindFirstChildOfClass("Humanoid")
+	end
+end
+
+function InvisibleSystem:Enable()
+	if isInvisible then return end
+	
+	local character = LocalPlayer.Character
+	if not character then 
+		print("[Vyrxis] FEHLER: Kein Character gefunden!")
+		return 
+	end
+	
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if humanoidRootPart then
+		savedCFrame = humanoidRootPart.CFrame
+		print("[Vyrxis] Start Position Y:", math.floor(humanoidRootPart.Position.Y))
+	else
+		print("[Vyrxis] FEHLER: Keine HumanoidRootPart gefunden!")
+		return
+	end
+	
+	cloneCharacter, cloneRoot, cloneHumanoid = self:CreateClone()
+	
+	if not cloneRoot then
+		print("[Vyrxis] FEHLER: Clone konnte nicht erstellt werden!")
+		return false
+	end
+	
+	isInvisible = true
+	
+	-- KEIN WAIT! Sofortiger Start!
+	self:MakeInvisible()
+	
+	-- Connections (RenderStepped ist SCHNELLER als Heartbeat!)
+	invisibleTeleportConnection = RunService.RenderStepped:Connect(function()
+		self:MakeInvisible()
+	end)
+	
+	invisibleMovementConnection = RunService.RenderStepped:Connect(function()
+		self:ControlClone()
+	end)
+	
+	print("[Vyrxis] ========================================")
+	print("[Vyrxis] Invisible Mode AKTIVIERT!")
+	print("[Vyrxis] Character ist sicher bei Y = -400 (über Kill Zone)")
+	print("[Vyrxis] Clone fliegt automatisch (WASD + Space/Ctrl)")
+	print("[Vyrxis] ========================================")
+	return true
+end
+
+function InvisibleSystem:Disable()
+	if not isInvisible then return end
+	
+	print("[Vyrxis] ========================================")
+	print("[Vyrxis] Deaktiviere Invisible Mode - INSTANT TP!")
+	
+	-- KRITISCH: Speichere Clone Position SOFORT
+	local targetCFrame = nil
+	if cloneRoot and cloneRoot.Parent then
+		-- Position etwas höher setzen (sicherer)
+		targetCFrame = cloneRoot.CFrame + Vector3.new(0, 3, 0)
+		print("[Vyrxis] Clone Position gespeichert")
+	else
+		print("[Vyrxis] WARNUNG: Keine Clone Position! Nutze Fallback.")
+		targetCFrame = savedCFrame or CFrame.new(0, 50, 0)
+	end
+	
+	-- Setze isInvisible auf false (stoppt MakeInvisible Loop)
+	isInvisible = false
+	
+	-- Disconnecte Connections SOFORT
+	if invisibleTeleportConnection then
+		invisibleTeleportConnection:Disconnect()
+		invisibleTeleportConnection = nil
+	end
+	
+	if invisibleMovementConnection then
+		invisibleMovementConnection:Disconnect()
+		invisibleMovementConnection = nil
+	end
+	
+	local character = LocalPlayer.Character
+	if not character then 
+		print("[Vyrxis] FEHLER: Kein Character gefunden!")
+		return 
+	end
+	
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoidRootPart then 
+		print("[Vyrxis] FEHLER: Keine HumanoidRootPart gefunden!")
+		return 
+	end
+	
+	local humanoid = character:FindFirstChild("Humanoid")
+	if not humanoid then 
+		print("[Vyrxis] FEHLER: Kein Humanoid gefunden!")
+		return 
+	end
+	
+	-- SOFORT: Entferne ALLE BodyMovers
+	for _, obj in pairs(humanoidRootPart:GetChildren()) do
+		if obj:IsA("BodyPosition") or obj:IsA("BodyVelocity") or obj:IsA("BodyGyro") then
+			obj:Destroy()
+		end
+	end
+	
+	-- MEGA FAST TELEPORT: 5x CFrame setzen für instant snap!
+	for i = 1, 5 do
+		humanoidRootPart.CFrame = targetCFrame
+	end
+	
+	-- Alle Velocities auf 0 (mehrfach für Sicherheit!)
+	humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+	humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+	humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+	humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+	
+	-- Reaktiviere ALLES sofort
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
+	humanoid.AutoRotate = true
+	humanoid.PlatformStand = false
+	humanoid.Health = humanoid.MaxHealth
+	humanoid.WalkSpeed = 16
+	humanoid.JumpPower = 50
+	humanoid.JumpHeight = 7.2
+	
+	-- INSTANT State Change (kein wait!)
+	humanoid:ChangeState(Enum.HumanoidStateType.Running)
+	
+	print("[Vyrxis] INSTANT Teleport! Y:", math.floor(humanoidRootPart.Position.Y))
+	
+	-- Körperteile zurücksetzen (HumanoidRootPart bleibt UNSICHTBAR!)
+	for _, part in pairs(character:GetDescendants()) do
+		if part:IsA("BasePart") then
+			if part.Name == "HumanoidRootPart" then
+				-- HumanoidRootPart bleibt IMMER unsichtbar!
+				part.Transparency = 1
+			else
+				-- Alle anderen Parts werden sichtbar
+				part.Transparency = 0
+			end
+			part.CanCollide = true
+			part.Massless = false
+		end
+	end
+	
+	-- Kamera zurücksetzen
+	Camera.CameraSubject = humanoid
+	
+	-- Clone zerstören
+	if cloneCharacter and cloneCharacter.Parent then
+		cloneCharacter:Destroy()
+	end
+	
+	cloneCharacter = nil
+	cloneRoot = nil
+	cloneHumanoid = nil
+	
+	print("[Vyrxis] ========================================")
+	print("[Vyrxis] Visible Mode AKTIVIERT - INSTANT!")
+	print("[Vyrxis] HumanoidRootPart bleibt unsichtbar!")
+	print("[Vyrxis] ========================================")
 end
 
 -- LOAD SCREEN ERSTELLEN
@@ -474,7 +922,7 @@ local function createMenu()
 				keyLabel.Text = "Toggle-Key: " .. toggleKey.Name
 				keyButton.Text = "Press Key"
 				conn:Disconnect()
-				
+
 				savedSettings.toggleKey = toggleKey.Name
 			end
 		end)
@@ -543,14 +991,14 @@ local function createMenu()
 
 	-- Persistente Kategorie-Frames
 	local categoryFrames = {}
-	
+
 	-- Globale Key-Listener
 	local globalFlyKey = Enum.KeyCode[savedSettings.flyKey] or Enum.KeyCode.F
 	local globalSpeedKey = Enum.KeyCode[savedSettings.speedKey] or Enum.KeyCode.LeftControl
 	local globalSpeedEnabled = false
 	local globalCustomWalkSpeed = savedSettings.walkSpeed or 16
 	local globalCustomJumpHeight = savedSettings.jumpHeight or 50
-	
+
 	FlySystem:SetSpeed(savedSettings.flySpeed or 50)
 
 	-- Globaler Fly Toggle Listener
@@ -568,14 +1016,15 @@ local function createMenu()
 	UserInputService.InputBegan:Connect(function(input, gp)
 		if not gp and input.KeyCode == globalSpeedKey then
 			globalSpeedEnabled = not globalSpeedEnabled
-			local character = LocalPlayer.Character
-			if character and character:FindFirstChild("Humanoid") then
+			-- Verwende die richtige Humanoid-Referenz
+			local targetHumanoid = InvisibleSystem:GetActiveHumanoid()
+			if targetHumanoid then
 				if globalSpeedEnabled then
-					character.Humanoid.WalkSpeed = globalCustomWalkSpeed
-					character.Humanoid.JumpHeight = globalCustomJumpHeight
+					targetHumanoid.WalkSpeed = globalCustomWalkSpeed
+					targetHumanoid.JumpHeight = globalCustomJumpHeight
 				else
-					character.Humanoid.WalkSpeed = 16
-					character.Humanoid.JumpHeight = 7.2
+					targetHumanoid.WalkSpeed = 16
+					targetHumanoid.JumpHeight = 7.2
 				end
 			end
 		end
@@ -587,7 +1036,7 @@ local function createMenu()
 		containerFrame.Size = UDim2.new(1, -16, 0, 56)
 		containerFrame.BackgroundTransparency = 1
 		containerFrame.Parent = parent
-		
+
 		local label = Instance.new("TextLabel")
 		label.Size = UDim2.new(1, 0, 0, 20)
 		label.BackgroundTransparency = 1
@@ -675,7 +1124,7 @@ local function createMenu()
 
 		return box
 	end
-
+	
 	-- Button Factory
 	local function createButton(name, text)
 		local button = Instance.new("TextButton")
@@ -703,7 +1152,8 @@ local function createMenu()
 			viewEnabled = false,
 			followEnabled = false,
 			orbitEnabled = false,
-			spinEnabled = false
+			spinEnabled = false,
+			invisibleEnabled = false
 		}
 
 		button.MouseButton1Click:Connect(function()
@@ -715,7 +1165,7 @@ local function createMenu()
 				categoryFrames[name].Visible = not isVisible
 				return
 			end
-			
+
 			for _, frame in pairs(categoryFrames) do
 				frame.Visible = false
 			end
@@ -728,7 +1178,7 @@ local function createMenu()
 			subFrame.ScrollBarThickness = 6
 			subFrame.Visible = true
 			subFrame.Parent = rightContainer
-			
+
 			categoryFrames[name] = subFrame
 
 			local listLayout = Instance.new("UIListLayout")
@@ -782,7 +1232,7 @@ local function createMenu()
 				toggleImage.MouseButton1Click:Connect(function()
 					updateFlyState(not FlySystem.enabled)
 				end)
-				
+
 				RunService.Heartbeat:Connect(function()
 					if toggleImage and toggleImage.Parent then
 						toggleImage.Image = FlySystem.enabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
@@ -842,9 +1292,56 @@ local function createMenu()
 				end)
 			end
 
-			-- ME TAB
+			-- ME TAB (MIT INVISIBLE MODE)
 			if name == "MeButton" then
-				-- Give All Items (VERBESSERT)
+				-- Invisible Mode Toggle
+				local invisibleRow = Instance.new("Frame")
+				invisibleRow.Size = UDim2.new(1, -16, 0, 36)
+				invisibleRow.BackgroundTransparency = 1
+				invisibleRow.Parent = subFrame
+
+				local invisibleText = Instance.new("TextLabel")
+				invisibleText.Size = UDim2.new(1, -120, 1, 0)
+				invisibleText.BackgroundTransparency = 1
+				invisibleText.Text = "Invisible Mode"
+				invisibleText.TextXAlignment = Enum.TextXAlignment.Left
+				invisibleText.TextColor3 = Color3.fromRGB(64, 224, 208)
+				invisibleText.TextScaled = true
+				invisibleText.Font = Enum.Font.SourceSansBold
+				invisibleText.Parent = invisibleRow
+
+				local invisibleToggle = Instance.new("ImageButton")
+				invisibleToggle.Size = UDim2.new(0, 36, 0, 21)
+				invisibleToggle.Position = UDim2.new(1, -4, 0.5, 0)
+				invisibleToggle.AnchorPoint = Vector2.new(1, 0.5)
+				invisibleToggle.BackgroundTransparency = 1
+				invisibleToggle.Image = isInvisible and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
+				invisibleToggle.Parent = invisibleRow
+
+				invisibleToggle.MouseButton1Click:Connect(function()
+					if isInvisible then
+						InvisibleSystem:Disable()
+						invisibleToggle.Image = "rbxassetid://82936764863537"
+					else
+						local success = InvisibleSystem:Enable()
+						if success then
+							invisibleToggle.Image = "rbxassetid://133008101695657"
+						end
+					end
+				end)
+
+				-- Info Text für Invisible Mode
+				local invisibleInfo = Instance.new("TextLabel")
+				invisibleInfo.Size = UDim2.new(1, -16, 0, 40)
+				invisibleInfo.BackgroundTransparency = 1
+				invisibleInfo.Text = "Controls: WASD = Move, Space = Up, Ctrl = Down, Shift = Fast"
+				invisibleInfo.TextColor3 = Color3.fromRGB(150, 150, 150)
+				invisibleInfo.TextSize = 12
+				invisibleInfo.TextWrapped = true
+				invisibleInfo.Font = Enum.Font.SourceSans
+				invisibleInfo.Parent = subFrame
+
+				-- Give All Items
 				local giveRow = Instance.new("Frame")
 				giveRow.Size = UDim2.new(1, -16, 0, 36)
 				giveRow.BackgroundTransparency = 1
@@ -873,8 +1370,7 @@ local function createMenu()
 					if character then
 						local backpack = LocalPlayer.Backpack
 						local itemsFound = 0
-						
-						-- Funktion um zu prüfen ob Item bereits vorhanden ist
+
 						local function hasItem(itemName)
 							if backpack:FindFirstChild(itemName) then
 								return true
@@ -884,8 +1380,7 @@ local function createMenu()
 							end
 							return false
 						end
-						
-						-- Funktion zum sicheren Klonen von Tools
+
 						local function cloneTool(tool)
 							if tool:IsA("Tool") and not hasItem(tool.Name) then
 								local success, clonedTool = pcall(function()
@@ -901,24 +1396,20 @@ local function createMenu()
 							return false
 						end
 
-						-- 1. StarterPack durchsuchen
 						local starterPack = game:GetService("StarterPack")
 						for _, item in pairs(starterPack:GetChildren()) do
 							cloneTool(item)
 						end
 
-						-- 2. ReplicatedStorage durchsuchen (tiefer)
 						local replicatedStorage = game:GetService("ReplicatedStorage")
 						for _, item in pairs(replicatedStorage:GetDescendants()) do
 							cloneTool(item)
 						end
 
-						-- 3. Workspace durchsuchen (alle Tools)
 						for _, item in pairs(Workspace:GetDescendants()) do
 							cloneTool(item)
 						end
 
-						-- 4. Von anderen Spielern Items klonen
 						for _, player in pairs(Players:GetPlayers()) do
 							if player ~= LocalPlayer and player.Character then
 								for _, item in pairs(player.Character:GetChildren()) do
@@ -932,7 +1423,6 @@ local function createMenu()
 							end
 						end
 
-						-- 5. PlayerGui nach Tools durchsuchen (Shop Items etc.)
 						for _, player in pairs(Players:GetPlayers()) do
 							if player:FindFirstChild("PlayerGui") then
 								for _, item in pairs(player.PlayerGui:GetDescendants()) do
@@ -979,9 +1469,10 @@ local function createMenu()
 
 					if isNoclipEnabled then
 						noclipConnection = RunService.Stepped:Connect(function()
-							local character = LocalPlayer.Character
-							if character then
-								for _, part in pairs(character:GetChildren()) do
+							-- Verwende die richtige Character-Referenz
+							local targetCharacter = InvisibleSystem:GetActiveCharacter()
+							if targetCharacter then
+								for _, part in pairs(targetCharacter:GetChildren()) do
 									if part:IsA("BasePart") and part.CanCollide then
 										part.CanCollide = false
 									end
@@ -993,9 +1484,9 @@ local function createMenu()
 							noclipConnection:Disconnect()
 							noclipConnection = nil
 						end
-						local character = LocalPlayer.Character
-						if character then
-							for _, part in pairs(character:GetChildren()) do
+						local targetCharacter = InvisibleSystem:GetActiveCharacter()
+						if targetCharacter then
+							for _, part in pairs(targetCharacter:GetChildren()) do
 								if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
 									part.CanCollide = true
 								end
@@ -1037,14 +1528,15 @@ local function createMenu()
 					globalSpeedEnabled = state
 					speedToggleButton.Image = globalSpeedEnabled and "rbxassetid://133008101695657" or "rbxassetid://82936764863537"
 					
-					local character = LocalPlayer.Character
-					if character and character:FindFirstChild("Humanoid") then
+					-- Verwende die richtige Humanoid-Referenz
+					local targetHumanoid = InvisibleSystem:GetActiveHumanoid()
+					if targetHumanoid then
 						if globalSpeedEnabled then
-							character.Humanoid.WalkSpeed = globalCustomWalkSpeed
-							character.Humanoid.JumpHeight = globalCustomJumpHeight
+							targetHumanoid.WalkSpeed = globalCustomWalkSpeed
+							targetHumanoid.JumpHeight = globalCustomJumpHeight
 						else
-							character.Humanoid.WalkSpeed = 16
-							character.Humanoid.JumpHeight = 7.2
+							targetHumanoid.WalkSpeed = 16
+							targetHumanoid.JumpHeight = 7.2
 						end
 					end
 				end
@@ -1065,9 +1557,9 @@ local function createMenu()
 					if val then
 						globalCustomWalkSpeed = val
 						if globalSpeedEnabled then
-							local character = LocalPlayer.Character
-							if character and character:FindFirstChild("Humanoid") then
-								character.Humanoid.WalkSpeed = globalCustomWalkSpeed
+							local targetHumanoid = InvisibleSystem:GetActiveHumanoid()
+							if targetHumanoid then
+								targetHumanoid.WalkSpeed = globalCustomWalkSpeed
 							end
 						end
 						savedSettings.walkSpeed = val
@@ -1080,9 +1572,9 @@ local function createMenu()
 					if val then
 						globalCustomJumpHeight = val
 						if globalSpeedEnabled then
-							local character = LocalPlayer.Character
-							if character and character:FindFirstChild("Humanoid") then
-								character.Humanoid.JumpHeight = globalCustomJumpHeight
+							local targetHumanoid = InvisibleSystem:GetActiveHumanoid()
+							if targetHumanoid then
+								targetHumanoid.JumpHeight = globalCustomJumpHeight
 							end
 						end
 						savedSettings.jumpHeight = val
@@ -1163,10 +1655,10 @@ local function createMenu()
 					if isSpinning then
 						if spinConnection then spinConnection:Disconnect() end
 						spinConnection = RunService.Heartbeat:Connect(function()
-							local character = LocalPlayer.Character
-							if character and character:FindFirstChild("HumanoidRootPart") then
-								local rootPart = character.HumanoidRootPart
-								rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(spinSpeed), 0)
+							-- Verwende die richtige RootPart-Referenz
+							local targetRoot = InvisibleSystem:GetActiveRootPart()
+							if targetRoot then
+								targetRoot.CFrame = targetRoot.CFrame * CFrame.Angles(0, math.rad(spinSpeed), 0)
 							end
 						end)
 					else
@@ -1248,7 +1740,7 @@ local function createMenu()
 
 				antiAFKToggle.MouseButton1Click:Connect(function()
 					local isEnabled = antiAFKConnection ~= nil
-					
+
 					if isEnabled then
 						if antiAFKConnection then
 							antiAFKConnection:Disconnect()
@@ -1352,12 +1844,10 @@ local function createMenu()
 					if infJumpEnabled then
 						if infJumpConnection then infJumpConnection:Disconnect() end
 						infJumpConnection = UserInputService.JumpRequest:Connect(function()
-							local character = LocalPlayer.Character
-							if character then
-								local humanoid = character:FindFirstChildOfClass("Humanoid")
-								if humanoid then
-									humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-								end
+							-- Verwende die richtige Humanoid-Referenz
+							local targetHumanoid = InvisibleSystem:GetActiveHumanoid()
+							if targetHumanoid then
+								targetHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 							end
 						end)
 					else
@@ -1423,28 +1913,28 @@ local function createMenu()
 					for _, c in pairs(playerList:GetChildren()) do
 						if c:IsA("TextButton") then c:Destroy() end
 					end
-					
+
 					local searchTerm = searchBox.Text:lower()
-					
+
 					for _, plr in pairs(Players:GetPlayers()) do
 						if plr ~= LocalPlayer then
 							local playerName = plr.Name:lower()
 							local displayName = plr.DisplayName and plr.DisplayName ~= plr.Name and plr.DisplayName:lower() or ""
-							
+
 							local matchesSearch = searchTerm == "" or 
 								string.find(playerName, searchTerm) or 
 								(displayName ~= "" and string.find(displayName, searchTerm))
-							
+
 							if matchesSearch then
 								local btn = Instance.new("TextButton")
 								btn.Size = UDim2.new(1, -4, 0, 24)
-								
+
 								if plr.DisplayName and plr.DisplayName ~= plr.Name then
 									btn.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
 								else
 									btn.Text = plr.Name
 								end
-								
+
 								btn.BackgroundColor3 = (selectedPlayer == plr.Name) and Color3.fromRGB(0, 180, 220) or Color3.fromRGB(64, 224, 208)
 								btn.TextColor3 = Color3.fromRGB(0, 0, 0)
 								btn.TextScaled = true
@@ -1538,7 +2028,7 @@ local function createMenu()
 				followToggle.Image = "rbxassetid://82936764863537"
 				followToggle.Parent = followRow
 
-				-- Walk Animation IDs (Roblox Standard Animations)
+				-- Walk Animation IDs
 				local walkAnimations = {
 					["Default"] = nil,
 					["Astronaut"] = "rbxassetid://891621366",
@@ -1565,13 +2055,11 @@ local function createMenu()
 					local humanoid = character:FindFirstChildOfClass("Humanoid")
 					if not humanoid then return end
 
-					-- Remove current animation
 					if currentAnimationTrack then
 						currentAnimationTrack:Stop()
 						currentAnimationTrack = nil
 					end
 
-					-- Apply new animation if not default
 					if animName ~= "Default" and walkAnimations[animName] then
 						local animator = humanoid:FindFirstChildOfClass("Animator")
 						if not animator then
@@ -1581,7 +2069,7 @@ local function createMenu()
 
 						local animation = Instance.new("Animation")
 						animation.AnimationId = walkAnimations[animName]
-						
+
 						pcall(function()
 							currentAnimationTrack = animator:LoadAnimation(animation)
 							if currentAnimationTrack then
@@ -1671,7 +2159,7 @@ local function createMenu()
 						animDropdown.Text = animName
 						animDropdownMenu.Visible = false
 						savedSettings.followAnimation = animName
-						
+
 						if isFollowingPlayer then
 							local character = LocalPlayer.Character
 							applyWalkAnimation(character, animName)
@@ -1693,7 +2181,6 @@ local function createMenu()
 					end
 				end)
 
-				-- Variablen für Jump-Synchronisation
 				local lastTargetJumpState = false
 
 				followToggle.MouseButton1Click:Connect(function()
@@ -1702,8 +2189,7 @@ local function createMenu()
 
 					if isFollowingPlayer and selectedPlayer ~= "" then
 						local character = LocalPlayer.Character
-						
-						-- Stelle sicher, dass Character steht
+
 						if character then
 							local humanoid = character:FindFirstChildOfClass("Humanoid")
 							if humanoid then
@@ -1711,12 +2197,11 @@ local function createMenu()
 								wait(0.1)
 							end
 						end
-						
+
 						applyWalkAnimation(character, followWalkAnimation)
 
 						if followConnection then followConnection:Disconnect() end
 
-						-- Hauptloop
 						followConnection = RunService.Heartbeat:Connect(function()
 							if not isFollowingPlayer then
 								if followConnection then followConnection:Disconnect() end
@@ -1729,21 +2214,19 @@ local function createMenu()
 
 							local targetPlayer = Players:FindFirstChild(selectedPlayer)
 							local character = LocalPlayer.Character
-							
+
 							if targetPlayer and targetPlayer.Character and character then
 								local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
 								local targetHumanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
 								local myRoot = character:FindFirstChild("HumanoidRootPart")
 								local myHumanoid = character:FindFirstChildOfClass("Humanoid")
-								
+
 								if targetRoot and myRoot and myHumanoid and targetHumanoid then
-									-- Verhindere Fallen während Follow
 									if myHumanoid:GetState() == Enum.HumanoidStateType.Physics or 
-									   myHumanoid:GetState() == Enum.HumanoidStateType.Ragdoll then
+										myHumanoid:GetState() == Enum.HumanoidStateType.Ragdoll then
 										myHumanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
 									end
 
-									-- Berechne Zielposition mit eingestelltem Abstand
 									local distance = (myRoot.Position - targetRoot.Position).Magnitude
 									local direction = (targetRoot.Position - myRoot.Position).Unit
 									local targetPosition = targetRoot.Position - (direction * followDistance)
@@ -1752,9 +2235,8 @@ local function createMenu()
 										myHumanoid:MoveTo(targetPosition)
 									end
 
-									-- Synchronisiere Sprung
 									local targetJumpState = targetHumanoid:GetState() == Enum.HumanoidStateType.Jumping or 
-															targetHumanoid:GetState() == Enum.HumanoidStateType.Freefall
+										targetHumanoid:GetState() == Enum.HumanoidStateType.Freefall
 
 									if targetJumpState and not lastTargetJumpState and distance <= followDistance + 10 then
 										myHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
@@ -1762,7 +2244,6 @@ local function createMenu()
 
 									lastTargetJumpState = targetJumpState
 
-									-- Synchronisiere Sitzen nur wenn Ziel sitzt
 									if targetHumanoid.Sit and not myHumanoid.Sit then
 										myHumanoid.Sit = true
 									elseif not targetHumanoid.Sit and myHumanoid.Sit then
@@ -1783,14 +2264,6 @@ local function createMenu()
 						if followConnection then
 							followConnection:Disconnect()
 							followConnection = nil
-						end
-						if targetSpeedConnection then
-							targetSpeedConnection:Disconnect()
-							targetSpeedConnection = nil
-						end
-						if targetJumpConnection then
-							targetJumpConnection:Disconnect()
-							targetJumpConnection = nil
 						end
 						if currentAnimationTrack then
 							currentAnimationTrack:Stop()
@@ -1838,16 +2311,16 @@ local function createMenu()
 
 							local targetPlayer = Players:FindFirstChild(selectedPlayer)
 							local character = LocalPlayer.Character
-							
+
 							if targetPlayer and targetPlayer.Character and character then
 								local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
 								local myRoot = character:FindFirstChild("HumanoidRootPart")
-								
+
 								if targetRoot and myRoot then
 									orbitAngle = orbitAngle + (orbitSpeed * dt)
 									local x = math.cos(orbitAngle) * orbitRadius
 									local z = math.sin(orbitAngle) * orbitRadius
-									
+
 									local targetPos = targetRoot.Position + Vector3.new(x, 0, z)
 									myRoot.CFrame = CFrame.new(targetPos, targetRoot.Position)
 								end
@@ -1920,7 +2393,7 @@ local function createMenu()
 					end
 				end)
 
-				-- Clone Items (NEU)
+				-- Clone Items
 				local cloneItemsRow = Instance.new("Frame")
 				cloneItemsRow.Size = UDim2.new(1, 0, 0, 36)
 				cloneItemsRow.BackgroundTransparency = 1
@@ -1948,12 +2421,11 @@ local function createMenu()
 					if selectedPlayer ~= "" then
 						local targetPlayer = Players:FindFirstChild(selectedPlayer)
 						local character = LocalPlayer.Character
-						
+
 						if targetPlayer and character then
 							local backpack = LocalPlayer.Backpack
 							local itemsCloned = 0
-							
-							-- Funktion um zu prüfen ob Item bereits vorhanden ist
+
 							local function hasItem(itemName)
 								if backpack:FindFirstChild(itemName) then
 									return true
@@ -1963,8 +2435,7 @@ local function createMenu()
 								end
 								return false
 							end
-							
-							-- Items aus dem Character des Zielspielers klonen
+
 							if targetPlayer.Character then
 								for _, item in pairs(targetPlayer.Character:GetChildren()) do
 									if item:IsA("Tool") and not hasItem(item.Name) then
@@ -1979,8 +2450,7 @@ local function createMenu()
 									end
 								end
 							end
-							
-							-- Items aus dem Backpack des Zielspielers klonen
+
 							if targetPlayer:FindFirstChild("Backpack") then
 								for _, item in pairs(targetPlayer.Backpack:GetChildren()) do
 									if item:IsA("Tool") and not hasItem(item.Name) then
@@ -1995,7 +2465,7 @@ local function createMenu()
 									end
 								end
 							end
-							
+
 							print("[Vyrxis] Cloned " .. itemsCloned .. " items from " .. targetPlayer.Name)
 						end
 					end
@@ -2035,24 +2505,24 @@ local function createMenu()
 					if isSitting and selectedPlayer ~= "" then
 						local targetPlayer = Players:FindFirstChild(selectedPlayer)
 						local character = LocalPlayer.Character
-						
+
 						if targetPlayer and targetPlayer.Character and character then
 							local targetHead = targetPlayer.Character:FindFirstChild("Head")
 							local humanoid = character:FindFirstChild("Humanoid")
 							local rootPart = character:FindFirstChild("HumanoidRootPart")
-							
+
 							if targetHead and humanoid and rootPart then
 								humanoid.Sit = true
 								humanoid.WalkSpeed = 0
 								humanoid.JumpHeight = 0
-								
+
 								if sitConnection then sitConnection:Disconnect() end
 								sitConnection = RunService.Heartbeat:Connect(function()
 									if not isSitting then
 										if sitConnection then sitConnection:Disconnect() end
 										return
 									end
-									
+
 									local target = Players:FindFirstChild(selectedPlayer)
 									if target and target.Character and target.Character:FindFirstChild("Head") then
 										local tHead = target.Character.Head
@@ -2063,7 +2533,7 @@ local function createMenu()
 										isSitting = false
 										sitToggle.Image = "rbxassetid://82936764863537"
 										if sitConnection then sitConnection:Disconnect() end
-										
+
 										if humanoid then
 											humanoid.WalkSpeed = 16
 											humanoid.JumpHeight = 7.2
@@ -2077,7 +2547,7 @@ local function createMenu()
 							sitConnection:Disconnect()
 							sitConnection = nil
 						end
-						
+
 						local character = LocalPlayer.Character
 						if character and character:FindFirstChild("Humanoid") then
 							local humanoid = character.Humanoid
@@ -2088,7 +2558,7 @@ local function createMenu()
 					end
 				end)
 			end
-
+			
 			-- ESP TAB
 			if name == "ESPButton" then
 				local colors = {
@@ -2423,10 +2893,10 @@ local function createMenu()
 							if nametag then nametags[player] = nametag end
 						end
 					end)
-					
+
 					if player.Character then
 						wait(0.5)
-						
+
 						if isESPEnabled then
 							local highlight = createESPHighlight(player.Character)
 							if highlight then espHighlights[player] = highlight end
@@ -2478,8 +2948,17 @@ local function createMenu()
 		if character and character:FindFirstChild("Humanoid") and character:FindFirstChild("HumanoidRootPart") then
 			local humanoid = character.Humanoid
 			local rootPart = character.HumanoidRootPart
-			
+
 			rootPart.CustomPhysicalProperties = PhysicalProperties.new(0.7, 1.0, 0.0, 1.0, 1.0)
+		end
+	end)
+
+	-- Character Respawn Handler für Invisible Mode
+	LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+		task.wait(0.5)
+
+		if isInvisible then
+			InvisibleSystem:Disable()
 		end
 	end)
 end
@@ -2492,4 +2971,5 @@ task.wait(9)
 createMenu()
 
 print("[Vyrxis] Extended Menu loaded successfully!")
-print("[Vyrxis] New Features: Follow Player, Orbit Player, Spin Character, Anti-AFK, Infinite Jump")
+print("[Vyrxis] Features: Fly, Invisible Mode, Follow, Orbit, Spin, Anti-AFK, Infinite Jump, ESP")
+print("[Vyrxis] Invisible Mode: Your clone flies automatically with WASD controls!")
