@@ -233,8 +233,119 @@ function FlySystem:SetSpeed(newSpeed)
 	self.speed = math.clamp(newSpeed, 1, 1000)
 end
 
--- INVISIBLE MODE SYSTEM (WORKING VERSION - VISIBLE CLONE)
+-- INVISIBLE MODE SYSTEM (WORKING VERSION - WALKING CLONE MIT ANIMATIONEN)
+
+-- Services
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+
+-- Player & Camera
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Globale Variablen
+local isInvisible = false
+local cloneCharacter = nil
+local cloneRoot = nil
+local cloneHumanoid = nil
+local savedCFrame = nil
+local invisibleTeleportConnection = nil
+local invisibleMovementConnection = nil
+
+-- ===== NEU: ANIMATIONS-VARIABLEN =====
+local cloneAnimations = {}
+local currentAnimation = nil
+local lastAnimationState = "Idle"
+-- ======================================
+
 local InvisibleSystem = {}
+
+-- ===== NEU: LADE ANIMATIONEN FÜR CLONE =====
+function InvisibleSystem:LoadCloneAnimations()
+	if not cloneHumanoid then return end
+	
+	local animator = cloneHumanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		print("[Vyrxis] WARNUNG: Kein Animator gefunden!")
+		return
+	end
+	
+	-- Standard Roblox Animationen
+	local animationIds = {
+		Idle = "rbxassetid://507766666",
+		Walk = "rbxassetid://507777826",
+		Run = "rbxassetid://507767714",
+		Jump = "rbxassetid://507765000",
+		Fall = "rbxassetid://507767968",
+	}
+	
+	-- Lade alle Animationen
+	for animName, animId in pairs(animationIds) do
+		local animation = Instance.new("Animation")
+		animation.AnimationId = animId
+		
+		local success, animTrack = pcall(function()
+			return animator:LoadAnimation(animation)
+		end)
+		
+		if success and animTrack then
+			cloneAnimations[animName] = animTrack
+			print("[Vyrxis] Animation geladen:", animName)
+		end
+	end
+	
+	-- Starte Idle Animation
+	if cloneAnimations.Idle then
+		cloneAnimations.Idle:Play()
+		currentAnimation = cloneAnimations.Idle
+		lastAnimationState = "Idle"
+	end
+end
+
+-- ===== NEU: UPDATE CLONE ANIMATION =====
+function InvisibleSystem:UpdateCloneAnimation(moveVector, isJumping)
+	if not cloneHumanoid or not next(cloneAnimations) then return end
+	
+	local newState = "Idle"
+	
+	-- Bestimme State
+	if isJumping then
+		newState = "Jump"
+	elseif cloneHumanoid:GetState() == Enum.HumanoidStateType.Freefall then
+		newState = "Fall"
+	elseif moveVector.Magnitude > 0 then
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+			newState = "Run"
+		else
+			newState = "Walk"
+		end
+	else
+		newState = "Idle"
+	end
+	
+	-- Wechsle Animation wenn State sich ändert
+	if newState ~= lastAnimationState then
+		if currentAnimation then
+			currentAnimation:Stop(0.2)
+		end
+		
+		if cloneAnimations[newState] then
+			cloneAnimations[newState]:Play(0.2)
+			currentAnimation = cloneAnimations[newState]
+			lastAnimationState = newState
+		end
+	end
+	
+	-- WICHTIG: Animation Speed an WalkSpeed anpassen (Standard Roblox Verhalten)
+	if currentAnimation and (newState == "Walk" or newState == "Run") then
+		local baseSpeed = 16  -- Standard WalkSpeed
+		local currentSpeed = cloneHumanoid.WalkSpeed
+		local speedRatio = currentSpeed / baseSpeed
+		currentAnimation:AdjustSpeed(speedRatio)
+	end
+end
+-- ========================================
 
 function InvisibleSystem:CreateClone()
 	local character = LocalPlayer.Character
@@ -247,6 +358,7 @@ function InvisibleSystem:CreateClone()
 	clone.Name = "GhostClone"
 	
 	local cloneHRP = nil
+	local clonedParts = {}
 	
 	-- Nur BaseParts clonen
 	for _, part in pairs(character:GetChildren()) do
@@ -264,19 +376,21 @@ function InvisibleSystem:CreateClone()
 					clonedPart.Transparency = math.clamp(clonedPart.Transparency + 0.5, 0, 1)
 				end
 				
-				if clonedPart.Name == "Torso" or clonedPart.Name == "UpperTorso" or clonedPart.Name == "Head" then
+				-- Nur HumanoidRootPart hat Kollision (verhindert Steckenbleiben)
+				if clonedPart.Name == "HumanoidRootPart" then
 					clonedPart.CanCollide = true
 				else
 					clonedPart.CanCollide = false
 				end
 				
 				clonedPart.Anchored = false
-				clonedPart.Massless = true
+				clonedPart.Massless = true  -- Massless für bessere Bewegung
 				
+				-- Optimierte Physik für flüssiges Laufen
 				clonedPart.CustomPhysicalProperties = PhysicalProperties.new(
-					0.7,
-					0.05,
-					0.3,
+					0.7,   -- Normal weight (balance!)
+					1.0,   -- Standard Friction (balance zwischen Grip und Movement)
+					0,     -- Keine Elasticity (kein Bouncing)
 					1,
 					1
 				)
@@ -288,6 +402,7 @@ function InvisibleSystem:CreateClone()
 				end
 				
 				clonedPart.Parent = clone
+				clonedParts[part.Name] = clonedPart
 			end
 		end
 	end
@@ -298,21 +413,23 @@ function InvisibleSystem:CreateClone()
 		cloneHRP.Name = "HumanoidRootPart"
 		cloneHRP.Size = Vector3.new(2, 2, 1)
 		cloneHRP.Transparency = 1
-		cloneHRP.CanCollide = false
+		cloneHRP.CanCollide = true
 		cloneHRP.Anchored = false
-		cloneHRP.Massless = true
+		cloneHRP.Massless = false
 		cloneHRP.Parent = clone
+		clonedParts["HumanoidRootPart"] = cloneHRP
 	end
 	
 	cloneHRP.CustomPhysicalProperties = PhysicalProperties.new(
-		0.5,
-		0.05,
-		0.3,
+		0.7,   -- Normal weight (nicht zu leicht!)
+		1.0,   -- Standard Friction (balance zwischen Grip und Movement)
+		0,     -- Keine Elasticity
 		1,
 		1
 	)
 	
-	cloneHRP.CFrame = humanoidRootPart.CFrame
+	-- WICHTIG: Position DEUTLICH höher spawnen (Füße über dem Boden!)
+	cloneHRP.CFrame = humanoidRootPart.CFrame + Vector3.new(0, 2, 0)
 	
 	local humanoid = Instance.new("Humanoid")
 	humanoid.DisplayName = ""
@@ -320,33 +437,30 @@ function InvisibleSystem:CreateClone()
 	humanoid.NameDisplayDistance = 0
 	humanoid.WalkSpeed = 16
 	humanoid.JumpPower = 50
+	humanoid.JumpHeight = 7.2
 	humanoid.AutoRotate = true
+	humanoid.AutoJumpEnabled = true
+	humanoid.HipHeight = 3  -- ERHÖHT: Füße bleiben über dem Boden!
 	humanoid.Parent = clone
 	
-	-- BodyVelocity für Fly Mode (direkt aktiviert)
-	local bodyVelocity = Instance.new("BodyVelocity")
-	bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-	bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-	bodyVelocity.Parent = cloneHRP
-	
-	-- BodyGyro für Fly Mode (direkt aktiviert)
-	local bodyGyro = Instance.new("BodyGyro")
-	bodyGyro.MaxTorque = Vector3.new(4000, 4000, 4000)
-	bodyGyro.P = 3000
-	bodyGyro.D = 100
-	bodyGyro.CFrame = cloneHRP.CFrame
-	bodyGyro.Parent = cloneHRP
-	
-	-- Parts mit Welds verbinden
-	for _, part in pairs(clone:GetChildren()) do
-		if part:IsA("BasePart") and part ~= cloneHRP then
-			local weld = Instance.new("Weld")
-			weld.Part0 = cloneHRP
-			weld.Part1 = part
-			weld.C0 = cloneHRP.CFrame:Inverse() * part.CFrame
-			weld.Parent = part
+	-- Motor6Ds für natürliche Bewegung kopieren
+	for _, joint in pairs(character:GetDescendants()) do
+		if joint:IsA("Motor6D") then
+			local part0Name = joint.Part0 and joint.Part0.Name
+			local part1Name = joint.Part1 and joint.Part1.Name
+			
+			if part0Name and part1Name and clonedParts[part0Name] and clonedParts[part1Name] then
+				local newJoint = joint:Clone()
+				newJoint.Part0 = clonedParts[part0Name]
+				newJoint.Part1 = clonedParts[part1Name]
+				newJoint.Parent = newJoint.Part0
+			end
 		end
 	end
+	
+	-- Animator hinzufügen
+	local animator = Instance.new("Animator")
+	animator.Parent = humanoid
 	
 	clone.Parent = workspace
 	
@@ -362,7 +476,7 @@ function InvisibleSystem:CreateClone()
 		end
 	end
 	
-	print("[Vyrxis] Clone erfolgreich erstellt im Fly Mode!")
+	print("[Vyrxis] Clone erfolgreich erstellt - Walking Mode!")
 	return clone, cloneHRP, humanoid
 end
 
@@ -437,44 +551,85 @@ function InvisibleSystem:ControlClone()
 		moveVector = moveVector + Vector3.new(1, 0, 0)
 	end
 	
-	-- Immer im Fly Mode
-	cloneHumanoid.PlatformStand = true
+	-- WALKING MODE (nicht PlatformStand!)
+	cloneHumanoid.PlatformStand = false
 	
-	local bodyVelocity = cloneRoot:FindFirstChild("BodyVelocity")
-	local bodyGyro = cloneRoot:FindFirstChild("BodyGyro")
+	-- Geschwindigkeit anpassen
+	local walkSpeed = 16
+	if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+		walkSpeed = 24  -- Sprint
+	end
+	cloneHumanoid.WalkSpeed = walkSpeed
 	
-	if bodyVelocity and bodyGyro then
-		local speed = 50
-		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-			speed = 100
-		end
+	-- ===== NEU: Prüfe Jump für Animation =====
+	local isJumping = UserInputService:IsKeyDown(Enum.KeyCode.Space)
+	-- ==========================================
+	
+	-- Bewegung mit Humanoid:Move() für natürliches Laufen
+	if moveVector.Magnitude > 0 then
+		local cameraCFrame = camera.CFrame
+		local cameraRelativeMove = cameraCFrame:VectorToWorldSpace(moveVector)
+		cameraRelativeMove = Vector3.new(cameraRelativeMove.X, 0, cameraRelativeMove.Z)
 		
-		local moveVelocity = Vector3.new(0, 0, 0)
-		
-		if moveVector.Magnitude > 0 then
-			local cameraCFrame = camera.CFrame
-			local cameraRelativeMove = cameraCFrame:VectorToWorldSpace(moveVector)
-			cameraRelativeMove = Vector3.new(cameraRelativeMove.X, 0, cameraRelativeMove.Z)
+		if cameraRelativeMove.Magnitude > 0 then
+			-- Nutze Move() für natürliche Bewegung
+			cloneHumanoid:Move(cameraRelativeMove.Unit, false)
 			
-			if cameraRelativeMove.Magnitude > 0 then
-				moveVelocity = cameraRelativeMove.Unit * speed
+			-- ZUSÄTZLICH: MoveTo für besseres Pathfinding über Kanten
+			local targetPos = cloneRoot.Position + (cameraRelativeMove.Unit * 2)
+			cloneHumanoid:MoveTo(targetPos)
+			
+			-- ANTI-SLIDING: Sanfte aber effektive Geschwindigkeitskontrolle
+			local currentVelocity = cloneRoot.AssemblyLinearVelocity
+			local horizontalVelocity = Vector3.new(currentVelocity.X, 0, currentVelocity.Z)
+			local targetSpeed = cloneHumanoid.WalkSpeed
+			
+			-- Wenn zu schnell: Begrenze auf WalkSpeed (keine Reduktion mehr!)
+			if horizontalVelocity.Magnitude > targetSpeed then
+				local limitedVelocity = horizontalVelocity.Unit * targetSpeed
+				cloneRoot.AssemblyLinearVelocity = Vector3.new(limitedVelocity.X, currentVelocity.Y, limitedVelocity.Z)
 			end
 		end
+	else
+		-- INSTANT STOP - Mehrfach für SOFORTIGEN Effekt!
+		cloneHumanoid:Move(Vector3.new(0, 0, 0), false)
+		cloneHumanoid:MoveTo(cloneRoot.Position)  -- Befehle zu stoppen
 		
-		local verticalSpeed = 0
-		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-			verticalSpeed = speed
-		elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-			verticalSpeed = -speed
-		end
-		
-		bodyVelocity.Velocity = Vector3.new(moveVelocity.X, verticalSpeed, moveVelocity.Z)
-		
-		if moveVelocity.Magnitude > 0.1 then
-			local targetCFrame = CFrame.new(cloneRoot.Position, cloneRoot.Position + moveVelocity)
-			bodyGyro.CFrame = targetCFrame
+		if cloneRoot then
+			-- MEGA STOP: Setze ALLES auf 0 (3x hintereinander!)
+			for i = 1, 3 do
+				cloneRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)  -- AUCH Y auf 0!
+				cloneRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+				cloneRoot.Velocity = Vector3.new(0, 0, 0)
+				cloneRoot.RotVelocity = Vector3.new(0, 0, 0)
+			end
+			
+			-- CRITICAL: Anchore für mehrere Frames (INSTANT STOP!)
+			cloneRoot.Anchored = true
+			cloneRoot.CFrame = cloneRoot.CFrame  -- Force Position Update
+			
+			-- Warte 2 Frames für kompletten Stop
+			task.wait()
+			task.wait()
+			
+			cloneRoot.Anchored = false
+			
+			-- Nach Unanchor: Nochmal Velocities auf 0
+			cloneRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+			cloneRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 		end
 	end
+	
+	-- Jump mit Space
+	if isJumping then
+		pcall(function()
+			cloneHumanoid.Jump = true
+		end)
+	end
+	
+	-- ===== NEU: UPDATE ANIMATION =====
+	self:UpdateCloneAnimation(moveVector, isJumping)
+	-- ==================================
 	
 	camera.CameraSubject = cloneHumanoid
 end
@@ -533,6 +688,11 @@ function InvisibleSystem:Enable()
 		return false
 	end
 	
+	-- ===== NEU: LADE ANIMATIONEN =====
+	task.wait(0.2)  -- Kurzer Wait damit Animator bereit ist
+	self:LoadCloneAnimations()
+	-- ==================================
+	
 	isInvisible = true
 	
 	-- KEIN WAIT! Sofortiger Start!
@@ -550,7 +710,9 @@ function InvisibleSystem:Enable()
 	print("[Vyrxis] ========================================")
 	print("[Vyrxis] Invisible Mode AKTIVIERT!")
 	print("[Vyrxis] Character ist sicher bei Y = -400 (über Kill Zone)")
-	print("[Vyrxis] Clone fliegt automatisch (WASD + Space/Ctrl)")
+	print("[Vyrxis] Clone läuft normal (WASD + Space)")
+	print("[Vyrxis] Shift = Sprint")
+	print("[Vyrxis] Animationen aktiviert!")  -- NEU
 	print("[Vyrxis] ========================================")
 	return true
 end
@@ -561,12 +723,41 @@ function InvisibleSystem:Disable()
 	print("[Vyrxis] ========================================")
 	print("[Vyrxis] Deaktiviere Invisible Mode - INSTANT TP!")
 	
-	-- KRITISCH: Speichere Clone Position SOFORT
+	-- ===== NEU: STOPPE ALLE ANIMATIONEN =====
+	for _, animTrack in pairs(cloneAnimations) do
+		if animTrack then
+			animTrack:Stop()
+		end
+	end
+	cloneAnimations = {}
+	currentAnimation = nil
+	lastAnimationState = "Idle"
+	-- ========================================
+	
+	-- KRITISCH: Speichere Clone Position SOFORT mit PERFEKTER Boden-Anpassung
 	local targetCFrame = nil
-	if cloneRoot and cloneRoot.Parent then
-		-- Position etwas höher setzen (sicherer)
-		targetCFrame = cloneRoot.CFrame + Vector3.new(0, 3, 0)
-		print("[Vyrxis] Clone Position gespeichert")
+	if cloneRoot and cloneRoot.Parent and cloneHumanoid then
+		-- Berechne EXAKTE Boden-Position basierend auf Clone HipHeight
+		local cloneHipHeight = cloneHumanoid.HipHeight or 0
+		local characterHipHeight = 0
+		
+		-- Hole echten Character HipHeight
+		local character = LocalPlayer.Character
+		if character then
+			local realHumanoid = character:FindFirstChild("Humanoid")
+			if realHumanoid then
+				characterHipHeight = realHumanoid.HipHeight or 0
+			end
+		end
+		
+		-- Berechne Höhen-Differenz
+		local heightDifference = cloneHipHeight - characterHipHeight
+		
+		-- Setze Position GENAU auf Clone Position mit korrigierter Höhe
+		-- KEINE +3 oder +2 mehr! Nutze exakte HipHeight Differenz
+		targetCFrame = cloneRoot.CFrame - Vector3.new(0, heightDifference, 0)
+		print("[Vyrxis] Clone Position gespeichert - Perfekte Boden-Anpassung!")
+		print("[Vyrxis] HipHeight Differenz:", heightDifference)
 	else
 		print("[Vyrxis] WARNUNG: Keine Clone Position! Nutze Fallback.")
 		targetCFrame = savedCFrame or CFrame.new(0, 50, 0)
