@@ -307,8 +307,7 @@ local MimicSystem = {
     targetPlayer = nil,
     connection = nil,
     lastJumpTick = 0,
-    copiedTracks = {},
-    lastVelocity = Vector3.new(0, 0, 0)
+    copiedTracks = {}
 }
 
 function MimicSystem:Enable(player)
@@ -328,17 +327,16 @@ function MimicSystem:Enable(player)
     self.targetPlayer = player
     self.enabled = true
     self.lastJumpTick = 0
-    self.lastVelocity = Vector3.new(0, 0, 0)
     
     print("[Vynx] Mimic started:", player.Name)
     
-    -- Use RenderStepped for highest priority and smoothest updates (runs before rendering)
-    self.connection = RunService.RenderStepped:Connect(function()
+    -- Use Heartbeat for better stability (RenderStepped was too aggressive)
+    self.connection = RunService.Heartbeat:Connect(function()
         if not self.enabled or not self.targetPlayer then
             return
         end
         
-        local success, err = pcall(function()
+        pcall(function()
             local targetChar = self.targetPlayer.Character
             local localChar = LocalPlayer.Character
             
@@ -355,16 +353,16 @@ function MimicSystem:Enable(player)
                 return 
             end
             
-            -- 1. Copy ROTATION instantly (most important for accuracy)
+            -- 1. Copy ROTATION
             local targetCFrame = targetRoot.CFrame
             local localPosition = localRoot.Position
             local targetRotation = targetCFrame - targetCFrame.Position
             localRoot.CFrame = CFrame.new(localPosition) * targetRotation
             
-            -- 2. Copy WALKSPEED immediately
+            -- 2. Copy WALKSPEED
             localHumanoid.WalkSpeed = targetHumanoid.WalkSpeed
             
-            -- 2.5. Copy JUMPPOWER/HEIGHT for same jump height
+            -- 3. Copy JUMPPOWER/HEIGHT
             if targetHumanoid.UseJumpPower then
                 localHumanoid.UseJumpPower = true
                 localHumanoid.JumpPower = targetHumanoid.JumpPower
@@ -373,12 +371,11 @@ function MimicSystem:Enable(player)
                 localHumanoid.JumpHeight = targetHumanoid.JumpHeight
             end
             
-            -- 3. Copy MOVEMENT with BodyVelocity (more reliable than direct velocity)
+            -- 4. SENSITIVE MOVEMENT (0.2 is stable and responsive)
             local targetVelocity = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity
             local horizontalVelocity = Vector3.new(targetVelocity.X, 0, targetVelocity.Z)
             
-            if horizontalVelocity.Magnitude > 1 then
-                -- Target is moving - use BodyVelocity with proper force
+            if horizontalVelocity.Magnitude > 0.2 then
                 local bv = localRoot:FindFirstChild("MimicVelocity")
                 if not bv then
                     bv = Instance.new("BodyVelocity")
@@ -386,42 +383,32 @@ function MimicSystem:Enable(player)
                     bv.Parent = localRoot
                 end
                 
-                -- Calculate proper force based on WalkSpeed
                 local speedMultiplier = math.max(1, targetHumanoid.WalkSpeed / 16)
-                bv.MaxForce = Vector3.new(50000 * speedMultiplier, 0, 50000 * speedMultiplier)
-                bv.P = 10000
+                bv.MaxForce = Vector3.new(75000 * speedMultiplier, 0, 75000 * speedMultiplier)
+                bv.P = 15000
                 bv.Velocity = horizontalVelocity
-                
-                -- Smooth velocity update
-                self.lastVelocity = horizontalVelocity
             else
-                -- Target stopped - remove BodyVelocity
                 local bv = localRoot:FindFirstChild("MimicVelocity")
                 if bv then
                     bv:Destroy()
                 end
-                self.lastVelocity = Vector3.new(0, 0, 0)
             end
             
-            -- 4. Copy JUMP with improved detection (reduced cooldown for faster jumps)
+            -- 5. RELIABLE JUMP
             local currentTick = tick()
-            local targetState = targetHumanoid:GetState()
-            
-            -- Enhanced jump detection
             local targetYVelocity = targetRoot.AssemblyLinearVelocity.Y or targetRoot.Velocity.Y
             local isTargetJumping = 
-                targetState == Enum.HumanoidStateType.Jumping or 
+                targetHumanoid:GetState() == Enum.HumanoidStateType.Jumping or 
                 targetHumanoid.Jump or
-                (targetYVelocity > 15 and targetHumanoid.FloorMaterial == Enum.Material.Air)
+                (targetYVelocity > 8 and targetHumanoid.FloorMaterial == Enum.Material.Air)
             
-            -- Reduced cooldown for more frequent jumps (0.2s instead of 0.3s)
-            if isTargetJumping and (currentTick - self.lastJumpTick) > 0.2 then
+            if isTargetJumping and (currentTick - self.lastJumpTick) > 0.15 then
                 localHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 localHumanoid.Jump = true
                 self.lastJumpTick = currentTick
             end
             
-            -- 5. Copy ANIMATIONS/EMOTES with simplified but reliable system
+            -- 6. PERFECT ANIMATION SYNC (animations position your limbs correctly)
             local targetAnimator = targetHumanoid:FindFirstChildOfClass("Animator")
             local localAnimator = localHumanoid:FindFirstChildOfClass("Animator")
             
@@ -437,86 +424,71 @@ function MimicSystem:Enable(player)
                     
                     activeAnimIds[animId] = true
                     
-                    -- Simple filter - only skip if animation name contains these exact words
-                    local animName = string.lower(targetTrack.Name or "")
-                    local skipAnim = 
-                        animName == "walk" or 
-                        animName == "run" or 
-                        animName == "idle" or
-                        animName == "jump" or
-                        animName == "fall" or
-                        animName == "swim" or
-                        animName == "climb"
+                    local localTrack = self.copiedTracks[animId]
                     
-                    if not skipAnim then
-                        -- Check if we already have this animation
-                        if not self.copiedTracks[animId] then
-                            -- Create new animation
-                            local success, err = pcall(function()
-                                local anim = Instance.new("Animation")
-                                anim.AnimationId = animId
-                                local track = localAnimator:LoadAnimation(anim)
-                                
-                                -- Match all properties
-                                track.Priority = targetTrack.Priority
-                                track.Looped = targetTrack.Looped
-                                
-                                -- Play with same settings
-                                track:Play(0.1, 1, targetTrack.Speed)
-                                
-                                self.copiedTracks[animId] = track
-                                print("[Vynx] Emote synced:", animId)
-                            end)
+                    if not localTrack then
+                        -- NEW ANIMATION - Load and sync perfectly
+                        pcall(function()
+                            local anim = Instance.new("Animation")
+                            anim.AnimationId = animId
+                            localTrack = localAnimator:LoadAnimation(anim)
                             
-                            if not success then
-                                warn("[Vynx] Failed to load animation:", err)
-                            end
-                        else
-                            -- Update existing animation
-                            local track = self.copiedTracks[animId]
+                            -- Copy properties
+                            localTrack.Priority = targetTrack.Priority
+                            localTrack.Looped = targetTrack.Looped
                             
-                            if track and track.IsPlaying then
-                                -- Sync speed
-                                if math.abs(track.Speed - targetTrack.Speed) > 0.1 then
-                                    track:AdjustSpeed(targetTrack.Speed)
+                            -- Play with NO fade for instant start
+                            localTrack:Play(0, 1, targetTrack.Speed)
+                            
+                            -- Immediate sync
+                            localTrack.TimePosition = targetTrack.TimePosition
+                            localTrack:AdjustWeight(targetTrack.WeightCurrent, 0)
+                            
+                            self.copiedTracks[animId] = localTrack
+                        end)
+                    else
+                        -- EXISTING ANIMATION - Keep in perfect sync
+                        if targetTrack.IsPlaying then
+                            if not localTrack.IsPlaying then
+                                localTrack:Play(0, 1, targetTrack.Speed)
+                                localTrack.TimePosition = targetTrack.TimePosition
+                                localTrack:AdjustWeight(targetTrack.WeightCurrent, 0)
+                            else
+                                -- Perfect sync every frame
+                                
+                                -- Speed sync
+                                if math.abs(localTrack.Speed - targetTrack.Speed) > 0.01 then
+                                    localTrack:AdjustSpeed(targetTrack.Speed)
                                 end
                                 
-                                -- Sync weight
-                                if math.abs(track.WeightCurrent - targetTrack.WeightCurrent) > 0.1 then
-                                    track:AdjustWeight(targetTrack.WeightCurrent, 0)
+                                -- Weight sync (instant)
+                                local weightDiff = math.abs(localTrack.WeightCurrent - targetTrack.WeightCurrent)
+                                if weightDiff > 0.01 then
+                                    localTrack:AdjustWeight(targetTrack.WeightCurrent, 0)
                                 end
                                 
-                                -- Sync time position if too far off
-                                local timeDiff = math.abs(track.TimePosition - targetTrack.TimePosition)
-                                if timeDiff > 0.2 then
-                                    track.TimePosition = targetTrack.TimePosition
+                                -- TimePosition sync (very tight)
+                                local timeDiff = math.abs(localTrack.TimePosition - targetTrack.TimePosition)
+                                if timeDiff > 0.05 then
+                                    localTrack.TimePosition = targetTrack.TimePosition
                                 end
-                            elseif track and not track.IsPlaying then
-                                -- Animation stopped, restart it
-                                track:Play(0.1, 1, targetTrack.Speed)
                             end
                         end
                     end
                 end
                 
-                -- Stop animations that target stopped
+                -- Stop animations when target stops
                 for animId, track in pairs(self.copiedTracks) do
-                    if not activeAnimIds[animId] then
-                        if track and track.IsPlaying then
-                            track:Stop(0.2)
-                        end
+                    if not activeAnimIds[animId] and track and track.IsPlaying then
+                        track:Stop(0)
                         self.copiedTracks[animId] = nil
                     end
                 end
             end
         end)
-        
-        if not success and err then
-            warn("[Vynx] Mimic error:", err)
-        end
     end)
     
-    print("[Vynx] Ultra-stable mimic active - rotation, movement, jumps, emotes!")
+    print("[Vynx] Stable 1:1 animation mimic active!")
 end
 
 function MimicSystem:Disable()
@@ -529,7 +501,6 @@ function MimicSystem:Disable()
         self.connection = nil
     end
     
-    -- Reset velocity by removing BodyVelocity
     local localChar = LocalPlayer.Character
     if localChar then
         local localRoot = localChar:FindFirstChild("HumanoidRootPart")
@@ -540,18 +511,17 @@ function MimicSystem:Disable()
             end
         end
         
-        -- Reset WalkSpeed
         local localHumanoid = localChar:FindFirstChildOfClass("Humanoid")
         if localHumanoid then
             localHumanoid.WalkSpeed = 16
         end
     end
     
-    -- Stop all copied animations
+    -- Stop all copied animations INSTANTLY
     for _, track in pairs(self.copiedTracks) do
         pcall(function()
             if track and track.IsPlaying then
-                track:Stop(0.2)
+                track:Stop(0)  -- Instant stop
             end
         end)
     end
@@ -560,7 +530,6 @@ function MimicSystem:Disable()
     self.targetPlayer = nil
     self.enabled = false
     self.lastJumpTick = 0
-    self.lastVelocity = Vector3.new(0, 0, 0)
 end
 
 -- Preset Colors for Picker
