@@ -168,6 +168,9 @@ end
 -- Load saved settings
 LoadSettings()
 
+-- Forward declarations for pages (needed by keybind handler)
+local CharacterPage, ESPPage
+
 -- Admin Detection Function
 local function GetPlayerRank(player)
     -- Check team name for admin keywords
@@ -296,6 +299,204 @@ function RagdollSystem:Disable()
     
     self.originalJoints = {}
     self.enabled = false
+end
+
+-- MIMIC PLAYER SYSTEM
+local MimicSystem = {
+    enabled = false,
+    targetPlayer = nil,
+    connection = nil,
+    lastJumpTick = 0,
+    copiedTracks = {}
+}
+
+function MimicSystem:Enable(player)
+    if self.enabled and self.targetPlayer == player then 
+        return
+    end
+    
+    if self.enabled then 
+        self:Disable() 
+    end
+    
+    if not player or player == LocalPlayer then 
+        warn("[Vynx] Cannot mimic yourself")
+        return 
+    end
+    
+    self.targetPlayer = player
+    self.enabled = true
+    self.lastJumpTick = 0
+    
+    print("[Vynx] Mimic started:", player.Name)
+    
+    -- Start mimicking loop
+    self.connection = RunService.Heartbeat:Connect(function()
+        pcall(function()
+            if not self.enabled or not self.targetPlayer then
+                return
+            end
+            
+            local targetChar = self.targetPlayer.Character
+            local localChar = LocalPlayer.Character
+            
+            if not targetChar or not localChar then 
+                return 
+            end
+            
+            local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+            local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+            local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
+            local localHumanoid = localChar:FindFirstChildOfClass("Humanoid")
+            
+            if not targetRoot or not localRoot or not targetHumanoid or not localHumanoid then 
+                return 
+            end
+            
+            -- 1. Copy ROTATION (where they look)
+            local targetCFrame = targetRoot.CFrame
+            local localPosition = localRoot.Position
+            
+            -- Extract rotation from target, keep local position
+            local targetRotation = targetCFrame - targetCFrame.Position
+            localRoot.CFrame = CFrame.new(localPosition) * targetRotation
+            
+            -- 2. Copy MOVEMENT (walking/running)
+            local targetVelocity = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity
+            local horizontalVelocity = Vector3.new(targetVelocity.X, 0, targetVelocity.Z)
+            
+            -- Copy WalkSpeed for matching speed
+            if math.abs(localHumanoid.WalkSpeed - targetHumanoid.WalkSpeed) > 1 then
+                localHumanoid.WalkSpeed = targetHumanoid.WalkSpeed
+            end
+            
+            if horizontalVelocity.Magnitude > 2 then
+                -- Target is moving - apply force in that direction
+                local moveDir = horizontalVelocity.Unit
+                
+                -- Use BodyVelocity for more reliable movement
+                local bv = localRoot:FindFirstChild("MimicVelocity")
+                if not bv then
+                    bv = Instance.new("BodyVelocity")
+                    bv.Name = "MimicVelocity"
+                    bv.MaxForce = Vector3.new(40000, 0, 40000)  -- Increased force
+                    bv.P = 5000  -- Increased power
+                    bv.Parent = localRoot
+                end
+                
+                -- Set velocity to match target exactly
+                bv.Velocity = Vector3.new(horizontalVelocity.X, 0, horizontalVelocity.Z)
+            else
+                -- Target stopped - remove velocity
+                local bv = localRoot:FindFirstChild("MimicVelocity")
+                if bv then
+                    bv:Destroy()
+                end
+            end
+            
+            -- 3. Copy JUMP
+            local targetStateType = targetHumanoid:GetState()
+            local isTargetJumping = targetStateType == Enum.HumanoidStateType.Jumping or 
+                                   targetStateType == Enum.HumanoidStateType.Freefall or
+                                   targetHumanoid.FloorMaterial == Enum.Material.Air
+            
+            local currentTick = tick()
+            if isTargetJumping and (currentTick - self.lastJumpTick) > 0.5 then
+                localHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                self.lastJumpTick = currentTick
+                print("[Vynx] Jump copied!")
+            end
+            
+            -- 4. Copy EMOTES/ANIMATIONS
+            local targetAnimator = targetHumanoid:FindFirstChildOfClass("Animator")
+            local localAnimator = localHumanoid:FindFirstChildOfClass("Animator")
+            
+            if targetAnimator and localAnimator then
+                local targetTracks = targetAnimator:GetPlayingAnimationTracks()
+                
+                for _, targetTrack in pairs(targetTracks) do
+                    local animId = targetTrack.Animation.AnimationId
+                    local animName = string.lower(targetTrack.Name or "")
+                    
+                    -- Filter out default animations
+                    local isDefaultAnim = animName:find("walk") or
+                                         animName:find("run") or
+                                         animName:find("idle") or
+                                         animName:find("jump") or
+                                         animName:find("fall") or
+                                         animName:find("climb") or
+                                         animName:find("swim")
+                    
+                    -- Copy non-default animations (emotes)
+                    if not isDefaultAnim and not self.copiedTracks[animId] then
+                        local success = pcall(function()
+                            local anim = Instance.new("Animation")
+                            anim.AnimationId = animId
+                            local track = localAnimator:LoadAnimation(anim)
+                            track:Play()
+                            self.copiedTracks[animId] = track
+                            print("[Vynx] Emote copied:", animId)
+                        end)
+                    end
+                end
+                
+                -- Stop animations that target stopped
+                for animId, track in pairs(self.copiedTracks) do
+                    local targetStillPlaying = false
+                    for _, targetTrack in pairs(targetTracks) do
+                        if targetTrack.Animation.AnimationId == animId then
+                            targetStillPlaying = true
+                            break
+                        end
+                    end
+                    
+                    if not targetStillPlaying and track.IsPlaying then
+                        track:Stop()
+                        self.copiedTracks[animId] = nil
+                    end
+                end
+            end
+        end)
+    end)
+    
+    print("[Vynx] Now mimicking rotation, movements, jumps and emotes!")
+end
+
+function MimicSystem:Disable()
+    if not self.enabled then return end
+    
+    print("[Vynx] Mimic stopped")
+    
+    if self.connection then
+        self.connection:Disconnect()
+        self.connection = nil
+    end
+    
+    -- Remove BodyVelocity if exists
+    local localChar = LocalPlayer.Character
+    if localChar then
+        local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+        if localRoot then
+            local bv = localRoot:FindFirstChild("MimicVelocity")
+            if bv then
+                bv:Destroy()
+            end
+        end
+    end
+    
+    -- Stop all copied animations
+    for _, track in pairs(self.copiedTracks) do
+        pcall(function()
+            if track and track.IsPlaying then
+                track:Stop()
+            end
+        end)
+    end
+    self.copiedTracks = {}
+    
+    self.targetPlayer = nil
+    self.enabled = false
+    self.lastJumpTick = 0
 end
 
 -- Preset Colors for Picker
@@ -1300,7 +1501,7 @@ ContentCorner.CornerRadius = UDim.new(0, 12)
 ContentCorner.Parent = MainContent
 
 -- Character Page
-local CharacterPage = Instance.new("ScrollingFrame")
+CharacterPage = Instance.new("ScrollingFrame")
 CharacterPage.Size = UDim2.new(1, -30, 1, -30)
 CharacterPage.Position = UDim2.new(0, 15, 0, 15)
 CharacterPage.BackgroundTransparency = 1
@@ -1785,12 +1986,16 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             local targetPage = nil
             if featureName == "ESPHighlight" or featureName == "ESPNametags" then
                 targetPage = ESPPage
+                if not targetPage then
+                    warn("[Vynx] ESPPage not found!")
+                    return
+                end
             else
                 targetPage = CharacterPage
             end
             
             local cardName = featureName .. "Card"
-            local card = targetPage and targetPage:FindFirstChild(cardName)
+            local card = targetPage:FindFirstChild(cardName)
             
             if card then
                 local header = card:FindFirstChild("Header")
@@ -1799,8 +2004,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                     if toggleBtn then
                         toggleBtn.Text = featureData.enabled and "ON" or "OFF"
                         toggleBtn.BackgroundColor3 = featureData.enabled and Settings.Theme.Success or Settings.Theme.CardColor
+                    else
+                        warn("[Vynx] ToggleButton not found for", featureName)
                     end
+                else
+                    warn("[Vynx] Header not found for", featureName)
                 end
+            else
+                warn("[Vynx] Card not found:", cardName)
             end
             
             -- Execute toggle
@@ -2222,11 +2433,21 @@ function ShowPlayerInfo(player)
     
     -- Actions Container (SECOND - below stats)
     local ActionsContainer = Instance.new("Frame")
-    ActionsContainer.Size = UDim2.new(1, 0, 0, 145)  -- Reduced from 230
+    ActionsContainer.Size = UDim2.new(1, 0, 0, 145)  -- Height for 3 buttons
     ActionsContainer.BackgroundTransparency = 1
     ActionsContainer.LayoutOrder = order
     ActionsContainer.Parent = InfoScroll
     order = order + 1
+    
+    -- Add layout for buttons
+    local ActionsLayout = Instance.new("UIListLayout")
+    ActionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    ActionsLayout.Padding = UDim.new(0, 5)
+    ActionsLayout.Parent = ActionsContainer
+    
+    ActionsLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ActionsContainer.Size = UDim2.new(1, 0, 0, ActionsLayout.AbsoluteContentSize.Y)
+    end)
     
     -- Teleport Button
     local TpBtn = Instance.new("TextButton")
@@ -2238,6 +2459,7 @@ function ShowPlayerInfo(player)
     TpBtn.TextSize = 14
     TpBtn.Font = Enum.Font.GothamBold
     TpBtn.BorderSizePixel = 0
+    TpBtn.LayoutOrder = 1
     TpBtn.Parent = ActionsContainer
     
     local TpCorner = Instance.new("UICorner")
@@ -2255,10 +2477,9 @@ function ShowPlayerInfo(player)
         end
     end)
     
-    -- Headsit Button (NEU!)
+    -- Headsit Button
     local HeadsitBtn = Instance.new("TextButton")
     HeadsitBtn.Size = UDim2.new(1, 0, 0, 40)
-    HeadsitBtn.Position = UDim2.new(0, 0, 0, 45)
     HeadsitBtn.BackgroundColor3 = Settings.Theme.Warning
     HeadsitBtn.BackgroundTransparency = 0.2
     HeadsitBtn.Text = "💺  Headsit"
@@ -2266,11 +2487,49 @@ function ShowPlayerInfo(player)
     HeadsitBtn.TextSize = 14
     HeadsitBtn.Font = Enum.Font.GothamBold
     HeadsitBtn.BorderSizePixel = 0
+    HeadsitBtn.LayoutOrder = 2
     HeadsitBtn.Parent = ActionsContainer
     
     local HeadsitCorner = Instance.new("UICorner")
     HeadsitCorner.CornerRadius = UDim.new(0, 10)
     HeadsitCorner.Parent = HeadsitBtn
+    
+    -- Mimic Button (NEW!)
+    local MimicBtn = Instance.new("TextButton")
+    MimicBtn.Size = UDim2.new(1, 0, 0, 40)
+    MimicBtn.BackgroundColor3 = Settings.Theme.AccentPrimary
+    MimicBtn.BackgroundTransparency = 0.2
+    MimicBtn.Text = "🎭  Mimic"
+    MimicBtn.TextColor3 = Settings.Theme.TextPrimary
+    MimicBtn.TextSize = 14
+    MimicBtn.Font = Enum.Font.GothamBold
+    MimicBtn.BorderSizePixel = 0
+    MimicBtn.LayoutOrder = 3
+    MimicBtn.Parent = ActionsContainer
+    
+    local MimicCorner = Instance.new("UICorner")
+    MimicCorner.CornerRadius = UDim.new(0, 10)
+    MimicCorner.Parent = MimicBtn
+    
+    -- Set initial button state
+    if MimicSystem.enabled and MimicSystem.targetPlayer == player then
+        MimicBtn.Text = "⏸  Stop Mimic"
+        MimicBtn.BackgroundColor3 = Settings.Theme.Danger
+    end
+    
+    MimicBtn.MouseButton1Click:Connect(function()
+        if MimicSystem.enabled and MimicSystem.targetPlayer == player then
+            -- Stop mimicking
+            MimicSystem:Disable()
+            MimicBtn.Text = "🎭  Mimic"
+            MimicBtn.BackgroundColor3 = Settings.Theme.AccentPrimary
+        else
+            -- Start mimicking
+            MimicSystem:Enable(player)
+            MimicBtn.Text = "⏸  Stop Mimic"
+            MimicBtn.BackgroundColor3 = Settings.Theme.Danger
+        end
+    end)
     
     HeadsitBtn.MouseButton1Click:Connect(function()
         isSittingOnPlayer = not isSittingOnPlayer
@@ -2477,11 +2736,18 @@ Players.PlayerRemoving:Connect(function(player)
         SelectedPlayer = nil
         PlayerInfoSidebar.Visible = false
     end
+    
+    -- Stop mimicking if target player leaves
+    if MimicSystem.enabled and MimicSystem.targetPlayer == player then
+        MimicSystem:Disable()
+        print("[Vynx] Target player left, mimic stopped")
+    end
+    
     UpdatePlayerList(SearchBox.Text)
 end)
 
 -- ESP PAGE
-local ESPPage = Instance.new("ScrollingFrame")
+ESPPage = Instance.new("ScrollingFrame")
 ESPPage.Name = "ESPPage"
 ESPPage.Size = UDim2.new(1, -30, 1, -30)
 ESPPage.Position = UDim2.new(0, 15, 0, 15)
@@ -4016,14 +4282,18 @@ local isMinimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     
+    local baseWidth, baseHeight = 850, 550
+    local scaledWidth = baseWidth * Settings.MenuScale
+    local scaledHeight = baseHeight * Settings.MenuScale
+    
     if isMinimized then
         TweenService:Create(MainContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quad), 
-            {Size = UDim2.new(0, 850, 0, 60)}):Play()
+            {Size = UDim2.new(0, scaledWidth, 0, 60 * Settings.MenuScale)}):Play()
         ContentArea.Visible = false
         PlayerInfoSidebar.Visible = false
     else
         TweenService:Create(MainContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quad), 
-            {Size = UDim2.new(0, 850, 0, 550)}):Play()
+            {Size = UDim2.new(0, scaledWidth, 0, scaledHeight)}):Play()
         task.wait(0.2)
         ContentArea.Visible = true
     end
@@ -4100,6 +4370,11 @@ LocalPlayer.CharacterAdded:Connect(function()
         RagdollSystem.enabled = false
         RagdollSystem.originalJoints = {}
         FeatureStates.Ragdoll.enabled = false
+    end
+    
+    -- Stop Mimic on respawn
+    if MimicSystem.enabled then
+        MimicSystem:Disable()
     end
 end)
 
