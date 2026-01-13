@@ -169,7 +169,7 @@ end
 LoadSettings()
 
 -- Forward declarations for pages (needed by keybind handler)
-local CharacterPage, ESPPage
+local CharacterPage, ESPPage, MenuUsersPage
 
 -- Admin Detection Function
 local function GetPlayerRank(player)
@@ -307,7 +307,8 @@ local MimicSystem = {
     targetPlayer = nil,
     connection = nil,
     lastJumpTick = 0,
-    copiedTracks = {}
+    copiedTracks = {},
+    originalAnimations = {}  -- Store original animation IDs for restoration
 }
 
 function MimicSystem:Enable(player)
@@ -330,8 +331,8 @@ function MimicSystem:Enable(player)
     
     print("[Vynx] Mimic started:", player.Name)
     
-    -- Use Heartbeat for stability
-    self.connection = RunService.Heartbeat:Connect(function()
+    -- Use RenderStepped for MAXIMUM animation sync speed (updates BEFORE each frame renders)
+    self.connection = RunService.RenderStepped:Connect(function()
         if not self.enabled or not self.targetPlayer then
             return
         end
@@ -353,7 +354,7 @@ function MimicSystem:Enable(player)
                 return 
             end
             
-            -- 1. Copy ROTATION (where they look)
+            -- 1. Copy ROTATION
             local targetCFrame = targetRoot.CFrame
             local localPosition = localRoot.Position
             local targetRotation = targetCFrame - targetCFrame.Position
@@ -371,12 +372,11 @@ function MimicSystem:Enable(player)
                 localHumanoid.JumpHeight = targetHumanoid.JumpHeight
             end
             
-            -- 4. Copy MOVEMENT (SENSITIVE - detects small movements)
+            -- 4. SENSITIVE MOVEMENT (0.2 is stable and responsive)
             local targetVelocity = targetRoot.AssemblyLinearVelocity or targetRoot.Velocity
             local horizontalVelocity = Vector3.new(targetVelocity.X, 0, targetVelocity.Z)
             
-            -- Lowered to 0.3 for sensitivity (detects tiny movements)
-            if horizontalVelocity.Magnitude > 0.3 then
+            if horizontalVelocity.Magnitude > 0.2 then
                 local bv = localRoot:FindFirstChild("MimicVelocity")
                 if not bv then
                     bv = Instance.new("BodyVelocity")
@@ -385,8 +385,8 @@ function MimicSystem:Enable(player)
                 end
                 
                 local speedMultiplier = math.max(1, targetHumanoid.WalkSpeed / 16)
-                bv.MaxForce = Vector3.new(50000 * speedMultiplier, 0, 50000 * speedMultiplier)
-                bv.P = 10000
+                bv.MaxForce = Vector3.new(75000 * speedMultiplier, 0, 75000 * speedMultiplier)
+                bv.P = 15000
                 bv.Velocity = horizontalVelocity
             else
                 local bv = localRoot:FindFirstChild("MimicVelocity")
@@ -395,21 +395,81 @@ function MimicSystem:Enable(player)
                 end
             end
             
-            -- 5. Copy JUMP
+            -- 5. RELIABLE JUMP
             local currentTick = tick()
             local targetYVelocity = targetRoot.AssemblyLinearVelocity.Y or targetRoot.Velocity.Y
             local isTargetJumping = 
                 targetHumanoid:GetState() == Enum.HumanoidStateType.Jumping or 
                 targetHumanoid.Jump or
-                (targetYVelocity > 10 and targetHumanoid.FloorMaterial == Enum.Material.Air)
+                (targetYVelocity > 8 and targetHumanoid.FloorMaterial == Enum.Material.Air)
             
-            if isTargetJumping and (currentTick - self.lastJumpTick) > 0.2 then
+            if isTargetJumping and (currentTick - self.lastJumpTick) > 0.15 then
                 localHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                 localHumanoid.Jump = true
                 self.lastJumpTick = currentTick
             end
             
-            -- 6. Copy ALL ANIMATIONS (including walk/run for perfect sync)
+            -- 6. COPY ANIMATIONS ONLY - NO Motor6D manipulation!
+            
+            -- STEP 1A: Copy DEFAULT Humanoid animations (Walk, Run, Idle, Jump, etc)
+            pcall(function()
+                local animNames = {"walk", "run", "idle", "jump", "fall", "climb", "swim"}
+                
+                for _, animName in pairs(animNames) do
+                    -- Find animation in target
+                    local targetAnim = targetHumanoid:FindFirstChild(animName)
+                    if not targetAnim then
+                        targetAnim = targetHumanoid:FindFirstChild(animName:sub(1,1):upper() .. animName:sub(2))
+                    end
+                    
+                    -- Find animation in local
+                    local localAnim = localHumanoid:FindFirstChild(animName)
+                    if not localAnim then
+                        localAnim = localHumanoid:FindFirstChild(animName:sub(1,1):upper() .. animName:sub(2))
+                    end
+                    
+                    if targetAnim and localAnim and targetAnim:IsA("Animation") then
+                        -- SAVE ORIGINAL animation ID (if not already saved)
+                        if not self.originalAnimations[animName] then
+                            self.originalAnimations[animName] = localAnim.AnimationId
+                        end
+                        
+                        -- Copy the AnimationId from target
+                        if targetAnim.AnimationId ~= "" and targetAnim.AnimationId ~= localAnim.AnimationId then
+                            localAnim.AnimationId = targetAnim.AnimationId
+                        end
+                    end
+                end
+            end)
+            
+            -- STEP 1B: Copy animations from Animate script (if exists)
+            pcall(function()
+                local targetAnimate = targetChar:FindFirstChild("Animate")
+                local localAnimate = localChar:FindFirstChild("Animate")
+                
+                if targetAnimate and localAnimate then
+                    -- Copy all animation IDs from Animate script
+                    for _, targetAnim in pairs(targetAnimate:GetDescendants()) do
+                        if targetAnim:IsA("Animation") and targetAnim.AnimationId ~= "" then
+                            local localAnim = localAnimate:FindFirstChild(targetAnim.Name, true)
+                            if localAnim and localAnim:IsA("Animation") then
+                                -- SAVE ORIGINAL animation ID (if not already saved)
+                                local backupKey = "animate_" .. targetAnim.Name
+                                if not self.originalAnimations[backupKey] then
+                                    self.originalAnimations[backupKey] = localAnim.AnimationId
+                                end
+                                
+                                -- Copy from target
+                                if localAnim.AnimationId ~= targetAnim.AnimationId then
+                                    localAnim.AnimationId = targetAnim.AnimationId
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            
+            -- STEP 2: Sync CUSTOM animations (Emotes, etc) with tight sync
             local targetAnimator = targetHumanoid:FindFirstChildOfClass("Animator")
             local localAnimator = localHumanoid:FindFirstChildOfClass("Animator")
             
@@ -428,40 +488,72 @@ function MimicSystem:Enable(player)
                     local localTrack = self.copiedTracks[animId]
                     
                     if not localTrack then
-                        -- Create NEW animation
+                        -- NEW ANIMATION - Load and sync
                         pcall(function()
                             local anim = Instance.new("Animation")
                             anim.AnimationId = animId
                             localTrack = localAnimator:LoadAnimation(anim)
-                            localTrack:Play(0, 1, 1)
+                            
+                            localTrack.Priority = targetTrack.Priority
+                            localTrack.Looped = targetTrack.Looped
+                            
+                            -- Play with small fade for smoothness
+                            localTrack:Play(0.1, 1, targetTrack.Speed)
+                            localTrack.TimePosition = targetTrack.TimePosition
+                            localTrack:AdjustWeight(targetTrack.WeightCurrent, 0.1)
+                            
                             self.copiedTracks[animId] = localTrack
                         end)
                     else
-                        -- Keep existing animation playing
-                        if not localTrack.IsPlaying and targetTrack.IsPlaying then
-                            localTrack:Play(0, 1, 1)
+                        -- EXISTING ANIMATION - Keep in sync
+                        if targetTrack.IsPlaying then
+                            if not localTrack.IsPlaying then
+                                localTrack:Play(0.1, 1, targetTrack.Speed)
+                                localTrack.TimePosition = targetTrack.TimePosition
+                                localTrack:AdjustWeight(targetTrack.WeightCurrent, 0.1)
+                            else
+                                -- Continuous sync
+                                if math.abs(localTrack.Speed - targetTrack.Speed) > 0.05 then
+                                    localTrack:AdjustSpeed(targetTrack.Speed)
+                                end
+                                
+                                local weightDiff = math.abs(localTrack.WeightCurrent - targetTrack.WeightCurrent)
+                                if weightDiff > 0.05 then
+                                    localTrack:AdjustWeight(targetTrack.WeightCurrent, 0.1)
+                                end
+                                
+                                local timeDiff = math.abs(localTrack.TimePosition - targetTrack.TimePosition)
+                                if timeDiff > 0.1 then
+                                    localTrack.TimePosition = targetTrack.TimePosition
+                                elseif timeDiff > 0.05 then
+                                    local correction = (targetTrack.TimePosition - localTrack.TimePosition) * 0.5
+                                    localTrack.TimePosition = localTrack.TimePosition + correction
+                                end
+                            end
                         end
                     end
                 end
                 
-                -- Stop animations that target stopped
+                -- Stop animations when not playing
                 for animId, track in pairs(self.copiedTracks) do
                     if not activeAnimIds[animId] and track and track.IsPlaying then
-                        track:Stop(0)
-                        self.copiedTracks[animId] = nil
+                        track:Stop(0.2)
+                        task.delay(0.3, function()
+                            self.copiedTracks[animId] = nil
+                        end)
                     end
                 end
             end
         end)
     end)
     
-    print("[Vynx] Mimic active - all animations copied!")
+    print("[Vynx] Stable 1:1 animation mimic active!")
 end
 
 function MimicSystem:Disable()
     if not self.enabled then return end
     
-    print("[Vynx] Mimic stopped")
+    print("[Vynx] Mimic stopped - Restoring original animations...")
     
     if self.connection then
         self.connection:Disconnect()
@@ -481,22 +573,64 @@ function MimicSystem:Disable()
         local localHumanoid = localChar:FindFirstChildOfClass("Humanoid")
         if localHumanoid then
             localHumanoid.WalkSpeed = 16
+            
+            -- RESTORE ORIGINAL Humanoid animations
+            pcall(function()
+                for animName, originalId in pairs(self.originalAnimations) do
+                    if not animName:match("^animate_") then
+                        -- This is a Humanoid animation (walk, run, idle, etc)
+                        local localAnim = localHumanoid:FindFirstChild(animName)
+                        if not localAnim then
+                            localAnim = localHumanoid:FindFirstChild(animName:sub(1,1):upper() .. animName:sub(2))
+                        end
+                        
+                        if localAnim and localAnim:IsA("Animation") then
+                            localAnim.AnimationId = originalId
+                            print("[Vynx] Restored animation:", animName)
+                        end
+                    end
+                end
+            end)
         end
+        
+        -- RESTORE ORIGINAL Animate script animations
+        pcall(function()
+            local localAnimate = localChar:FindFirstChild("Animate")
+            if localAnimate then
+                for backupKey, originalId in pairs(self.originalAnimations) do
+                    if backupKey:match("^animate_") then
+                        -- This is an Animate script animation
+                        local animName = backupKey:gsub("^animate_", "")
+                        local localAnim = localAnimate:FindFirstChild(animName, true)
+                        
+                        if localAnim and localAnim:IsA("Animation") then
+                            localAnim.AnimationId = originalId
+                            print("[Vynx] Restored Animate script animation:", animName)
+                        end
+                    end
+                end
+            end
+        end)
     end
     
     -- Stop all copied animations
     for _, track in pairs(self.copiedTracks) do
         pcall(function()
             if track and track.IsPlaying then
-                track:Stop()
+                track:Stop(0.2)
             end
         end)
     end
     self.copiedTracks = {}
     
+    -- Clear backup (keep for next mimic session)
+    -- Don't clear originalAnimations - keep them for future use
+    
     self.targetPlayer = nil
     self.enabled = false
     self.lastJumpTick = 0
+    
+    print("[Vynx] Original animations restored - Character stays alive!")
 end
 
 -- Preset Colors for Picker
@@ -785,8 +919,8 @@ function InvisibleSystem:CreateClone()
                 end
                 
                 clonedPart.Anchored = false
-                clonedPart.Massless = true
-                clonedPart.CustomPhysicalProperties = PhysicalProperties.new(0.7, 1.0, 0, 1, 1)
+                clonedPart.Massless = false  -- Normal mass for better physics
+                clonedPart.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)  -- Better friction
                 
                 for _, obj in pairs(clonedPart:GetDescendants()) do
                     if obj:IsA("Script") or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
@@ -806,15 +940,17 @@ function InvisibleSystem:CreateClone()
         cloneHRP.Size = Vector3.new(2, 2, 1)
         cloneHRP.Color = Color3.fromRGB(255, 255, 255)
         cloneHRP.Transparency = 1
-        cloneHRP.CanCollide = true
+        cloneHRP.CanCollide = true  -- MUST collide with floor!
         cloneHRP.Anchored = false
-        cloneHRP.Massless = false
+        cloneHRP.Massless = false  -- Normal mass
         cloneHRP.Parent = clone
         clonedParts["HumanoidRootPart"] = cloneHRP
     end
     
-    cloneHRP.CustomPhysicalProperties = PhysicalProperties.new(0.7, 1.0, 0, 1, 1)
-    cloneHRP.CFrame = humanoidRootPart.CFrame + Vector3.new(0, 2, 0)
+    -- Ensure proper collision
+    cloneHRP.CanCollide = true
+    cloneHRP.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)  -- Better friction
+    cloneHRP.CFrame = humanoidRootPart.CFrame + Vector3.new(0, 0.5, 0)  -- Slight offset above ground
     
     local humanoid = Instance.new("Humanoid")
     humanoid.DisplayName = ""
@@ -825,8 +961,8 @@ function InvisibleSystem:CreateClone()
     humanoid.JumpPower = FeatureStates.JumpPower.enabled and FeatureStates.JumpPower.value or 50
     humanoid.JumpHeight = FeatureStates.JumpPower.enabled and (FeatureStates.JumpPower.value / 10) or 7.2
     humanoid.AutoRotate = true
-    humanoid.AutoJumpEnabled = true
-    humanoid.HipHeight = 3
+    humanoid.AutoJumpEnabled = false
+    humanoid.HipHeight = 2  -- Proper hip height so legs don't go through floor
     humanoid.Parent = clone
     
     for _, joint in pairs(character:GetDescendants()) do
@@ -926,6 +1062,7 @@ function InvisibleSystem:ControlClone()
         moveVector = moveVector + Vector3.new(1, 0, 0)
     end
     
+    -- WICHTIG: PlatformStand MUSS false sein für normale Bewegung!
     cloneHumanoid.PlatformStand = false
     
     -- Use WalkSpeed from slider ONLY if feature is enabled, otherwise use default
@@ -954,50 +1091,19 @@ function InvisibleSystem:ControlClone()
     local isJumping = UserInputService:IsKeyDown(Enum.KeyCode.Space)
     
     if moveVector.Magnitude > 0 then
+        -- Bewegung relativ zur Kamera
         local cameraCFrame = camera.CFrame
         local cameraRelativeMove = cameraCFrame:VectorToWorldSpace(moveVector)
-        cameraRelativeMove = Vector3.new(cameraRelativeMove.X, 0, cameraRelativeMove.Z)
+        cameraRelativeMove = Vector3.new(cameraRelativeMove.X, 0, cameraRelativeMove.Z).Unit
         
-        if cameraRelativeMove.Magnitude > 0 then
-            cloneHumanoid:Move(cameraRelativeMove.Unit, false)
-            
-            local targetPos = cloneRoot.Position + (cameraRelativeMove.Unit * 2)
-            cloneHumanoid:MoveTo(targetPos)
-            
-            local currentVelocity = cloneRoot.AssemblyLinearVelocity
-            local horizontalVelocity = Vector3.new(currentVelocity.X, 0, currentVelocity.Z)
-            local targetSpeed = cloneHumanoid.WalkSpeed
-            
-            if horizontalVelocity.Magnitude > targetSpeed then
-                local limitedVelocity = horizontalVelocity.Unit * targetSpeed
-                cloneRoot.AssemblyLinearVelocity = Vector3.new(limitedVelocity.X, currentVelocity.Y, limitedVelocity.Z)
-            end
-        end
+        -- NUR Move() verwenden - KEIN MoveTo()!
+        cloneHumanoid:Move(cameraRelativeMove, false)
     else
+        -- Keine Bewegung - stoppe Movement
         cloneHumanoid:Move(Vector3.new(0, 0, 0), false)
-        cloneHumanoid:MoveTo(cloneRoot.Position)
-        
-        if cloneRoot then
-            for i = 1, 3 do
-                cloneRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                cloneRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-                cloneRoot.Velocity = Vector3.new(0, 0, 0)
-                cloneRoot.RotVelocity = Vector3.new(0, 0, 0)
-            end
-            
-            cloneRoot.Anchored = true
-            cloneRoot.CFrame = cloneRoot.CFrame
-            
-            task.wait()
-            task.wait()
-            
-            cloneRoot.Anchored = false
-            
-            cloneRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            cloneRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-        end
     end
     
+    -- Jump
     if isJumping then
         pcall(function()
             cloneHumanoid.Jump = true
@@ -3504,6 +3610,195 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- MENU USERS PAGE
+MenuUsersPage = Instance.new("ScrollingFrame")
+MenuUsersPage.Name = "MenuUsersPage"
+MenuUsersPage.Size = UDim2.new(1, -30, 1, -30)
+MenuUsersPage.Position = UDim2.new(0, 15, 0, 15)
+MenuUsersPage.BackgroundTransparency = 1
+MenuUsersPage.BorderSizePixel = 0
+MenuUsersPage.ScrollBarThickness = 4
+MenuUsersPage.ScrollBarImageColor3 = Settings.Theme.AccentPrimary
+MenuUsersPage.CanvasSize = UDim2.new(0, 0, 0, 0)
+MenuUsersPage.Visible = false
+MenuUsersPage.Parent = MainContent
+
+local MenuUsersLayout = Instance.new("UIListLayout")
+MenuUsersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+MenuUsersLayout.Padding = UDim.new(0, 10)
+MenuUsersLayout.Parent = MenuUsersPage
+
+MenuUsersLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    MenuUsersPage.CanvasSize = UDim2.new(0, 0, 0, MenuUsersLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Menu Users Search
+local MenuUsersSearchContainer = Instance.new("Frame")
+MenuUsersSearchContainer.Name = "SearchContainer"
+MenuUsersSearchContainer.Size = UDim2.new(1, 0, 0, 55)
+MenuUsersSearchContainer.BackgroundTransparency = 1
+MenuUsersSearchContainer.LayoutOrder = -1
+MenuUsersSearchContainer.Parent = MenuUsersPage
+
+local MenuUsersSearchBox = Instance.new("TextBox")
+MenuUsersSearchBox.Size = UDim2.new(1, 0, 0, 45)
+MenuUsersSearchBox.BackgroundColor3 = Settings.Theme.CardColor
+MenuUsersSearchBox.BackgroundTransparency = 0
+MenuUsersSearchBox.PlaceholderText = "🔍  Search menu users by name..."
+MenuUsersSearchBox.PlaceholderColor3 = Settings.Theme.TextSecondary
+MenuUsersSearchBox.Text = ""
+MenuUsersSearchBox.TextColor3 = Settings.Theme.TextPrimary
+MenuUsersSearchBox.TextSize = 14
+MenuUsersSearchBox.Font = Enum.Font.Gotham
+MenuUsersSearchBox.BorderSizePixel = 0
+MenuUsersSearchBox.ClearTextOnFocus = false
+MenuUsersSearchBox.TextXAlignment = Enum.TextXAlignment.Left
+MenuUsersSearchBox.Parent = MenuUsersSearchContainer
+
+local MenuUsersSearchCorner = Instance.new("UICorner")
+MenuUsersSearchCorner.CornerRadius = UDim.new(0, 10)
+MenuUsersSearchCorner.Parent = MenuUsersSearchBox
+
+local MenuUsersSearchPadding = Instance.new("UIPadding")
+MenuUsersSearchPadding.PaddingLeft = UDim.new(0, 15)
+MenuUsersSearchPadding.Parent = MenuUsersSearchBox
+
+-- Function to update menu users list
+function UpdateMenuUsersList(searchQuery)
+    -- Clear existing cards
+    for _, child in pairs(MenuUsersPage:GetChildren()) do
+        if child:IsA("Frame") and child.Name ~= "SearchContainer" then
+            child:Destroy()
+        end
+    end
+    
+    local query = string.lower(searchQuery or "")
+    
+    -- Get all players with active menu (from BannerSystem)
+    for userId, bannerData in pairs(BannerSystem.banners) do
+        local player = bannerData.player
+        if player and player.Parent then  -- Check if player still exists
+            local displayName = string.lower(player.DisplayName)
+            local username = string.lower(player.Name)
+            
+            -- Filter by search query
+            if query == "" or string.find(displayName, query, 1, true) or string.find(username, query, 1, true) then
+                -- Create player card
+                local Card = Instance.new("Frame")
+                Card.Name = player.Name
+                Card.Size = UDim2.new(1, 0, 0, 80)
+                Card.BackgroundColor3 = Settings.Theme.Background
+                Card.BackgroundTransparency = 0.4
+                Card.BorderSizePixel = 0
+                Card.Parent = MenuUsersPage
+                
+                local CardCorner = Instance.new("UICorner")
+                CardCorner.CornerRadius = UDim.new(0, 12)
+                CardCorner.Parent = Card
+                
+                -- Profile Image
+                local ProfileImage = Instance.new("ImageLabel")
+                ProfileImage.Size = UDim2.new(0, 60, 0, 60)
+                ProfileImage.Position = UDim2.new(0, 10, 0.5, -30)
+                ProfileImage.BackgroundColor3 = Settings.Theme.CardColor
+                ProfileImage.BorderSizePixel = 0
+                ProfileImage.Parent = Card
+                
+                local ProfileCorner = Instance.new("UICorner")
+                ProfileCorner.CornerRadius = UDim.new(1, 0)
+                ProfileCorner.Parent = ProfileImage
+                
+                task.spawn(function()
+                    pcall(function()
+                        local content = Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+                        ProfileImage.Image = content
+                    end)
+                end)
+                
+                -- Player Name
+                local NameLabel = Instance.new("TextLabel")
+                NameLabel.Size = UDim2.new(0, 200, 0, 25)
+                NameLabel.Position = UDim2.new(0, 80, 0, 15)
+                NameLabel.BackgroundTransparency = 1
+                NameLabel.Text = player.DisplayName
+                NameLabel.TextColor3 = Settings.Theme.TextPrimary
+                NameLabel.TextSize = 16
+                NameLabel.Font = Enum.Font.GothamBold
+                NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                NameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                NameLabel.Parent = Card
+                
+                -- Username
+                local UsernameLabel = Instance.new("TextLabel")
+                UsernameLabel.Size = UDim2.new(0, 200, 0, 20)
+                UsernameLabel.Position = UDim2.new(0, 80, 0, 40)
+                UsernameLabel.BackgroundTransparency = 1
+                UsernameLabel.Text = "@" .. player.Name
+                UsernameLabel.TextColor3 = Settings.Theme.TextSecondary
+                UsernameLabel.TextSize = 13
+                UsernameLabel.Font = Enum.Font.Gotham
+                UsernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                UsernameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                UsernameLabel.Parent = Card
+                
+                -- Info Button
+                local InfoBtn = Instance.new("TextButton")
+                InfoBtn.Size = UDim2.new(0, 45, 0, 45)
+                InfoBtn.Position = UDim2.new(1, -110, 0.5, -22.5)
+                InfoBtn.BackgroundColor3 = Settings.Theme.AccentSecondary
+                InfoBtn.Text = "ℹ️"
+                InfoBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                InfoBtn.TextSize = 16
+                InfoBtn.Font = Enum.Font.GothamBold
+                InfoBtn.BorderSizePixel = 0
+                InfoBtn.Parent = Card
+                
+                local InfoBtnCorner = Instance.new("UICorner")
+                InfoBtnCorner.CornerRadius = UDim.new(0, 10)
+                InfoBtnCorner.Parent = InfoBtn
+                
+                InfoBtn.MouseButton1Click:Connect(function()
+                    ShowPlayerInfo(player)
+                end)
+                
+                -- TP Button
+                local TPBtn = Instance.new("TextButton")
+                TPBtn.Size = UDim2.new(0, 45, 0, 45)
+                TPBtn.Position = UDim2.new(1, -55, 0.5, -22.5)
+                TPBtn.BackgroundColor3 = Settings.Theme.AccentPrimary
+                TPBtn.Text = "📍"
+                TPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                TPBtn.TextSize = 16
+                TPBtn.Font = Enum.Font.GothamBold
+                TPBtn.BorderSizePixel = 0
+                TPBtn.Parent = Card
+                
+                local TPBtnCorner = Instance.new("UICorner")
+                TPBtnCorner.CornerRadius = UDim.new(0, 10)
+                TPBtnCorner.Parent = TPBtn
+                
+                TPBtn.MouseButton1Click:Connect(function()
+                    if player.Character then
+                        local targetRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                        local localChar = LocalPlayer.Character
+                        if targetRoot and localChar then
+                            local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+                            if localRoot then
+                                localRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- Connect search
+MenuUsersSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    UpdateMenuUsersList(MenuUsersSearchBox.Text)
+end)
+
 -- SETTINGS PAGE
 local SettingsPage = Instance.new("ScrollingFrame")
 SettingsPage.Name = "SettingsPage"
@@ -4057,15 +4352,21 @@ local function SwitchTab(tabName)
     CharacterPage.Visible = tabName == "Character"
     PlayersPage.Visible = tabName == "Players"
     ESPPage.Visible = tabName == "ESP"
+    MenuUsersPage.Visible = tabName == "MenuUsers"
     SettingsPage.Visible = tabName == "Settings"
     
-    -- Close PlayerInfoSidebar when leaving Players tab
-    if tabName ~= "Players" and PlayerInfoSidebar.Visible then
+    -- Close PlayerInfoSidebar when leaving Players/MenuUsers tab
+    if tabName ~= "Players" and tabName ~= "MenuUsers" and PlayerInfoSidebar.Visible then
         PlayerInfoSidebar.Visible = false
         if ViewingPlayer then
             ViewingPlayer = nil
             workspace.CurrentCamera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         end
+    end
+    
+    -- Update player list when switching to MenuUsers
+    if tabName == "MenuUsers" then
+        UpdateMenuUsersList("")
     end
     
     -- Update nav buttons
@@ -4203,6 +4504,46 @@ ESPText.Parent = ESPBtn
 
 ESPBtn.MouseButton1Click:Connect(function()
     SwitchTab("ESP")
+end)
+
+-- Menu Users Button
+local MenuUsersBtn = Instance.new("TextButton")
+MenuUsersBtn.Name = "MenuUsersBtn"
+MenuUsersBtn.Size = UDim2.new(1, 0, 0, 45)
+MenuUsersBtn.BackgroundTransparency = 1
+MenuUsersBtn.Text = ""
+MenuUsersBtn.AutoButtonColor = false
+MenuUsersBtn.BorderSizePixel = 0
+MenuUsersBtn.LayoutOrder = 2.5
+MenuUsersBtn.Parent = Sidebar
+
+local MenuUsersBtnCorner = Instance.new("UICorner")
+MenuUsersBtnCorner.CornerRadius = UDim.new(0, 10)
+MenuUsersBtnCorner.Parent = MenuUsersBtn
+
+local MenuUsersIcon = Instance.new("TextLabel")
+MenuUsersIcon.Size = UDim2.new(0, 30, 0, 30)
+MenuUsersIcon.Position = UDim2.new(0, 5, 0.5, -15)
+MenuUsersIcon.BackgroundTransparency = 1
+MenuUsersIcon.Text = "💎"
+MenuUsersIcon.TextColor3 = Settings.Theme.TextSecondary
+MenuUsersIcon.TextSize = 18
+MenuUsersIcon.Font = Enum.Font.GothamBold
+MenuUsersIcon.Parent = MenuUsersBtn
+
+local MenuUsersText = Instance.new("TextLabel")
+MenuUsersText.Size = UDim2.new(1, -45, 1, 0)
+MenuUsersText.Position = UDim2.new(0, 40, 0, 0)
+MenuUsersText.BackgroundTransparency = 1
+MenuUsersText.Text = "Menu Users"
+MenuUsersText.TextColor3 = Settings.Theme.TextSecondary
+MenuUsersText.TextSize = 14
+MenuUsersText.Font = Enum.Font.GothamSemibold
+MenuUsersText.TextXAlignment = Enum.TextXAlignment.Left
+MenuUsersText.Parent = MenuUsersBtn
+
+MenuUsersBtn.MouseButton1Click:Connect(function()
+    SwitchTab("MenuUsers")
 end)
 
 -- Settings Button
@@ -4378,6 +4719,308 @@ LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
+-- ═══════════════════════════════════════════════════════════════
+-- BANNER SYSTEM - Blue square banner with distance scaling
+-- ═══════════════════════════════════════════════════════════════
+
+local BannerSystem = {
+    banners = {},  -- Store all banners
+    signalPart = nil,  -- Signal on self
+    updateConnection = nil
+}
+
+function BannerSystem:CreateBanner(player)
+    -- Don't create duplicate
+    if self.banners[player.UserId] then
+        return
+    end
+    
+    print("[Vynx Banner] Creating banner for", player.DisplayName)
+    
+    pcall(function()
+        local character = player.Character
+        if not character then return end
+        
+        local head = character:FindFirstChild("Head")
+        if not head then return end
+        
+        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+        if not playerGui then return end
+        
+        -- Create BillboardGui (SHORTER - less height)
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "VynxBanner_" .. player.UserId
+        billboard.Adornee = head
+        billboard.Size = UDim2.new(0, 110, 0, 65)  -- Shorter: 110 wide x 65 tall
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = false  -- NOT visible through walls!
+        billboard.MaxDistance = 1000
+        billboard.Parent = playerGui
+        
+        -- Main Frame (Blue glassmorphism - LESS TRANSPARENT = more visible)
+        local frame = Instance.new("Frame")
+        frame.Name = "MainFrame"
+        frame.Size = UDim2.new(1, 0, 1, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)  -- Dark blue
+        frame.BackgroundTransparency = 0.25  -- Less transparent = 75% visible!
+        frame.BorderSizePixel = 0
+        frame.Parent = billboard
+        
+        -- Corner
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 12)
+        corner.Parent = frame
+        
+        -- Blue Stroke (less transparent)
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(100, 150, 255)  -- Blue like menu
+        stroke.Thickness = 2
+        stroke.Transparency = 0.3  -- Less transparent = more visible
+        stroke.Parent = frame
+        
+        -- Blue Gradient overlay (less transparent)
+        local gradient = Instance.new("UIGradient")
+        gradient.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 120, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 80, 200))
+        }
+        gradient.Rotation = 45
+        gradient.Transparency = NumberSequence.new{
+            NumberSequenceKeypoint.new(0, 0.7),  -- Less transparent
+            NumberSequenceKeypoint.new(1, 0.8)   -- Less transparent
+        }
+        gradient.Parent = frame
+        
+        -- Profile Image (INSIDE banner, left side - SCALE-based position!)
+        local profileImage = Instance.new("ImageLabel")
+        profileImage.Name = "ProfileImage"
+        profileImage.Size = UDim2.new(0.41, 0, 0.69, 0)  -- Scale-based size (45/110 = 0.41, 45/65 = 0.69)
+        profileImage.Position = UDim2.new(0.045, 0, 0.5, 0)  -- Scale-based position (5/110 = 0.045)
+        profileImage.AnchorPoint = Vector2.new(0, 0.5)  -- Anchor at left-center
+        profileImage.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
+        profileImage.BackgroundTransparency = 0.3
+        profileImage.BorderSizePixel = 0
+        profileImage.Parent = frame
+        
+        local profileCorner = Instance.new("UICorner")
+        profileCorner.CornerRadius = UDim.new(0.5, 0)  -- 50% radius = always circular
+        profileCorner.Parent = profileImage
+        
+        local profileStroke = Instance.new("UIStroke")
+        profileStroke.Color = Color3.fromRGB(100, 150, 255)  -- Blue border
+        profileStroke.Thickness = 2
+        profileStroke.Parent = profileImage
+        
+        -- Get thumbnail
+        task.spawn(function()
+            pcall(function()
+                local content = Players:GetUserThumbnailAsync(
+                    player.UserId,
+                    Enum.ThumbnailType.HeadShot,
+                    Enum.ThumbnailSize.Size150x150
+                )
+                profileImage.Image = content
+            end)
+        end)
+        
+        -- "VYNX MENU" Text (right of profile, top - SCALE-based position!)
+        local menuLabel = Instance.new("TextLabel")
+        menuLabel.Size = UDim2.new(0.5, 0, 0.25, 0)  -- Scale-based size
+        menuLabel.Position = UDim2.new(0.48, 0, 0.18, 0)  -- Scale-based position
+        menuLabel.BackgroundTransparency = 1
+        menuLabel.Text = "VYNX MENU"
+        menuLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        menuLabel.TextSize = 10
+        menuLabel.Font = Enum.Font.GothamBold
+        menuLabel.TextXAlignment = Enum.TextXAlignment.Left
+        menuLabel.TextStrokeTransparency = 0.4
+        menuLabel.TextScaled = true  -- Use TextScaled so text fits container
+        menuLabel.Parent = frame
+        
+        -- Player Name (right of profile, bottom - SCALE-based position!)
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Size = UDim2.new(0.5, 0, 0.22, 0)  -- Scale-based size
+        nameLabel.Position = UDim2.new(0.48, 0, 0.51, 0)  -- Scale-based position
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Text = player.DisplayName
+        nameLabel.TextColor3 = Color3.fromRGB(180, 190, 220)
+        nameLabel.TextSize = 9
+        nameLabel.Font = Enum.Font.Gotham
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        nameLabel.TextStrokeTransparency = 0.6
+        nameLabel.TextScaled = true  -- Use TextScaled so text fits container
+        nameLabel.Parent = frame
+        
+        -- Store banner (elements auto-scale with Scale-based sizing)
+        self.banners[player.UserId] = {
+            billboard = billboard,
+            player = player,
+            head = head
+        }
+        
+        print("[Vynx Banner] ✅ Created for", player.DisplayName)
+    end)
+end
+
+function BannerSystem:RemoveBanner(userId)
+    local data = self.banners[userId]
+    if data then
+        pcall(function() data.billboard:Destroy() end)
+        self.banners[userId] = nil
+    end
+end
+
+function BannerSystem:UpdateDistanceScaling()
+    -- Update banner size based on camera distance (elements auto-scale with Scale-based positions)
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    
+    for userId, data in pairs(self.banners) do
+        pcall(function()
+            if data.head and data.billboard then
+                -- Calculate distance from CAMERA to banner head
+                local distance = (camera.CFrame.Position - data.head.Position).Magnitude
+                
+                -- Calculate scale factor
+                local scale = 1
+                if distance > 10 then
+                    scale = math.max(0.4, 1 - ((distance - 10) / 100))
+                end
+                
+                -- Scale ONLY banner - elements scale automatically with Scale-based sizing!
+                local baseWidth = 110
+                local baseHeight = 65
+                data.billboard.Size = UDim2.new(0, baseWidth * scale, 0, baseHeight * scale)
+            end
+        end)
+    end
+end
+
+function BannerSystem:CreateSignalPart()
+    -- Remove old
+    if self.signalPart then
+        pcall(function() self.signalPart:Destroy() end)
+    end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+    
+    -- Create signal (invisible marker)
+    local signal = Instance.new("Part")
+    signal.Name = "VynxMenuSignal_" .. LocalPlayer.UserId
+    signal.Size = Vector3.new(0.1, 0.1, 0.1)
+    signal.Transparency = 1
+    signal.CanCollide = false
+    signal.Anchored = false
+    signal.Parent = head
+    
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = head
+    weld.Part1 = signal
+    weld.Parent = signal
+    
+    self.signalPart = signal
+    print("[Vynx Banner] Signal created")
+end
+
+function BannerSystem:ScanForMenuUsers()
+    -- Scan all players for signal parts
+    for _, player in pairs(Players:GetPlayers()) do
+        local char = player.Character
+        if char then
+            local head = char:FindFirstChild("Head")
+            if head then
+                local signal = head:FindFirstChild("VynxMenuSignal_" .. player.UserId)
+                
+                if signal then
+                    -- Has menu active - create banner
+                    if not self.banners[player.UserId] then
+                        self:CreateBanner(player)
+                    end
+                else
+                    -- No signal - remove banner
+                    if self.banners[player.UserId] then
+                        self:RemoveBanner(player.UserId)
+                    end
+                end
+            end
+        else
+            -- No character - remove banner
+            if self.banners[player.UserId] then
+                self:RemoveBanner(player.UserId)
+            end
+        end
+    end
+end
+
+function BannerSystem:Start()
+    print("[Vynx Banner] Starting system...")
+    
+    -- Wait for character
+    if not LocalPlayer.Character then
+        LocalPlayer.CharacterAdded:Wait()
+        task.wait(0.5)
+    end
+    
+    -- Create signal on self
+    self:CreateSignalPart()
+    
+    -- Create banner on self
+    self:CreateBanner(LocalPlayer)
+    
+    -- Start update loop (distance scaling + scanning)
+    local lastScan = 0
+    self.updateConnection = RunService.Heartbeat:Connect(function()
+        -- Update distance scaling every frame
+        self:UpdateDistanceScaling()
+        
+        -- Scan for other menu users every 2 seconds
+        local now = tick()
+        if now - lastScan >= 2 then
+            lastScan = now
+            self:ScanForMenuUsers()
+        end
+    end)
+    
+    print("[Vynx Banner] ✅ System started!")
+end
+
+function BannerSystem:Stop()
+    if self.updateConnection then
+        self.updateConnection:Disconnect()
+        self.updateConnection = nil
+    end
+    
+    if self.signalPart then
+        pcall(function() self.signalPart:Destroy() end)
+        self.signalPart = nil
+    end
+    
+    for userId, _ in pairs(self.banners) do
+        self:RemoveBanner(userId)
+    end
+    
+    print("[Vynx Banner] System stopped")
+end
+
+-- Auto-restart on respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    if BannerSystem.updateConnection then
+        BannerSystem:Stop()
+        BannerSystem:Start()
+    end
+end)
+
+-- Handle players leaving
+Players.PlayerRemoving:Connect(function(player)
+    BannerSystem:RemoveBanner(player.UserId)
+end)
+
 -- Initialize
 UpdatePlayerList("")
 SwitchTab("Character")
@@ -4395,3 +5038,9 @@ print("📌 Press " .. (Settings.MenuKey and Settings.MenuKey.Name or "None") ..
 print("✨ All features ready: Fly, Invisible Mode, ESP, Headsit, Keybinds, and more!")
 print("🔥 Features work on Clone when invisible!")
 print("👻 Clone is white (ghost mode) and uses your WalkSpeed settings!")
+
+-- Start banner system immediately
+task.spawn(function()
+    task.wait(1)
+    BannerSystem:Start()
+end)
